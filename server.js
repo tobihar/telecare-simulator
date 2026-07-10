@@ -113,9 +113,106 @@ async function handleGeminiChat(request, response) {
   }
 
   try {
-    const requestBody = await readJsonBody(request);
+    const { message, state } = await readJsonBody(request);
 
-    console.log("Incoming /api/chat body:", JSON.stringify(requestBody));
+    if (typeof message !== "string" || !message.trim()) {
+      sendJson(response, 400, {
+        error: "Eine Chatnachricht fehlt."
+      });
+      return;
+    }
+
+    const prompt = `
+Du bist das Personal vor Ort in einer medizinischen Telekonsultations-Simulation
+für Pflegeschüler.
+
+WICHTIGE REGELN:
+- Antworte auf Deutsch.
+- Antworte kurz, professionell und realistisch.
+- Verwende ausschließlich Informationen aus dem sichtbaren Simulationszustand.
+- Erfinde keine Laborwerte, Zugänge, Medikamente oder Befunde.
+- Verrate keine intern nicht erhobenen Werte.
+- Führe niemals eigenständig Maßnahmen aus.
+- Eine Frage ist keine Anweisung.
+- Nur ausdrücklich angeordnete Maßnahmen dürfen als Aktion erkannt werden.
+- Bei "Braucht der Patient Sauerstoff?" darf keine Sauerstoffgabe ausgelöst werden.
+- Bei "Sind die Atemwege frei?" nur den Befund mitteilen.
+- Bei "Legt einen Zugang" ist ein grüner PVK gemeint.
+- Bei "Legt eine Arterie" ist eine arterielle Kanüle gemeint.
+- Bei "Macht eine BGA" und fehlender Angabe muss nach arteriell oder venös gefragt werden.
+- Antworte als Team vor Ort, nicht als beratende KI.
+
+ZULÄSSIGE AKTIONEN:
+- give_oxygen
+- insert_pvk_pink
+- insert_pvk_green
+- insert_pvk_orange
+- insert_arterial_line
+- insert_cvc
+- insert_shaldon
+- insert_urinary_catheter
+- request_nibp
+- count_respiratory_rate
+- measure_temperature
+- request_bga_venous
+- request_bga_arterial
+- request_laboratory
+- request_ecg
+- request_sonography
+- alert_surgical_team
+- alert_anesthesia
+- give_crystalloid
+- request_uncrossed_rbc
+- request_crossed_rbc
+- transfuse_rbc
+- start_norepinephrine_infusion
+- give_norepinephrine_bolus
+- start_ventilation
+- auscultate
+- measure_glucose
+- administer_medication
+
+AKTUELL SICHTBARER ZUSTAND:
+${JSON.stringify(state, null, 2)}
+
+NACHRICHT DER LERNENDEN:
+${message.trim()}
+
+Gib ausschließlich gültiges JSON in dieser Form zurück:
+
+{
+  "reply": "Kurze sichtbare Antwort des Teams",
+  "intent": "question | instruction | unclear",
+  "actions": [
+    {
+      "type": "eine_zulässige_aktion",
+      "quantity": 1,
+      "medication": null
+    }
+  ],
+  "requiresClarification": false
+}
+
+Für reine Fragen muss "actions" leer sein.
+Bei unklaren Anweisungen muss requiresClarification true sein.
+`;
+
+    const geminiRequestBody = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: prompt
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.1
+      }
+    };
 
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
@@ -127,33 +224,57 @@ async function handleGeminiChat(request, response) {
           "Content-Type": "application/json",
           "x-goog-api-key": GEMINI_API_KEY
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(geminiRequestBody)
       }
     );
 
-    const responseText = await geminiResponse.text();
-
-    console.log(
-      "Gemini response:",
-      geminiResponse.status,
-      responseText.slice(0, 2000)
-    );
+    const geminiData = await geminiResponse.json();
 
     if (!geminiResponse.ok) {
+      console.error(
+        "Gemini API error:",
+        geminiResponse.status,
+        JSON.stringify(geminiData)
+      );
+
       sendJson(response, geminiResponse.status, {
         error: "Gemini request failed",
         status: geminiResponse.status,
-        details: responseText
+        details: geminiData
       });
       return;
     }
 
-    response.writeHead(200, {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store"
-    });
+    const modelText =
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    response.end(responseText);
+    if (!modelText) {
+      console.error(
+        "Gemini returned no usable text:",
+        JSON.stringify(geminiData)
+      );
+
+      sendJson(response, 502, {
+        error: "Gemini returned no usable response."
+      });
+      return;
+    }
+
+    let parsedResult;
+
+    try {
+      parsedResult = JSON.parse(modelText);
+    } catch {
+      console.error("Invalid Gemini JSON:", modelText);
+
+      sendJson(response, 502, {
+        error: "Gemini returned invalid JSON.",
+        raw: modelText
+      });
+      return;
+    }
+
+    sendJson(response, 200, parsedResult);
   } catch (error) {
     console.error("Gemini request failed:", error);
 
