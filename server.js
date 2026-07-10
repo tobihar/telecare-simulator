@@ -24,7 +24,7 @@ const API_KEY=process.env.GEMINI_API_KEY||'';
 const MODEL=process.env.GEMINI_MODEL||'gemini-3.1-flash-lite';
 
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.ico':'image/x-icon'};
-const ACTIONS=['ask_mental','ask_skin','ask_drainage','ask_urine','ask_allergy','ask_auscultation','measure_bz','measure_nibp','count_rr','measure_temp','alert_surgeon','insert_pvk','insert_artery','oxygen','warming','fluid','norepi_bolus','norepi_perfusor','txa','give_ek','give_medication','request_bga','sono','ventilate'];
+const ACTIONS=['ask_mental','ask_skin','ask_drainage','ask_urine','ask_allergy','ask_auscultation','measure_bz','measure_nibp','count_rr','measure_temp','alert_surgeon','insert_pvk','insert_artery','oxygen','warming','fluid','norepi_bolus','norepi_perfusor','txa','give_ek','give_medication','request_bga','sono','ventilate','shock_position'];
 const MEDS=['adrenaline','amiodarone','atropine','adenosine','aspirin','heparin','nitroglycerin','urapidil','metoprolol','furosemide','salbutamol','ipratropium','prednisolone','dimetindene','ketamine','midazolam','propofol','etomidate','fentanyl','morphine','piritramide','naloxone','flumazenil','rocuronium','succinylcholine','calcium','magnesium','bicarbonate','glucose','insulin','glucagon','vasopressin','dobutamine','ceftriaxone','pip_tazo','meropenem'];
 
 function json(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
@@ -42,6 +42,7 @@ HARTE REGELN:
 - "Noradrenalin-Bolus" bedeutet fest 5 µg i.v.; niemals nach Dosis fragen.
 - "Noradrenalin" ohne Zusatz bedeutet Perfusor 0,05 µg/kg/min.
 - "Volumen", "500 VE", "500 ml VE" oder "Flüssigkeit" bedeutet 500 ml Kristalloid; niemals nach Zugang oder Applikationsweg fragen.
+- "Schocklage", "Beine hoch" oder "Beine anheben" bedeutet shock_position.
 - "NIBP messen", "RR messen" oder "Blutdruck messen" bedeutet measure_nibp.
 - "AF auszählen" bedeutet count_rr. "Temperatur messen" bedeutet measure_temp.
 - "Legt einen Zugang" bedeutet einen grünen PVK.

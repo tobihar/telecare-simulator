@@ -35,3 +35,12 @@ Die physiologischen Wirkungen sind vereinfachte didaktische Simulationsmodelle u
 - Alarmgrenzen: HF 60–120/min, systolisch ab <90 mmHg, SpO₂ <90 %. AF und Temperatur alarmieren nicht.
 - Alarmtaste pausiert akustischen und optischen Alarm für 2 Minuten.
 - BZ-Messung und Auskultation sind über den Chat möglich.
+
+## Änderungen dieser Version
+
+- Titel: „telecare - von Tobias Harig“
+- Medikamenten-/Infusionsmenü entfernt; Arzneimittel und Infusionen bleiben per Chat anweisbar
+- Auskultation liefert sofort einen Befund
+- Blutproduktmenü ermöglicht Anforderung und Transfusion verfügbarer EK
+- Schocklage per Chat, z. B. „Schocklage herstellen“ oder „Beine hochlagern“
+- Auswertung enthält ein ausklappbares ABCDE-/SAMPLER-Fenster
