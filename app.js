@@ -287,6 +287,9 @@ function applyMedicationEffect(id){const effect=MEDICATION_EFFECTS[id];if(!effec
 
 function doAction(action){
   const type=action.type;
+  if(type==='measure_nibp'){return measureNibp();}
+  if(type==='count_rr'){return countRr();}
+  if(type==='measure_temp'){return measureTemp();}
   if(type==='ask_mental'){addChat('Pflege 1',`Der Patient ist aktuell ${state.patient.mental}.`);return true;}
   if(type==='ask_skin'){addChat('Pflege 2',`Die Haut ist blass, kühl und feucht. Rekapillarisierungszeit etwa ${state.patient.sys<80?'4':'3'} Sekunden.`);return true;}
   if(type==='ask_drainage'){addChat('Pflege 1',`Die Drainage fördert weiter frisches Blut, grob ${Math.round(260+state.elapsed*1.35)} ml seit Fallbeginn.`);return true;}
@@ -316,16 +319,28 @@ function doAction(action){
 }
 
 function localInterpret(q){
-  const a=[]; const isQuestion=/\?|^(wie|ist|sind|hat|haben|kann|können|braucht|liegt|gibt)/.test(q.trim());if(/bewusst|orientiert|gcs|ansprech/.test(q))a.push({type:'ask_mental'});if(/haut|rekap|kapillar/.test(q))a.push({type:'ask_skin'});if(/drainage|blutverlust|blutung/.test(q))a.push({type:'ask_drainage'});if(/urin|ausscheid/.test(q))a.push({type:'ask_urine'});if(/allerg/.test(q))a.push({type:'ask_allergy'});if(/auskult|abhören|atemgeräusch|herztöne/.test(q))a.push({type:'ask_auscultation'});if(/\bbz\b|blutzucker|glukose.*mess|zucker.*mess/.test(q))a.push({type:'measure_bz'});
+  const a=[]; const isQuestion=/\?|^(wie|ist|sind|hat|haben|kann|können|braucht|liegt|gibt)/.test(q.trim());if(/(?:nibp|nichtinvasiv.*blutdruck|blutdruck.*mess|rr.*mess)/.test(q)&&!isQuestion)a.push({type:'measure_nibp'});if(/(?:atemfrequenz|\baf\b).*(?:zähl|mess|bestimm)|(?:zähl|mess|bestimm).*(?:atemfrequenz|\baf\b)/.test(q)&&!isQuestion)a.push({type:'count_rr'});if(/temperatur.*(?:mess|bestimm)|(?:mess|bestimm).*temperatur/.test(q)&&!isQuestion)a.push({type:'measure_temp'});if(/bewusst|orientiert|gcs|ansprech/.test(q))a.push({type:'ask_mental'});if(/haut|rekap|kapillar/.test(q))a.push({type:'ask_skin'});if(/drainage|blutverlust|blutung/.test(q))a.push({type:'ask_drainage'});if(/urin|ausscheid/.test(q))a.push({type:'ask_urine'});if(/allerg/.test(q))a.push({type:'ask_allergy'});if(/auskult|abhören|atemgeräusch|herztöne/.test(q))a.push({type:'ask_auscultation'});if(/\bbz\b|blutzucker|glukose.*mess|zucker.*mess/.test(q))a.push({type:'measure_bz'});
   if(!isQuestion){if(/operateur|chirurg|op-team|anästhesie.*alarm|hilfe.*holen/.test(q))a.push({type:'alert_surgeon'});if(/\bbga\b|blutgasanalyse/.test(q)){if(/arteriell|arterielle|art\./.test(q))a.push({type:'request_bga',mode:'arterial'});else if(/venös|venoes|venöse/.test(q))a.push({type:'request_bga',mode:'venous'});}if(/(arterie|arterielle kanüle|arteriellen zugang).*(leg|anleg|platzier)|(leg|anleg|platzier).*(arterie|arterielle kanüle|arteriellen zugang)/.test(q))a.push({type:'insert_artery'});else if(/(leg|legt|legen|anlage).*(zugang|pvk)|^(zugang|pvk).*(leg|legen)/.test(q))a.push({type:'insert_pvk',quantity:/\b(zwei|2)\b/.test(q)?2:1,size:/orange/.test(q)?'orange':/rosa|pink/.test(q)?'pink':'green'});if(/sauerstoff|\bo2\b/.test(q))a.push({type:'oxygen'});if(/beatm|ambu|beutel.?maske/.test(q))a.push({type:'ventilate'});if(/sono|ultraschall|pocus|focus/.test(q))a.push({type:'sono'});if(/wärm|decke|hypotherm/.test(q))a.push({type:'warming'});if(/kristall|volumen|ringer|infusion/.test(q))a.push({type:'fluid'});if(/tranexam|txa/.test(q))a.push({type:'txa'});if(/noradrenalin|norepi/.test(q)){if(/bolus/.test(q))a.push({type:'norepi_bolus'});else a.push({type:'norepi_perfusor'});}if(/\bek\b|erythro|transfund|blutkonserve/.test(q))a.push({type:'give_ek'});const medPatterns={adrenaline:/adrenalin/,amiodarone:/amiodaron/,atropine:/atropin/,adenosine:/adenosin/,aspirin:/\bass\b|aspirin/,heparin:/heparin/,nitroglycerin:/nitro|glyceroltrinitrat/,urapidil:/urapidil|ebrantil/,metoprolol:/metoprolol/,furosemide:/furosemid|lasix/,salbutamol:/salbutamol/,ipratropium:/ipratropium|atrovent/,prednisolone:/prednisolon/,dimetindene:/dimetinden|fenistil/,ketamine:/ketamin|ketanest/,midazolam:/midazolam|dormicum/,propofol:/propofol/,etomidate:/etomidat/,fentanyl:/fentanyl/,morphine:/morphin/,piritramide:/piritramid|dipidolor/,naloxone:/naloxon/,flumazenil:/flumazenil|anexate/,rocuronium:/rocuronium|esmeron/,succinylcholine:/succinylcholin|lysthenon/,calcium:/calcium/,magnesium:/magnesium/,bicarbonate:/bicarbonat|bikarbonat/,glucose:/(?:glukose|glucose)(?!.*(?:mess|bestimm|kontroll))/,insulin:/insulin/,glucagon:/glukagon/,vasopressin:/vasopressin/,dobutamine:/dobutamin/,ceftriaxone:/ceftriaxon/,pip_tazo:/piperacillin|tazobactam|pip.?taz/,meropenem:/meropenem/};for(const [med,re] of Object.entries(medPatterns))if(re.test(q)&&!a.some(x=>x.type==='give_medication'&&x.medication===med))a.push({type:'give_medication',medication:med});}return a;
 }
 async function handleChat(text){
-  const t=text.trim();if(!t)return;addChat('Telekonsultation',t,'user');const q=t.toLowerCase();
-  if((/\bbga\b|blutgasanalyse/.test(q))&&!/arteriell|arterielle|art\.|venös|venoes|venöse/.test(q)){addChat('Team vor Ort','Soll die BGA arteriell oder venös abgenommen werden?');return;}
-  if(/\bbz\b|blutzucker|glukose.*mess|zucker.*mess/.test(q)){doAction({type:'measure_bz'});return;}
-  if(/auskult|abhören|atemgeräusch|herztöne/.test(q)){doAction({type:'ask_auscultation'});return;}
+  const t=text.trim();if(!t)return;
+  addChat('Telekonsultation',t,'user');
+  const q=t.toLowerCase();
+
+  // Eindeutige Aufträge werden zuerst lokal erkannt. Dadurch gibt es keine
+  // unnötigen KI-Rückfragen zu Dosis, Zugang oder Applikationsweg.
+  if((/\bbga\b|blutgasanalyse/.test(q))&&!/arteriell|arterielle|art\.|venös|venoes|venöse/.test(q)){
+    addChat('Team vor Ort','Soll die BGA arteriell oder venös abgenommen werden?');return;
+  }
+  const localActions=localInterpret(q);
+  if(localActions.length){
+    localActions.forEach(doAction);
+    return;
+  }
+
   if(state.aiAvailable){
-    const placeholder={time:state.elapsed,sender:'Team vor Ort',text:'KI wertet die Nachricht aus …',cls:'team ai-thinking'};state.chat.push(placeholder);renderChat();
+    const placeholder={time:state.elapsed,sender:'Team vor Ort',text:'KI wertet die Nachricht aus …',cls:'team ai-thinking'};
+    state.chat.push(placeholder);renderChat();
     try{
       const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,state:{elapsed:state.elapsed,visiblePatient:{heartRate:Math.round(state.patient.hr),spo2:Math.round(state.patient.spo2),arterialPressure:state.access.has('artery')?`${Math.round(state.patient.sys)}/${Math.round(state.patient.dia)}`:null,lastNibp:state.lastMeasurements.nibp,lastRespiratoryRate:state.lastMeasurements.rr,lastTemperature:state.access.has('bladder')?state.patient.temp:state.lastMeasurements.temp,consciousness:state.patient.mental,skin:'blass, kühl und feucht',drainage:`frisches Blut, etwa ${Math.round(260+state.elapsed*1.35)} ml seit Fallbeginn`},knownLabs:Object.fromEntries([...state.labsAvailable].map(id=>[id,LABS[id]?.value])),bgaHistory:state.bgaResults.map(b=>({time:b.time,values:Object.fromEntries(b.values.map(v=>[v[0],v[1]]))})),access:[...state.access],bloodInventory:state.bloodInventory,staff:state.staff.map(s=>({name:s.name,role:s.role,available:s.busyUntil<=state.elapsed})),norepiPerfusor:state.therapies.norepiPerfusor}})});
       const data=await r.json();state.chat=state.chat.filter(x=>x!==placeholder);if(!r.ok)throw new Error(data.error||'KI-Fehler');
@@ -335,16 +350,19 @@ async function handleChat(text){
       const rejected=results.length-accepted;
       if(actions.length===0){
         if(data.reply)addChat('Team vor Ort',data.reply);
-        else addChat('Team vor Ort','Bitte formulieren Sie den Auftrag noch etwas genauer.');
-      }else if(rejected===0){
-        if(data.reply)addChat('Team vor Ort',data.reply);
-      }else if(accepted>0){
+        else addChat('Team vor Ort','Bitte formulieren Sie die Frage noch etwas genauer.');
+      }else if(rejected>0&&accepted>0){
         addChat('Team vor Ort','Ein Teil der Anordnung wurde übernommen. Nicht durchführbare Anteile wurden abgelehnt.');
       }
+      // Bei vollständig übernommenen Aufträgen erzeugen die konkreten
+      // Simulationsfunktionen bereits die passende Bestätigung. Keine zweite
+      // generische KI-Antwort anhängen.
       return;
-    }catch(e){state.chat=state.chat.filter(x=>x!==placeholder);state.aiAvailable=false;el('aiStatus').textContent='Regel-Fallback';el('aiStatus').className='status-pill idle';addChat('System','Gemini war nicht erreichbar. Der lokale Regel-Chat übernimmt.','system');}
+    }catch(e){
+      state.chat=state.chat.filter(x=>x!==placeholder);state.aiAvailable=false;el('aiStatus').textContent='Regel-Fallback';el('aiStatus').className='status-pill idle';addChat('System','Gemini war nicht erreichbar. Der lokale Regel-Chat übernimmt.','system');
+    }
   }
-  const actions=localInterpret(q);if(actions.length){actions.forEach(doAction);return;}addChat('Anna Keller','Bitte formulieren Sie den Auftrag oder die Frage noch etwas konkreter.');
+  addChat('Anna Keller','Bitte formulieren Sie die Frage noch etwas konkreter.');
 }
 async function checkAiStatus(){try{const r=await fetch('/api/status');const d=await r.json();state.aiAvailable=!!d.enabled;el('aiStatus').textContent=state.aiAvailable?'Gemini aktiv':'Regel-Fallback';el('aiStatus').className=`status-pill ${state.aiAvailable?'live':'idle'}`;}catch{state.aiAvailable=false;el('aiStatus').textContent='Regel-Fallback';}}
 
