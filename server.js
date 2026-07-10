@@ -115,6 +115,8 @@ async function handleGeminiChat(request, response) {
   try {
     const requestBody = await readJsonBody(request);
 
+    console.log("Incoming /api/chat body:", JSON.stringify(requestBody));
+
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
         GEMINI_MODEL
@@ -131,7 +133,22 @@ async function handleGeminiChat(request, response) {
 
     const responseText = await geminiResponse.text();
 
-    response.writeHead(geminiResponse.status, {
+    console.log(
+      "Gemini response:",
+      geminiResponse.status,
+      responseText.slice(0, 2000)
+    );
+
+    if (!geminiResponse.ok) {
+      sendJson(response, geminiResponse.status, {
+        error: "Gemini request failed",
+        status: geminiResponse.status,
+        details: responseText
+      });
+      return;
+    }
+
+    response.writeHead(200, {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store"
     });
@@ -141,7 +158,8 @@ async function handleGeminiChat(request, response) {
     console.error("Gemini request failed:", error);
 
     sendJson(response, 500, {
-      error: "Gemini request failed."
+      error: "Gemini request failed",
+      details: error instanceof Error ? error.message : String(error)
     });
   }
 }
