@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TeleCare · Dozentenbereich</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <main class="admin-shell">
+    <section id="loginView" class="login-card">
+      <div class="eyebrow">TeleCare</div>
+      <h1>Dozentenbereich</h1>
+      <p>Geschützter Zugriff auf gespeicherte Simulationsergebnisse.</p>
+      <form id="loginForm">
+        <label>Benutzername<input id="adminUsername" autocomplete="username" required /></label>
+        <label>Passwort<input id="adminPassword" type="password" autocomplete="current-password" required /></label>
+        <p id="loginError" class="error hidden"></p>
+        <button type="submit">Anmelden</button>
+      </form>
+      <a class="back-link" href="/">← Zur Simulation</a>
+    </section>
+
+    <section id="dashboardView" class="dashboard hidden">
+      <header class="dashboard-head">
+        <div><div class="eyebrow">TeleCare</div><h1>Ergebnisse</h1><p id="sessionInfo"></p></div>
+        <div class="head-actions"><a class="button secondary" href="/api/admin/export.csv">CSV exportieren</a><button id="logoutBtn" class="secondary">Abmelden</button></div>
+      </header>
+      <div class="toolbar">
+        <input id="searchInput" placeholder="Benutzername suchen …" />
+        <button id="searchBtn">Suchen</button>
+        <button id="refreshBtn" class="secondary">Aktualisieren</button>
+      </div>
+      <p id="dashboardMessage" class="message"></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Datum</th><th>Benutzername</th><th>Fall</th><th>Schwierigkeit</th><th>Ergebnis</th><th>Score</th><th></th></tr></thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="detailDialog">
+    <div class="detail-card">
+      <header><div><div class="eyebrow">Detailansicht</div><h2 id="detailTitle">Ergebnis</h2></div><button id="closeDetailBtn" class="icon">×</button></header>
+      <div id="detailContent"></div>
+    </div>
+  </dialog>
+  <script src="admin.js"></script>
+</body>
+</html>

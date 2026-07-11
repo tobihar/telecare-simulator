@@ -1,46 +1,61 @@
-# TeleCare-Simulator
+# TeleCare – Stufe 1
 
-## Start
+Diese Version ergänzt den Simulator um:
 
-1. Eine vorhandene `.env` mit Gemini-Schlüssel in diesen Ordner kopieren.
-2. Terminal im Ordner öffnen.
-3. Einmalig `npm install` ausführen.
-4. Danach `npm start` ausführen.
-5. Im Browser `http://localhost:3000` öffnen.
+- verpflichtende Eingabe eines **Benutzernamens**
+- automatische Speicherung des Abschlussberichts
+- geschützten Dozentenbereich unter **`/admin`**
+- Ergebnisliste und Suche
+- Detailansicht mit Maßnahmen und Chatverlauf
+- CSV-Export
 
-## Neu in dieser Version
+## Lokal starten
 
-- erweiterte Medikamentenwirkungen einschließlich neuromuskulärer Blockade
-- Beatmung als Chat-Anordnung
-- korrekte Erkennung „Arterie legen“
-- sichtbarer Hinweis bei fehlendem Personal
-- POCUS/Sonografie
-- realistischere Hb-Wirkung eines EK
-- vorzeitige Auswertung
-- Alarmton und gelbes Blinken, separat abschaltbar
-- drei Schwierigkeitsgrade mit möglichem Kreislaufstillstand
-- neue Labor-, BGA- und Sono-Befunde blinken grün
-- ausführlicherer Maßnahmen-Zeitstrahl im Abschlussbericht
+1. `.env.example` kopieren und als `.env` speichern.
+2. Werte in `.env` eintragen.
+3. Starten:
 
-Die physiologischen Wirkungen sind vereinfachte didaktische Simulationsmodelle und keine Dosierungs- oder Therapieleitlinie.
+```bash
+node server.js
+```
 
-## Fehlerkorrektur Juli 2026
+4. Simulation: `http://localhost:3000`
+5. Dozentenbereich: `http://localhost:3000/admin`
 
-- Startfehler durch einen ungültigen Verweis in der statischen BGA-Definition behoben.
-- Initialisierung und Hauptbuttons getestet.
-- Steuerbuttons in der Kopfzeile vergrößert.
+## Supabase einrichten
 
+1. Ein Supabase-Projekt erstellen.
+2. Im Supabase-Dashboard den **SQL Editor** öffnen.
+3. Den Inhalt von `supabase-setup.sql` einfügen und ausführen.
+4. Unter den Projekteinstellungen die Project URL und einen serverseitigen Secret Key kopieren.
+5. Auf Render folgende Environment Variables ergänzen:
 
-## Änderungen
-- Alarmgrenzen: HF 60–120/min, systolisch ab <90 mmHg, SpO₂ <90 %. AF und Temperatur alarmieren nicht.
-- Alarmtaste pausiert akustischen und optischen Alarm für 2 Minuten.
-- BZ-Messung und Auskultation sind über den Chat möglich.
+```text
+SUPABASE_URL=https://DEIN-PROJEKT.supabase.co
+SUPABASE_SECRET_KEY=DEIN_SECRET_KEY
+ADMIN_USERNAME=dozent
+ADMIN_PASSWORD=DEIN_STARKES_PASSWORT
+SESSION_SECRET=EINE_LANGE_ZUFAELLIGE_ZEICHENFOLGE
+```
 
-## Änderungen dieser Version
+Der Secret Key darf niemals in `app.js`, GitHub oder den Browser gelangen.
 
-- Titel: „telecare - von Tobias Harig“
-- Medikamenten-/Infusionsmenü entfernt; Arzneimittel und Infusionen bleiben per Chat anweisbar
-- Auskultation liefert sofort einen Befund
-- Blutproduktmenü ermöglicht Anforderung und Transfusion verfügbarer EK
-- Schocklage per Chat, z. B. „Schocklage herstellen“ oder „Beine hochlagern“
-- Auswertung enthält ein ausklappbares ABCDE-/SAMPLER-Fenster
+## Render
+
+Build Command:
+
+```bash
+echo "No build required"
+```
+
+Start Command:
+
+```bash
+node server.js
+```
+
+Nach dem Upload zu GitHub Render neu deployen. Die Dozentenansicht liegt anschließend unter:
+
+```text
+https://DEINE-ADRESSE.onrender.com/admin
+```

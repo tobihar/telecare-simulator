@@ -31,7 +31,7 @@
           <option value="hard">Schwer</option>
         </select>
       </div>
-      <div class="timer-card"><span>Restzeit</span><strong id="timer">10:00</strong></div>
+      <div class="participant-card"><span>Benutzer</span><strong id="participantName">–</strong><button id="changeUserBtn" class="change-user-btn" type="button">wechseln</button></div><div class="timer-card"><span>Restzeit</span><strong id="timer">10:00</strong></div>
       <div class="top-actions">
         <button id="soundBtn" title="Pulston ein/aus">🔊 Pulston</button>
         <button id="alarmBtn" title="Akustischen und optischen Alarm für 2 Minuten pausieren">⏸ Alarm 2 min</button>
@@ -95,6 +95,18 @@
     </main>
   </div>
 
+
+  <dialog id="usernameDialog" class="modal mandatory-dialog">
+    <form id="usernameForm" class="modal-card username-card">
+      <div class="eyebrow">TeleCare Simulation</div>
+      <h2>Benutzername eingeben</h2>
+      <p class="modal-note">Der Benutzername wird zusammen mit deinem Ergebnis gespeichert.</p>
+      <label class="field-label" for="usernameInput">Benutzername</label>
+      <input id="usernameInput" maxlength="80" autocomplete="name" placeholder="z. B. Tobias H." required />
+      <p id="usernameError" class="form-error hidden">Bitte mindestens 2 Zeichen eingeben.</p>
+      <button type="submit" class="primary username-submit">Weiter zur Simulation</button>
+    </form>
+  </dialog>
   <dialog id="labDialog" class="modal"><form method="dialog" class="modal-card" id="labForm"><div class="modal-head"><h2>Laboranforderung</h2><button value="cancel" class="icon-btn">×</button></div><p class="modal-note">Blutentnahme bindet eine Pflegekraft 20 Sekunden. Anschließend benötigt das Labor 2 Minuten.</p><div id="labCheckboxes" class="check-grid"></div><div class="modal-actions"><button value="cancel">Abbrechen</button><button id="submitLabBtn" value="default" class="primary">Anfordern</button></div></form></dialog>
   <dialog id="accessDialog" class="modal"><form method="dialog" class="modal-card" id="accessForm"><div class="modal-head"><h2>Katheter / Zugänge</h2><button value="cancel" class="icon-btn">×</button></div><div class="choice-grid"><button type="button" data-access="pvk_pink">PVK rosa <small>Arzt oder Pflege · 45 s</small></button><button type="button" data-access="pvk_green">PVK grün <small>Arzt oder Pflege · 55 s</small></button><button type="button" data-access="pvk_orange">PVK orange <small>Arzt oder Pflege · 70 s</small></button><button type="button" data-access="zvk">ZVK <small>Arzt · 120 s</small></button><button type="button" data-access="artery">Arterie <small>Arzt · 90 s</small></button><button type="button" data-access="shaldon">Shaldon <small>Arzt · 150 s</small></button><button type="button" data-access="bladder">Blasenkatheter <small>Pflege · 60 s</small></button></div></form></dialog>
   <dialog id="bloodDialog" class="modal"><form method="dialog" class="modal-card"><div class="modal-head"><h2>Blutprodukte</h2><button value="cancel" class="icon-btn">×</button></div><div class="choice-grid"><button type="button" id="uncrossedBtn">2 ungekreuzte 0-neg. EK anfordern <small>Pflege oder Arzt · 20 s + 70 s Bereitstellung</small></button><button type="button" id="crossedBtn" disabled>2 gekreuzte EK anfordern <small>Pflege oder Arzt · 20 s + 100 s Bereitstellung</small></button><button type="button" id="giveCrossedEkBtn" disabled>1 gekreuztes EK transfundieren <small>Arzt · 45 s</small></button><button type="button" id="giveUncrossedEkBtn" disabled>1 ungekreuztes EK transfundieren <small>Arzt · 45 s</small></button></div><p class="modal-note">Anforderungen und Transfusionen sind mehrfach möglich. Gekreuzte EK werden nach Kreuzblut freigeschaltet.</p></form></dialog>

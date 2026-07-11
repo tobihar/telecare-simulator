@@ -1,4 +1,5 @@
 let SIM_DURATION = 600;
+let participantUsername = '';
 const TICK_SECONDS = 3;
 
 const LABS = {
@@ -40,7 +41,7 @@ const ACCESS = {
 };
 
 const initialState = () => ({
-  running:false,paused:false,ended:false,elapsed:0,timer:null,difficulty:'easy',dead:false,deathReason:null,criticalSeconds:0,alarmSilencedUntil:0,
+  running:false,paused:false,ended:false,elapsed:0,timer:null,difficulty:'easy',dead:false,deathReason:null,criticalSeconds:0,alarmSilencedUntil:0,runId:(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`),saveAttempted:false,savedResultId:null,
   patient:{hr:112,sys:98,dia:61,spo2:95,rr:22,temp:35.8,mental:'wach und unruhig',lactate:3.4,hb:8.1,iCa:1.05,glucose:112,bleeding:1},
   lastMeasurements:{nibp:null,rr:null,temp:null,bz:null},
   staff:[
@@ -90,6 +91,7 @@ function addBackgroundTask(label,duration,onComplete){
 }
 
 function startSimulation(){
+  if(!participantUsername){el('usernameDialog')?.showModal();el('usernameInput')?.focus();return;}
   if(state.running&&!state.paused)return;
   if(!state.running){SIM_DURATION=Number(el('durationSelect')?.value||600);state.difficulty=el('difficultySelect')?.value||'easy';}
   if(!state.running){
@@ -221,7 +223,7 @@ function renderTasks(){const active=state.tasks.filter(t=>!t.done&&!t.cancelled)
 function cancelTask(taskId){const t=state.tasks.find(x=>x.id===taskId&&!x.done&&!x.cancelled);if(!t)return;t.cancelled=true;t.done=true;const staff=state.staff.find(s=>s.id===t.staffId);if(staff){staff.taskId=null;staff.busyUntil=state.elapsed;}logEvent(`${t.label} abgebrochen.`,'warning');addChat('Team vor Ort',`${t.label} wurde abgebrochen.`);renderAll();}
 function renderChat(){const node=el('chatLog');const oldTop=node.scrollTop;const nearBottom=node.scrollHeight-node.scrollTop-node.clientHeight<60;node.innerHTML=state.chat.map(m=>`<div class="message ${m.cls}"><div class="message-meta">${escapeHtml(m.sender)} · ${formatTime(m.time)}</div><div>${escapeHtml(m.text).replace(/\n/g,'<br>')}</div></div>`).join('');if(state.chatAutoFollow||nearBottom){node.scrollTop=node.scrollHeight;state.chatAutoFollow=false;}else node.scrollTop=oldTop;}
 function renderEvents(){const node=el('eventLog');if(!node)return;node.innerHTML=state.events.slice().reverse().map(e=>`<div class="event-row"><span>${formatTime(e.time)}</span><div>${escapeHtml(e.text)}</div></div>`).join('');}
-function renderButtons(){el('timer').textContent=formatTime(SIM_DURATION-state.elapsed);const alarmRemaining=Math.max(0,state.alarmSilencedUntil-state.elapsed);el('alarmBtn').textContent=alarmRemaining>0?`⏸ Alarm ${formatTime(alarmRemaining)}`:'⏸ Alarm 2 min';el('alarmBtn').classList.toggle('alarm-paused',alarmRemaining>0);el('crossedBtn').disabled=!state.crossedBloodAvailable;const giveCrossed=el('giveCrossedEkBtn'),giveUncrossed=el('giveUncrossedEkBtn');if(giveCrossed)giveCrossed.disabled=state.bloodInventory.crossed<1;if(giveUncrossed)giveUncrossed.disabled=state.bloodInventory.uncrossed<1;el('openLabResultsBtn').disabled=!state.labsAvailable.size;el('openBgaResultsBtn').disabled=!state.bgaAvailable;el('openSonoResultsBtn').disabled=!state.sonoResult;el('uncrossedCount').textContent=state.bloodInventory.uncrossed;el('crossedCount').textContent=state.bloodInventory.crossed;el('givenCount').textContent=state.therapies.bloodUnitsGiven;el('durationSelect').disabled=state.running&&!state.ended;el('difficultySelect').disabled=state.running&&!state.ended;el('finishBtn').disabled=!state.running||state.ended;const lb=el('openLabResultsBtn'),bb=el('openBgaResultsBtn'),sb=el('openSonoResultsBtn');lb.classList.toggle('new-result',state.newLabResult);bb.classList.toggle('new-result',state.newBgaResult);sb.classList.toggle('new-result',state.newSonoResult);}
+function renderButtons(){el('timer').textContent=formatTime(SIM_DURATION-state.elapsed);if(el('participantName'))el('participantName').textContent=participantUsername||'–';const alarmRemaining=Math.max(0,state.alarmSilencedUntil-state.elapsed);el('alarmBtn').textContent=alarmRemaining>0?`⏸ Alarm ${formatTime(alarmRemaining)}`:'⏸ Alarm 2 min';el('alarmBtn').classList.toggle('alarm-paused',alarmRemaining>0);el('crossedBtn').disabled=!state.crossedBloodAvailable;const giveCrossed=el('giveCrossedEkBtn'),giveUncrossed=el('giveUncrossedEkBtn');if(giveCrossed)giveCrossed.disabled=state.bloodInventory.crossed<1;if(giveUncrossed)giveUncrossed.disabled=state.bloodInventory.uncrossed<1;el('openLabResultsBtn').disabled=!state.labsAvailable.size;el('openBgaResultsBtn').disabled=!state.bgaAvailable;el('openSonoResultsBtn').disabled=!state.sonoResult;el('uncrossedCount').textContent=state.bloodInventory.uncrossed;el('crossedCount').textContent=state.bloodInventory.crossed;el('givenCount').textContent=state.therapies.bloodUnitsGiven;el('durationSelect').disabled=state.running&&!state.ended;el('difficultySelect').disabled=state.running&&!state.ended;el('finishBtn').disabled=!state.running||state.ended;const lb=el('openLabResultsBtn'),bb=el('openBgaResultsBtn'),sb=el('openSonoResultsBtn');lb.classList.toggle('new-result',state.newLabResult);bb.classList.toggle('new-result',state.newBgaResult);sb.classList.toggle('new-result',state.newSonoResult);}
 function renderAll(){renderVitals();renderStaff();renderTasks();renderChat();renderEvents();renderButtons();}
 
 function measureNibp(){assignTask('Nichtinvasive Blutdruckmessung',20,()=>{const p=state.patient;state.lastMeasurements.nibp={sys:Math.round(p.sys+jitter(2)),dia:Math.round(p.dia+jitter(2)),map:map(p.sys,p.dia),time:state.elapsed};},{roles:['nurse']});}
@@ -416,6 +418,63 @@ function assessmentSummaryHtml(){
   return `<details class="summary-details"><summary>Anamnese – ABCDE & SAMPLER</summary><div class="assessment-columns"><div><h3>ABCDE</h3><ul class="assessment-list">${assessmentList(Object.keys(abcdeLabels),abcdeLabels)}</ul></div><div><h3>SAMPLER</h3><ul class="assessment-list">${assessmentList(Object.keys(samplerLabels),samplerLabels)}</ul></div></div></details>`;
 }
 
+function buildSavedResult(scorePercent, positives, missing){
+  const essentialEvents=state.events.filter(e=>/übernimmt:|abgeschlossen|abgebrochen|alarmiert|transfund|verabreicht|BGA|Labor|Sonografie|Kreislaufstillstand|Schocklage/.test(e.text));
+  return {
+    clientRunId:state.runId,
+    username:participantUsername,
+    caseName:'Postoperative Blutung nach Hemikolektomie',
+    difficulty:state.difficulty,
+    plannedDurationSeconds:SIM_DURATION,
+    elapsedSeconds:state.elapsed,
+    outcome:state.dead?`Kreislaufstillstand – ${state.deathReason||'unklar'}`:(state.elapsed>=SIM_DURATION?'regulär beendet':'vorzeitig beendet'),
+    scorePercent,
+    summary:{
+      positives,missing,
+      escalationAt:state.escalationAt,
+      firstTherapyAt:state.firstTherapyAt,
+      crystalloidMl:state.therapies.crystalloidMl,
+      bloodUnitsGiven:state.therapies.bloodUnitsGiven,
+      lastHb:Number(state.patient.hb.toFixed(1)),
+      assessment:[...state.assessment]
+    },
+    details:{
+      events:state.events.map(e=>({time:e.time,text:e.text,type:e.type})),
+      essentialEvents,
+      chat:state.chat.map(m=>({time:m.time,sender:m.sender,text:m.text,kind:m.cls})),
+      vitals:state.vitalHistory,
+      bgaResults:state.bgaResults,
+      labsRequested:[...state.labsRequested],
+      labsAvailable:[...state.labsAvailable],
+      access:[...state.access],
+      bloodInventory:state.bloodInventory,
+      therapies:{
+        oxygen:state.therapies.oxygen,warming:state.therapies.warming,ventilation:state.therapies.ventilation,
+        norepiPerfusor:state.therapies.norepiPerfusor,norepiRate:state.therapies.norepiRate,
+        crystalloidMl:state.therapies.crystalloidMl,bloodUnitsGiven:state.therapies.bloodUnitsGiven,
+        txa:state.therapies.txa,medications:state.therapies.medications
+      },
+      finalVitals:{hr:state.patient.hr,sys:state.patient.sys,dia:state.patient.dia,spo2:state.patient.spo2,rr:state.patient.rr,temp:state.patient.temp,mental:state.patient.mental}
+    }
+  };
+}
+async function saveSimulationResult(payload){
+  if(state.saveAttempted)return;
+  state.saveAttempted=true;
+  const status=el('saveStatus');
+  if(status){status.textContent='Ergebnis wird gespeichert …';status.className='save-status';}
+  try{
+    const response=await fetch('/api/results',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'Speichern fehlgeschlagen');
+    state.savedResultId=data.id||null;
+    if(status){status.textContent='✓ Ergebnis wurde gespeichert.';status.className='save-status ok';}
+  }catch(error){
+    console.error('Ergebnis konnte nicht gespeichert werden:',error);
+    if(status){status.textContent=`Ergebnis konnte nicht gespeichert werden: ${error.message}`;status.className='save-status error';}
+  }
+}
+
 function showSummary(){
   const checks=[
     [state.escalationAt!==null&&state.escalationAt<=120,'Operatives Team früh alarmiert','Eskalation verspätet oder nicht erfolgt'],
@@ -426,11 +485,13 @@ function showSummary(){
     [state.therapies.fluidEffects.length||state.therapies.bloodUnitsGiven||state.therapies.crystalloidMl>0,'Kreislauftherapie begonnen','Keine Kreislauftherapie begonnen']
   ];
   const positives=checks.filter(x=>x[0]).map(x=>x[1]),missing=checks.filter(x=>!x[0]).map(x=>x[2]);const pct=Math.round(positives.length/checks.length*100);
-  el('summaryContent').innerHTML=`<div class="summary-score">${pct} % Prozessadhärenz</div><p class="modal-note">Didaktische, nicht validierte Auswertung.</p><div class="summary-simple"><div><h3>Gut umgesetzt</h3><ul>${positives.map(x=>`<li>${x}</li>`).join('')||'<li>—</li>'}</ul></div><div><h3>Besprechen</h3><ul>${missing.map(x=>`<li>${x}</li>`).join('')||'<li>—</li>'}</ul></div><div><h3>Ergebnis</h3><ul><li>Schwierigkeit: ${{easy:'Leicht',medium:'Mittel',hard:'Schwer'}[state.difficulty]}</li><li>Patient: ${state.dead?'Kreislaufstillstand – '+state.deathReason:'am Fallende lebend'}</li><li>Kristalloide: ${state.therapies.crystalloidMl} ml</li><li>EK transfundiert: ${state.therapies.bloodUnitsGiven}</li><li>Letzter Hb: ${state.patient.hb.toFixed(1)} g/dl</li></ul></div></div>${assessmentSummaryHtml()}<h2>Wesentliche Maßnahmen</h2><div class="summary-timeline">${state.events.filter(e=>/übernimmt:|abgeschlossen|abgebrochen|alarmiert|transfund|verabreicht|BGA|Labor|Sonografie|Kreislaufstillstand/.test(e.text)).map(e=>`<div><strong>${formatTime(e.time)}</strong><span>${escapeHtml(e.text)}</span></div>`).join('')||'<p>Keine wesentlichen Maßnahmen dokumentiert.</p>'}</div><h2>Vitalparameter im Verlauf</h2><div class="chart-grid">${makeChart('Herzfrequenz','hr','#24e879',50,190,'/min')}${makeChart('MAP','map','#ff4d68',35,110,'mmHg')}${makeChart('SpO₂','spo2','#39a8ff',75,100,'%')}</div>`;el('summaryDialog').showModal();
+  el('summaryContent').innerHTML=`<div class="summary-score">${pct} % Prozessadhärenz</div><p class="modal-note"><strong>Benutzer:</strong> ${escapeHtml(participantUsername)} · Didaktische, nicht validierte Auswertung.</p><div id="saveStatus" class="save-status">Ergebnis wird vorbereitet …</div><div class="summary-simple"><div><h3>Gut umgesetzt</h3><ul>${positives.map(x=>`<li>${x}</li>`).join('')||'<li>—</li>'}</ul></div><div><h3>Besprechen</h3><ul>${missing.map(x=>`<li>${x}</li>`).join('')||'<li>—</li>'}</ul></div><div><h3>Ergebnis</h3><ul><li>Schwierigkeit: ${{easy:'Leicht',medium:'Mittel',hard:'Schwer'}[state.difficulty]}</li><li>Patient: ${state.dead?'Kreislaufstillstand – '+state.deathReason:'am Fallende lebend'}</li><li>Kristalloide: ${state.therapies.crystalloidMl} ml</li><li>EK transfundiert: ${state.therapies.bloodUnitsGiven}</li><li>Letzter Hb: ${state.patient.hb.toFixed(1)} g/dl</li></ul></div></div>${assessmentSummaryHtml()}<h2>Wesentliche Maßnahmen</h2><div class="summary-timeline">${state.events.filter(e=>/übernimmt:|abgeschlossen|abgebrochen|alarmiert|transfund|verabreicht|BGA|Labor|Sonografie|Kreislaufstillstand/.test(e.text)).map(e=>`<div><strong>${formatTime(e.time)}</strong><span>${escapeHtml(e.text)}</span></div>`).join('')||'<p>Keine wesentlichen Maßnahmen dokumentiert.</p>'}</div><h2>Vitalparameter im Verlauf</h2><div class="chart-grid">${makeChart('Herzfrequenz','hr','#24e879',50,190,'/min')}${makeChart('MAP','map','#ff4d68',35,110,'mmHg')}${makeChart('SpO₂','spo2','#39a8ff',75,100,'%')}</div>`;el('summaryDialog').showModal();saveSimulationResult(buildSavedResult(pct,positives,missing));
 }
 
 function onClick(id,handler){const node=el(id);if(!node){console.warn(`UI-Element fehlt: #${id}`);return;}node.onclick=handler;}
 function bind(){
+  const usernameDialog=el('usernameDialog');if(usernameDialog)usernameDialog.addEventListener('cancel',e=>e.preventDefault());const usernameForm=el('usernameForm');if(usernameForm)usernameForm.addEventListener('submit',e=>{e.preventDefault();const input=el('usernameInput');const value=String(input?.value||'').trim().replace(/\s+/g,' ');if(value.length<2){el('usernameError')?.classList.remove('hidden');input?.focus();return;}participantUsername=value.slice(0,80);el('usernameError')?.classList.add('hidden');el('usernameDialog')?.close();renderButtons();});
+  onClick('changeUserBtn',()=>{if(state.running&&!state.ended){showToast('Benutzerwechsel erst nach Ende der Simulation möglich.');return;}el('usernameInput').value=participantUsername;el('usernameDialog')?.showModal();el('usernameInput')?.focus();});
   onClick('startBtn',startSimulation);onClick('pauseBtn',pauseSimulation);onClick('resetBtn',resetSimulation);onClick('finishBtn',()=>{if(state.running&&!state.ended)endSimulation();});onClick('soundBtn',toggleSound);onClick('alarmBtn',toggleAlarm);
   onClick('measureNibpBtn',measureNibp);onClick('countRrBtn',countRr);onClick('measureTempBtn',measureTemp);
   onClick('bgaBtn',()=>el('bgaDialog')?.showModal());
@@ -446,4 +507,4 @@ function bind(){
   const durationSelect=el('durationSelect');if(durationSelect)durationSelect.onchange=()=>{if(!state.running){SIM_DURATION=Number(durationSelect.value);renderButtons();}};const difficultySelect=el('difficultySelect');if(difficultySelect)difficultySelect.onchange=()=>{if(!state.running)state.difficulty=difficultySelect.value;};
   setupLabDialog();setupAccessDialog();setupBloodDialog();
 }
-bind();renderAll();checkAiStatus();
+bind();renderAll();checkAiStatus();setTimeout(()=>{if(!participantUsername){const d=el('usernameDialog');if(d&&!d.open)d.showModal();el('usernameInput')?.focus();}},0);
