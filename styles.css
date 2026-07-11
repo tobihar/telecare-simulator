@@ -107,3 +107,39 @@
 .mandatory-dialog{max-width:460px}.mandatory-dialog::backdrop{background:rgba(0,0,0,.92);backdrop-filter:blur(6px)}.username-card{display:grid;gap:12px;padding:28px}.username-card h2{margin:0;font-size:25px}.username-card input{width:100%;background:#05080c;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:14px;font-size:16px}.field-label{font-size:12px;font-weight:800;color:#b9c9da}.form-error{margin:0;color:#ff8e9d;font-size:12px}.username-submit{min-height:46px;font-weight:800}.mandatory-dialog[open]{display:grid;place-items:center}
 .save-status{margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:9px;color:var(--muted);font-size:12px}.save-status.ok{color:var(--green);border-color:#1a7047;background:#082519}.save-status.error{color:#ff9aa8;border-color:#8a2938;background:#2c0e14}
 .change-user-btn{margin-top:3px;padding:1px 5px;border:0;background:transparent;color:var(--muted);font-size:9px;text-decoration:underline}.change-user-btn:hover{color:var(--blue);border:0}
+
+/* Stage 1.1: korrigierte Kopfzeile */
+.topbar{
+  grid-template-columns:minmax(300px,1fr) auto auto auto auto auto;
+  column-gap:10px;
+  row-gap:8px;
+}
+.top-actions{
+  flex-wrap:nowrap;
+  align-items:center;
+  justify-content:flex-end;
+}
+.participant-card,.timer-card,.duration-control{align-self:center}
+@media (min-width:1201px){
+  .topbar{grid-template-columns:minmax(300px,1fr) auto auto auto auto auto}
+  .top-actions{flex-wrap:nowrap}
+}
+@media (max-width:1500px) and (min-width:1001px){
+  .topbar{
+    grid-template-columns:minmax(260px,1fr) auto auto auto auto;
+    grid-template-areas:
+      "brand duration difficulty participant timer"
+      "brand actions actions actions actions";
+  }
+  .topbar>div:first-child{grid-area:brand}
+  .topbar>.duration-control:nth-of-type(2){grid-area:duration}
+  .topbar>.duration-control:nth-of-type(3){grid-area:difficulty}
+  .participant-card{grid-area:participant}
+  .timer-card{grid-area:timer}
+  .top-actions{grid-area:actions;justify-content:flex-end}
+}
+@media (max-width:1000px){
+  .topbar{grid-template-columns:1fr 1fr}
+  .topbar>div:first-child,.top-actions{grid-column:1/-1}
+  .top-actions{justify-content:flex-start;flex-wrap:wrap}
+}
