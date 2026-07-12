@@ -5,6 +5,7 @@ const TICK_SECONDS = 3;
 let activeCaseId = window.TELECARE_DEFAULT_CASE_ID;
 const getActiveCase = () => window.TELECARE_CASES[activeCaseId];
 const clone = value => JSON.parse(JSON.stringify(value));
+function map(s,d){return Math.round((s+2*d)/3);}
 let LABS = clone(getActiveCase().labs);
 let BGA = clone(getActiveCase().bga?.staticRows || []);
 
@@ -36,7 +37,6 @@ const el=id=>document.getElementById(id);
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 const jitter=n=>(Math.random()-.5)*n;
 const formatTime=s=>`${String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')}:${String(Math.round(Math.max(0,s))%60).padStart(2,'0')}`;
-const map=(s,d)=>Math.round((s+2*d)/3);
 const escapeHtml=s=>String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 
 function logEvent(text,type='info'){state.events.push({time:state.elapsed,text,type});renderEvents();}
@@ -66,9 +66,9 @@ function addBackgroundTask(label,duration,onComplete){
 }
 
 function startSimulation(){
-  if(!participantUsername){el('usernameDialog')?.showModal();el('usernameInput')?.focus();return;}
+  if(!participantUsername)return;
   if(state.running&&!state.paused)return;
-  if(!state.running){activeCaseId=el('caseSelect')?.value||activeCaseId;SIM_DURATION=Number(el('durationSelect')?.value||getActiveCase().defaultDurationSeconds||600);state.difficulty=el('difficultySelect')?.value||'easy';}
+  if(!state.running){activeCaseId=el('caseSelect')?.value||activeCaseId;SIM_DURATION=Number(el('durationSelect')?.value||getActiveCase().defaultDurationSeconds||600);state.difficulty=el('difficultySelect')?.value||'easy';state.caseId=activeCaseId;}
   if(!state.running){
     state.running=true;
     const briefing=getActiveCase().briefing; addChat(briefing.sender,briefing.text);
@@ -79,7 +79,16 @@ function startSimulation(){
   if(!state.timer)state.timer=setInterval(tick,1000);startPulseLoop();startAlarmLoop();renderAll();
 }
 function pauseSimulation(){if(!state.running||state.ended)return;state.paused=!state.paused;el('pauseBtn').textContent=state.paused?'Fortsetzen':'Pause';el('startBtn').disabled=!state.paused;logEvent(state.paused?'Simulation pausiert.':'Simulation fortgesetzt.');}
-function resetSimulation(){clearInterval(state.timer);stopPulseLoop();stopAlarmLoop();activeCaseId=el('caseSelect')?.value||activeCaseId;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);SIM_DURATION=Number(el('durationSelect')?.value||getActiveCase().defaultDurationSeconds||600);state=initialState();state.difficulty=el('difficultySelect')?.value||'easy';document.querySelectorAll('dialog[open]').forEach(d=>d.close());el('startBtn').disabled=false;el('pauseBtn').disabled=true;el('pauseBtn').textContent='Pause';renderAll();}
+function resetSimulation(){
+  clearInterval(state.timer);stopPulseLoop();stopAlarmLoop();
+  document.querySelectorAll('dialog[open]').forEach(d=>d.close());
+  state=initialState();
+  el('simulationApp')?.classList.add('hidden');
+  el('startScreen')?.classList.remove('hidden');
+  el('pauseBtn').disabled=false;el('pauseBtn').textContent='Pause';
+  el('usernameInput')?.focus();
+}
+
 function tick(){if(!state.running||state.paused||state.ended)return;state.elapsed+=1;processTasks();if(state.elapsed%TICK_SECONDS===0){updatePhysiology();}if(state.elapsed>=SIM_DURATION)endSimulation();renderAll();}
 function processTasks(){
   state.tasks.filter(t=>!t.done&&!t.cancelled&&t.end<=state.elapsed).forEach(t=>{
@@ -198,7 +207,7 @@ function renderTasks(){const active=state.tasks.filter(t=>!t.done&&!t.cancelled)
 function cancelTask(taskId){const t=state.tasks.find(x=>x.id===taskId&&!x.done&&!x.cancelled);if(!t)return;t.cancelled=true;t.done=true;const staff=state.staff.find(s=>s.id===t.staffId);if(staff){staff.taskId=null;staff.busyUntil=state.elapsed;}logEvent(`${t.label} abgebrochen.`,'warning');addChat('Team vor Ort',`${t.label} wurde abgebrochen.`);renderAll();}
 function renderChat(){const node=el('chatLog');const oldTop=node.scrollTop;const nearBottom=node.scrollHeight-node.scrollTop-node.clientHeight<60;node.innerHTML=state.chat.map(m=>`<div class="message ${m.cls}"><div class="message-meta">${escapeHtml(m.sender)} · ${formatTime(m.time)}</div><div>${escapeHtml(m.text).replace(/\n/g,'<br>')}</div></div>`).join('');if(state.chatAutoFollow||nearBottom){node.scrollTop=node.scrollHeight;state.chatAutoFollow=false;}else node.scrollTop=oldTop;}
 function renderEvents(){const node=el('eventLog');if(!node)return;node.innerHTML=state.events.slice().reverse().map(e=>`<div class="event-row"><span>${formatTime(e.time)}</span><div>${escapeHtml(e.text)}</div></div>`).join('');}
-function renderButtons(){el('timer').textContent=formatTime(SIM_DURATION-state.elapsed);if(el('participantName'))el('participantName').textContent=participantUsername||'–';const alarmRemaining=Math.max(0,state.alarmSilencedUntil-state.elapsed);el('alarmBtn').textContent=alarmRemaining>0?`⏸ Alarm ${formatTime(alarmRemaining)}`:'⏸ Alarm 2 min';el('alarmBtn').classList.toggle('alarm-paused',alarmRemaining>0);el('crossedBtn').disabled=!state.crossedBloodAvailable;const giveCrossed=el('giveCrossedEkBtn'),giveUncrossed=el('giveUncrossedEkBtn');if(giveCrossed)giveCrossed.disabled=state.bloodInventory.crossed<1;if(giveUncrossed)giveUncrossed.disabled=state.bloodInventory.uncrossed<1;el('openLabResultsBtn').disabled=!state.labsAvailable.size;el('openBgaResultsBtn').disabled=!state.bgaAvailable;el('openSonoResultsBtn').disabled=!state.sonoResult;el('uncrossedCount').textContent=state.bloodInventory.uncrossed;el('crossedCount').textContent=state.bloodInventory.crossed;el('givenCount').textContent=state.therapies.bloodUnitsGiven;el('durationSelect').disabled=state.running&&!state.ended;el('difficultySelect').disabled=state.running&&!state.ended;if(el('caseSelect'))el('caseSelect').disabled=state.running&&!state.ended;el('finishBtn').disabled=!state.running||state.ended;const lb=el('openLabResultsBtn'),bb=el('openBgaResultsBtn'),sb=el('openSonoResultsBtn');lb.classList.toggle('new-result',state.newLabResult);bb.classList.toggle('new-result',state.newBgaResult);sb.classList.toggle('new-result',state.newSonoResult);}
+function renderButtons(){el('timer').textContent=formatTime(SIM_DURATION-state.elapsed);if(el('participantName'))el('participantName').textContent=participantUsername||'–';const alarmRemaining=Math.max(0,state.alarmSilencedUntil-state.elapsed);el('alarmBtn').textContent=alarmRemaining>0?`⏸ Alarm ${formatTime(alarmRemaining)}`:'⏸ Alarm 2 min';el('alarmBtn').classList.toggle('alarm-paused',alarmRemaining>0);el('crossedBtn').disabled=!state.crossedBloodAvailable;const giveCrossed=el('giveCrossedEkBtn'),giveUncrossed=el('giveUncrossedEkBtn');if(giveCrossed)giveCrossed.disabled=state.bloodInventory.crossed<1;if(giveUncrossed)giveUncrossed.disabled=state.bloodInventory.uncrossed<1;el('openLabResultsBtn').disabled=!state.labsAvailable.size;el('openBgaResultsBtn').disabled=!state.bgaAvailable;el('openSonoResultsBtn').disabled=!state.sonoResult;el('uncrossedCount').textContent=state.bloodInventory.uncrossed;el('crossedCount').textContent=state.bloodInventory.crossed;el('givenCount').textContent=state.therapies.bloodUnitsGiven;if(el('gameCaseName'))el('gameCaseName').textContent=`${getActiveCase().number} · ${getActiveCase().shortTitle}`;el('finishBtn').disabled=!state.running||state.ended;const lb=el('openLabResultsBtn'),bb=el('openBgaResultsBtn'),sb=el('openSonoResultsBtn');lb.classList.toggle('new-result',state.newLabResult);bb.classList.toggle('new-result',state.newBgaResult);sb.classList.toggle('new-result',state.newSonoResult);}
 function renderAll(){renderVitals();renderStaff();renderTasks();renderChat();renderEvents();renderButtons();}
 
 function measureNibp(){assignTask('Nichtinvasive Blutdruckmessung',20,()=>{const p=state.patient;state.lastMeasurements.nibp={sys:Math.round(p.sys+jitter(2)),dia:Math.round(p.dia+jitter(2)),map:map(p.sys,p.dia),time:state.elapsed};},{roles:['nurse']});}
@@ -471,9 +480,8 @@ function showSummary(){
 
 function onClick(id,handler){const node=el(id);if(!node){console.warn(`UI-Element fehlt: #${id}`);return;}node.onclick=handler;}
 function bind(){
-  const usernameDialog=el('usernameDialog');if(usernameDialog)usernameDialog.addEventListener('cancel',e=>e.preventDefault());const usernameForm=el('usernameForm');if(usernameForm)usernameForm.addEventListener('submit',e=>{e.preventDefault();const input=el('usernameInput');const value=String(input?.value||'').trim().replace(/\s+/g,' ');if(value.length<2){el('usernameError')?.classList.remove('hidden');input?.focus();return;}participantUsername=value.slice(0,80);el('usernameError')?.classList.add('hidden');el('usernameDialog')?.close();renderButtons();});
-  onClick('changeUserBtn',()=>{if(state.running&&!state.ended){showToast('Benutzerwechsel erst nach Ende der Simulation möglich.');return;}el('usernameInput').value=participantUsername;el('usernameDialog')?.showModal();el('usernameInput')?.focus();});
-  onClick('startBtn',startSimulation);onClick('pauseBtn',pauseSimulation);onClick('resetBtn',resetSimulation);onClick('finishBtn',()=>{if(state.running&&!state.ended)endSimulation();});onClick('soundBtn',toggleSound);onClick('alarmBtn',toggleAlarm);
+  const startForm=el('startForm');if(startForm)startForm.addEventListener('submit',e=>{e.preventDefault();const input=el('usernameInput');const value=String(input?.value||'').trim().replace(/\s+/g,' ');if(value.length<2){el('usernameError')?.classList.remove('hidden');input?.focus();return;}participantUsername=value.slice(0,80);el('usernameError')?.classList.add('hidden');activeCaseId=el('caseSelect')?.value||activeCaseId;SIM_DURATION=Number(el('durationSelect')?.value||getActiveCase().defaultDurationSeconds||600);LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);state=initialState();state.difficulty=el('difficultySelect')?.value||'easy';el('startScreen')?.classList.add('hidden');el('simulationApp')?.classList.remove('hidden');renderAll();startSimulation();});
+  onClick('pauseBtn',pauseSimulation);onClick('resetBtn',resetSimulation);onClick('finishBtn',()=>{if(state.running&&!state.ended)endSimulation();});onClick('soundBtn',toggleSound);onClick('alarmBtn',toggleAlarm);
   onClick('measureNibpBtn',measureNibp);onClick('countRrBtn',countRr);onClick('measureTempBtn',measureTemp);
   onClick('bgaBtn',()=>el('bgaDialog')?.showModal());
   onClick('venousBgaBtn',()=>{if(requestBga('venous'))el('bgaDialog')?.close();});
@@ -485,9 +493,8 @@ function bind(){
   onClick('norepiDownBtn',()=>adjustNorepi(-1));onClick('norepiUpBtn',()=>adjustNorepi(1));onClick('norepiStopBtn',stopNorepi);
   const chatLog=el('chatLog');if(chatLog)chatLog.addEventListener('scroll',()=>{state.chatAutoFollow=chatLog.scrollHeight-chatLog.scrollTop-chatLog.clientHeight<60;});
   const chatForm=el('chatForm');if(chatForm)chatForm.addEventListener('submit',e=>{e.preventDefault();const input=el('chatInput');if(input){handleChat(input.value);input.value='';}});
-  const caseSelect=el('caseSelect');if(caseSelect){caseSelect.innerHTML=Object.values(window.TELECARE_CASES).filter(c=>c.enabled!==false).map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.number)} · ${escapeHtml(c.shortTitle)}</option>`).join('');caseSelect.value=activeCaseId;caseSelect.onchange=()=>{if(state.running&&!state.ended)return;activeCaseId=caseSelect.value;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);const c=getActiveCase();el('caseSubtitle').textContent=`${c.shortTitle} · ${c.number}`;const durationSelect=el('durationSelect');if(durationSelect){durationSelect.value=String(c.defaultDurationSeconds||600);SIM_DURATION=Number(durationSelect.value);}state=initialState();renderAll();};}
-  const c=getActiveCase();if(el('caseSubtitle'))el('caseSubtitle').textContent=`${c.shortTitle} · ${c.number}`;
+  const caseSelect=el('caseSelect');if(caseSelect){caseSelect.innerHTML=Object.values(window.TELECARE_CASES).filter(c=>c.enabled!==false).map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.number)} · ${escapeHtml(c.shortTitle)}</option>`).join('');caseSelect.value=activeCaseId;caseSelect.onchange=()=>{activeCaseId=caseSelect.value;const c=getActiveCase();const durationSelect=el('durationSelect');if(durationSelect){durationSelect.value=String(c.defaultDurationSeconds||600);SIM_DURATION=Number(durationSelect.value);}};}
   const durationSelect=el('durationSelect');if(durationSelect)durationSelect.onchange=()=>{if(!state.running){SIM_DURATION=Number(durationSelect.value);renderButtons();}};const difficultySelect=el('difficultySelect');if(difficultySelect)difficultySelect.onchange=()=>{if(!state.running)state.difficulty=difficultySelect.value;};
   setupLabDialog();setupAccessDialog();setupBloodDialog();
 }
-bind();renderAll();checkAiStatus();setTimeout(()=>{if(!participantUsername){const d=el('usernameDialog');if(d&&!d.open)d.showModal();el('usernameInput')?.focus();}},0);
+bind();renderAll();checkAiStatus();el('startScreen')?.classList.remove('hidden');el('simulationApp')?.classList.add('hidden');setTimeout(()=>el('usernameInput')?.focus(),0);

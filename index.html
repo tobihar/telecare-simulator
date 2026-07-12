@@ -7,43 +7,65 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div>
+  <section id="startScreen" class="start-screen">
+    <div class="start-card">
+      <div class="start-brand">
         <div class="eyebrow">Telekonsultations-Simulation</div>
-        <h1>telecare - von Tobias Harig</h1>
-        <p class="subtitle" id="caseSubtitle">Postoperative Blutung · Fall 01</p>
+        <h1>telecare</h1>
+        <p>von Tobias Harig</p>
       </div>
-      <div class="duration-control case-control">
-        <label for="caseSelect">Fall</label>
-        <select id="caseSelect" aria-label="Fall auswählen"></select>
+      <form id="startForm" class="start-form">
+        <label class="start-field">
+          <span>Benutzername</span>
+          <input id="usernameInput" maxlength="80" autocomplete="name" placeholder="z. B. Tobias" required />
+        </label>
+        <label class="start-field">
+          <span>Fall</span>
+          <select id="caseSelect" aria-label="Fall auswählen"></select>
+        </label>
+        <label class="start-field">
+          <span>Falldauer</span>
+          <select id="durationSelect">
+            <option value="300">5 Minuten</option>
+            <option value="600" selected>10 Minuten</option>
+            <option value="900">15 Minuten</option>
+            <option value="1200">20 Minuten</option>
+          </select>
+        </label>
+        <label class="start-field">
+          <span>Schwierigkeit</span>
+          <select id="difficultySelect">
+            <option value="easy" selected>Leicht</option>
+            <option value="medium">Mittel</option>
+            <option value="hard">Schwer</option>
+          </select>
+        </label>
+        <p id="usernameError" class="form-error hidden">Bitte mindestens 2 Zeichen eingeben.</p>
+        <button type="submit" class="primary start-submit">Simulation starten</button>
+      </form>
+      <p class="start-note">Nur für Unterricht und Simulation – nicht zur Behandlung realer Patientinnen und Patienten.</p>
+    </div>
+  </section>
+
+  <div id="simulationApp" class="app-shell hidden">
+    <header class="game-topbar">
+      <div class="game-brand">
+        <strong>telecare</strong>
+        <span>von Tobias Harig</span>
       </div>
-      <div class="duration-control">
-        <label for="durationSelect">Falldauer</label>
-        <select id="durationSelect">
-          <option value="300">5 Minuten</option>
-          <option value="600" selected>10 Minuten</option>
-          <option value="900">15 Minuten</option>
-          <option value="1200">20 Minuten</option>
-        </select>
+      <div class="game-meta">
+        <div><span>Fall</span><strong id="gameCaseName">–</strong></div>
+        <div><span>Benutzer</span><strong id="participantName">–</strong></div>
+        <div class="game-timer"><span>Restzeit</span><strong id="timer">10:00</strong></div>
       </div>
-      <div class="duration-control">
-        <label for="difficultySelect">Schwierigkeit</label>
-        <select id="difficultySelect">
-          <option value="easy" selected>Leicht</option>
-          <option value="medium">Mittel</option>
-          <option value="hard">Schwer</option>
-        </select>
-      </div>
-      <div class="participant-card"><span>Benutzer</span><strong id="participantName">–</strong><button id="changeUserBtn" class="change-user-btn" type="button">wechseln</button></div><div class="timer-card"><span>Restzeit</span><strong id="timer">10:00</strong></div>
       <div class="top-actions">
         <button id="soundBtn" title="Pulston ein/aus">🔊 Pulston</button>
         <button id="alarmBtn" title="Akustischen und optischen Alarm für 2 Minuten pausieren">⏸ Alarm 2 min</button>
-        <button id="startBtn" class="primary">Start</button>
-        <button id="pauseBtn" disabled>Pause</button>
+        <button id="pauseBtn">Pause</button>
         <button id="finishBtn">Auswertung</button>
         <button id="resetBtn">Neustart</button>
       </div>
+      <button id="startBtn" class="hidden" aria-hidden="true" tabindex="-1">Start</button>
     </header>
 
     <section class="vital-strip panel">
@@ -100,17 +122,6 @@
   </div>
 
 
-  <dialog id="usernameDialog" class="modal mandatory-dialog">
-    <form id="usernameForm" class="modal-card username-card">
-      <div class="eyebrow">TeleCare Simulation</div>
-      <h2>Benutzername eingeben</h2>
-      <p class="modal-note">Der Benutzername wird zusammen mit deinem Ergebnis gespeichert.</p>
-      <label class="field-label" for="usernameInput">Benutzername</label>
-      <input id="usernameInput" maxlength="80" autocomplete="name" placeholder="z. B. Tobias H." required />
-      <p id="usernameError" class="form-error hidden">Bitte mindestens 2 Zeichen eingeben.</p>
-      <button type="submit" class="primary username-submit">Weiter zur Simulation</button>
-    </form>
-  </dialog>
   <dialog id="labDialog" class="modal"><form method="dialog" class="modal-card" id="labForm"><div class="modal-head"><h2>Laboranforderung</h2><button value="cancel" class="icon-btn">×</button></div><p class="modal-note">Blutentnahme bindet eine Pflegekraft 20 Sekunden. Anschließend benötigt das Labor 2 Minuten.</p><div id="labCheckboxes" class="check-grid"></div><div class="modal-actions"><button value="cancel">Abbrechen</button><button id="submitLabBtn" value="default" class="primary">Anfordern</button></div></form></dialog>
   <dialog id="accessDialog" class="modal"><form method="dialog" class="modal-card" id="accessForm"><div class="modal-head"><h2>Katheter / Zugänge</h2><button value="cancel" class="icon-btn">×</button></div><div class="choice-grid"><button type="button" data-access="pvk_pink">PVK rosa <small>Arzt oder Pflege · 45 s</small></button><button type="button" data-access="pvk_green">PVK grün <small>Arzt oder Pflege · 55 s</small></button><button type="button" data-access="pvk_orange">PVK orange <small>Arzt oder Pflege · 70 s</small></button><button type="button" data-access="zvk">ZVK <small>Arzt · 120 s</small></button><button type="button" data-access="artery">Arterie <small>Arzt · 90 s</small></button><button type="button" data-access="shaldon">Shaldon <small>Arzt · 150 s</small></button><button type="button" data-access="bladder">Blasenkatheter <small>Pflege · 60 s</small></button></div></form></dialog>
   <dialog id="bloodDialog" class="modal"><form method="dialog" class="modal-card"><div class="modal-head"><h2>Blutprodukte</h2><button value="cancel" class="icon-btn">×</button></div><div class="choice-grid"><button type="button" id="uncrossedBtn">2 ungekreuzte 0-neg. EK anfordern <small>Pflege oder Arzt · 20 s + 70 s Bereitstellung</small></button><button type="button" id="crossedBtn" disabled>2 gekreuzte EK anfordern <small>Pflege oder Arzt · 20 s + 100 s Bereitstellung</small></button><button type="button" id="giveCrossedEkBtn" disabled>1 gekreuztes EK transfundieren <small>Arzt · 45 s</small></button><button type="button" id="giveUncrossedEkBtn" disabled>1 ungekreuztes EK transfundieren <small>Arzt · 45 s</small></button></div><p class="modal-note">Anforderungen und Transfusionen sind mehrfach möglich. Gekreuzte EK werden nach Kreuzblut freigeschaltet.</p></form></dialog>
