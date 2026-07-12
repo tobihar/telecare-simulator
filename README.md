@@ -59,3 +59,20 @@ Nach dem Upload zu GitHub Render neu deployen. Die Dozentenansicht liegt anschli
 ```text
 https://DEINE-ADRESSE.onrender.com/admin
 ```
+
+## Fall-Engine
+
+Die medizinischen Falldaten liegen jetzt in `cases.js`. Die Oberfläche und die allgemeine Simulationslogik bleiben in `app.js`.
+
+Ein neuer Fall wird als Objekt in `cases.js` ergänzt und anschließend in `window.TELECARE_CASES` registriert. Konfigurierbar sind unter anderem:
+
+- Titel, Fallnummer und Setting
+- kurze Übergabe
+- Ausgangsvitalwerte
+- Personal
+- Labor- und Sono-Befunde
+- Verlaufskurven für leicht, mittel und schwer
+- Kreislaufstillstands-Schwellen
+- Bewertungskriterien
+
+Der Fall kann anschließend oben im Simulator ausgewählt werden. Während einer laufenden Simulation ist die Fallauswahl gesperrt.

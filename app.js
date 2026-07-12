@@ -2,34 +2,12 @@ let SIM_DURATION = 600;
 let participantUsername = '';
 const TICK_SECONDS = 3;
 
-const LABS = {
-  hb:{label:'Hämoglobin',value:'7,4 g/dl',norm:'12,0–16,0 g/dl',abnormal:true},
-  hct:{label:'Hämatokrit',value:'23 %',norm:'36–46 %',abnormal:true},
-  platelets:{label:'Thrombozyten',value:'148.000/µl',norm:'150.000–400.000/µl',abnormal:true},
-  leukocytes:{label:'Leukozyten',value:'13,8 /nl',norm:'4,0–10,0 /nl',abnormal:true},
-  sodium:{label:'Natrium',value:'138 mmol/l',norm:'135–145 mmol/l'},
-  potassium:{label:'Kalium',value:'4,3 mmol/l',norm:'3,5–5,1 mmol/l'},
-  calcium:{label:'Calcium gesamt',value:'2,03 mmol/l',norm:'2,15–2,55 mmol/l',abnormal:true},
-  creatinine:{label:'Kreatinin',value:'1,2 mg/dl',norm:'0,6–1,1 mg/dl',abnormal:true},
-  urea:{label:'Harnstoff',value:'49 mg/dl',norm:'17–43 mg/dl',abnormal:true},
-  ast:{label:'AST (GOT)',value:'41 U/l',norm:'<35 U/l',abnormal:true},
-  alt:{label:'ALT (GPT)',value:'33 U/l',norm:'<35 U/l'},
-  bilirubin:{label:'Bilirubin gesamt',value:'0,8 mg/dl',norm:'<1,2 mg/dl'},
-  crp:{label:'CRP',value:'32 mg/l',norm:'<5 mg/l',abnormal:true},
-  inr:{label:'INR',value:'1,4',norm:'0,9–1,2',abnormal:true},
-  aptt:{label:'aPTT',value:'39 s',norm:'25–35 s',abnormal:true},
-  fibrinogen:{label:'Fibrinogen',value:'165 mg/dl',norm:'200–400 mg/dl',abnormal:true},
-  d_dimer:{label:'D-Dimere',value:'2,1 mg/l FEU',norm:'<0,5 mg/l FEU',abnormal:true},
-  lactate:{label:'Laktat',value:'4,8 mmol/l',norm:'0,5–2,2 mmol/l',abnormal:true},
-  troponin:{label:'hs-Troponin T',value:'19 ng/l',norm:'<14 ng/l',abnormal:true},
-  crossmatch:{label:'Kreuzblut',value:'Blutgruppe A Rh positiv, Kreuzprobe kompatibel',norm:'—'}
-};
-const BGA = [
-  ['pH','7,31','7,35–7,45',true],['pCO₂','32 mmHg','35–45 mmHg',true],['pO₂','68 mmHg','80–100 mmHg',true],
-  ['HCO₃⁻','17 mmol/l','22–26 mmol/l',true],['Base Excess','−8 mmol/l','−2 bis +2 mmol/l',true],
-  ['Laktat','4,8 mmol/l','0,5–2,2 mmol/l',true],['Hb','7,6 g/dl','12,0–16,0 g/dl',true],
-  ['Na⁺','138 mmol/l','135–145 mmol/l',false],['K⁺','4,3 mmol/l','3,5–5,1 mmol/l',false],['iCa²⁺','1,05 mmol/l','1,12–1,32 mmol/l',true]
-];
+let activeCaseId = window.TELECARE_DEFAULT_CASE_ID;
+const getActiveCase = () => window.TELECARE_CASES[activeCaseId];
+const clone = value => JSON.parse(JSON.stringify(value));
+let LABS = clone(getActiveCase().labs);
+let BGA = clone(getActiveCase().bga?.staticRows || []);
+
 const ACCESS = {
   pvk_pink:{label:'PVK rosa',duration:45,suitable:true,roles:['doctor','nurse']},
   pvk_green:{label:'PVK grün',duration:55,suitable:true,roles:['doctor','nurse']},
@@ -42,17 +20,14 @@ const ACCESS = {
 
 const initialState = () => ({
   running:false,paused:false,ended:false,elapsed:0,timer:null,difficulty:'easy',dead:false,deathReason:null,criticalSeconds:0,alarmSilencedUntil:0,runId:(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`),saveAttempted:false,savedResultId:null,
-  patient:{hr:112,sys:98,dia:61,spo2:95,rr:22,temp:35.8,mental:'wach und unruhig',lactate:3.4,hb:8.1,iCa:1.05,glucose:112,bleeding:1},
+  caseId:activeCaseId,
+  patient:clone(getActiveCase().patient.initial),
   lastMeasurements:{nibp:null,rr:null,temp:null,bz:null},
-  staff:[
-    {id:1,name:'Dr. Weber',role:'doctor',icon:'🩺',busyUntil:0,taskId:null},
-    {id:2,name:'Anna Keller',role:'nurse',icon:'👩‍⚕️',busyUntil:0,taskId:null},
-    {id:3,name:'Mehmet Yilmaz',role:'nurse',icon:'👨‍⚕️',busyUntil:0,taskId:null}
-  ],
+  staff:getActiveCase().staff.map(person=>({...person,busyUntil:0,taskId:null})),
   tasks:[],events:[],chat:[],labsRequested:new Set(),labsAvailable:new Set(),bgaAvailable:false,bgaResults:[],access:new Set(),
   crossedBloodAvailable:false,bloodInventory:{uncrossed:0,crossed:0},bloodRequested:[],
   therapies:{oxygen:false,warming:false,ventilation:false,norepiBolusUntil:0,norepiPerfusor:false,norepiRate:1,fluidEffects:[],crystalloidMl:0,bloodUnitsGiven:0,activeInfusions:[],txa:false,medications:[],medicationEffects:[],paralyzedUntil:0,shockPositionUntil:0},
-  vitalHistory:[{time:0,hr:112,map:73,spo2:95,sys:98,dia:61}],chatAutoFollow:true,
+  vitalHistory:[{time:0,hr:getActiveCase().patient.initial.hr,map:map(getActiveCase().patient.initial.sys,getActiveCase().patient.initial.dia),spo2:getActiveCase().patient.initial.spo2,sys:getActiveCase().patient.initial.sys,dia:getActiveCase().patient.initial.dia}],chatAutoFollow:true,
   firstTherapyAt:null,lastMentalReport:'wach und unruhig',escalationAt:null,soundOn:true,alarmOn:true,alarmActive:false,aiAvailable:false,proactiveFlags:new Set(),sonoResult:null,newLabResult:false,newBgaResult:false,newSonoResult:false,assessment:new Set()
 });
 
@@ -93,10 +68,10 @@ function addBackgroundTask(label,duration,onComplete){
 function startSimulation(){
   if(!participantUsername){el('usernameDialog')?.showModal();el('usernameInput')?.focus();return;}
   if(state.running&&!state.paused)return;
-  if(!state.running){SIM_DURATION=Number(el('durationSelect')?.value||600);state.difficulty=el('difficultySelect')?.value||'easy';}
+  if(!state.running){activeCaseId=el('caseSelect')?.value||activeCaseId;SIM_DURATION=Number(el('durationSelect')?.value||getActiveCase().defaultDurationSeconds||600);state.difficulty=el('difficultySelect')?.value||'easy';}
   if(!state.running){
     state.running=true;
-    addChat('Anna Keller',`68-jähriger Patient nach Hemikolektomie im Aufwachraum. Seit wenigen Minuten fällt der Blutdruck ab, die Herzfrequenz steigt und über die Drainage kommt frisches Blut. Der Patient ist noch ansprechbar. Bitte übernehmen Sie.`);
+    const briefing=getActiveCase().briefing; addChat(briefing.sender,briefing.text);
     logEvent('Simulation gestartet. Kurze Lageinformation übergeben.');
     checkAiStatus();
   }
@@ -104,7 +79,7 @@ function startSimulation(){
   if(!state.timer)state.timer=setInterval(tick,1000);startPulseLoop();startAlarmLoop();renderAll();
 }
 function pauseSimulation(){if(!state.running||state.ended)return;state.paused=!state.paused;el('pauseBtn').textContent=state.paused?'Fortsetzen':'Pause';el('startBtn').disabled=!state.paused;logEvent(state.paused?'Simulation pausiert.':'Simulation fortgesetzt.');}
-function resetSimulation(){clearInterval(state.timer);stopPulseLoop();stopAlarmLoop();SIM_DURATION=Number(el('durationSelect')?.value||600);state=initialState();state.difficulty=el('difficultySelect')?.value||'easy';document.querySelectorAll('dialog[open]').forEach(d=>d.close());el('startBtn').disabled=false;el('pauseBtn').disabled=true;el('pauseBtn').textContent='Pause';renderAll();}
+function resetSimulation(){clearInterval(state.timer);stopPulseLoop();stopAlarmLoop();activeCaseId=el('caseSelect')?.value||activeCaseId;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);SIM_DURATION=Number(el('durationSelect')?.value||getActiveCase().defaultDurationSeconds||600);state=initialState();state.difficulty=el('difficultySelect')?.value||'easy';document.querySelectorAll('dialog[open]').forEach(d=>d.close());el('startBtn').disabled=false;el('pauseBtn').disabled=true;el('pauseBtn').textContent='Pause';renderAll();}
 function tick(){if(!state.running||state.paused||state.ended)return;state.elapsed+=1;processTasks();if(state.elapsed%TICK_SECONDS===0){updatePhysiology();}if(state.elapsed>=SIM_DURATION)endSimulation();renderAll();}
 function processTasks(){
   state.tasks.filter(t=>!t.done&&!t.cancelled&&t.end<=state.elapsed).forEach(t=>{
@@ -115,7 +90,7 @@ function processTasks(){
 
 function updatePhysiology(){
   const p=state.patient;
-  const difficultyFactor={easy:1.0,medium:1.28,hard:1.68}[state.difficulty]||1.0;
+  const caseConfig=getActiveCase();const physiology=caseConfig.physiology;const profile=physiology.difficulty[state.difficulty]||physiology.difficulty.easy;const difficultyFactor=profile.progression;
   const timeScale=Math.max(.38,state.elapsed/540);
   const severity=Math.min(2.15,timeScale*difficultyFactor);
   state.therapies.fluidEffects=state.therapies.fluidEffects.filter(x=>x>state.elapsed);
@@ -131,13 +106,13 @@ function updatePhysiology(){
   const paralyzed=state.therapies.paralyzedUntil>state.elapsed;
   const shockPosition=state.therapies.shockPositionUntil>state.elapsed?1:0;
   const support=fluidCount*.55+bloodUnits*.55+norepiBolus*.9+norepiPerf*.58+shockPosition*.55;
-  const targetSys=clamp(100-severity*52+support*14+medTotals.sys,32,185);
-  const targetDia=clamp(62-severity*29+support*8+medTotals.dia,18,110);
+  const targetSys=clamp(physiology.targetSysBase-severity*physiology.sysLossPerSeverity+support*14+medTotals.sys,32,185);
+  const targetDia=clamp(physiology.targetDiaBase-severity*physiology.diaLossPerSeverity+support*8+medTotals.dia,18,110);
   p.sys+=(targetSys-p.sys)*.17+jitter(1.1);p.dia+=(targetDia-p.dia)*.17+jitter(.8);
   const currentMap=map(p.sys,p.dia);
-  const targetHr=clamp(112+severity*45+(currentMap<65?(65-currentMap)*1.35:0)-fluidCount*5-bloodUnits*6-(currentMap>75?8:0)+medTotals.hr,25,210);
+  const targetHr=clamp(physiology.targetHrBase+severity*physiology.hrGainPerSeverity+(currentMap<65?(65-currentMap)*1.35:0)-fluidCount*5-bloodUnits*6-(currentMap>75?8:0)+medTotals.hr,25,210);
   p.hr+=(targetHr-p.hr)*.20+jitter(1.4);
-  const untreatedSpo2Target=95-severity*(state.difficulty==='hard'?17:state.difficulty==='medium'?12.5:10.5);
+  const untreatedSpo2Target=caseConfig.patient.initial.spo2-severity*profile.spo2Loss;
   let targetSpo2=(state.therapies.oxygen?98:untreatedSpo2Target)+medTotals.spo2;
   if(paralyzed&&!state.therapies.ventilation)targetSpo2=state.difficulty==='hard'?48:58;
   let spo2Response=paralyzed&&!state.therapies.ventilation?.24:(state.difficulty==='hard'?.18:state.difficulty==='medium'?.15:.135);
@@ -148,9 +123,9 @@ function updatePhysiology(){
   if(paralyzed)targetRr=state.therapies.ventilation?14:0;
   p.rr=clamp(p.rr+(targetRr-p.rr)*(paralyzed?.35:.15)+jitter(.25),0,48);
   p.temp=clamp(p.temp+((state.therapies.warming?36.6:35.1)-p.temp)*.035+jitter(.02),34.0,37.3);
-  p.lactate=clamp(p.lactate+.03*difficultyFactor-bloodUnits*.012-fluidCount*.006,1,14);
-  p.hb=clamp(p.hb-.008*difficultyFactor,3.0,12);
-  p.bleeding+=.012*difficultyFactor;
+  p.lactate=clamp(p.lactate+physiology.lactateGainPerTick*difficultyFactor-bloodUnits*.012-fluidCount*.006,1,14);
+  p.hb=clamp(p.hb-physiology.hbLossPerTick*difficultyFactor,3.0,12);
+  p.bleeding+=physiology.bleedingGainPerTick*difficultyFactor;
   const old=p.mental;
   if(state.dead)p.mental='nicht ansprechbar';
   else if(p.sys<60||p.spo2<82)p.mental='somnolent';
@@ -158,10 +133,10 @@ function updatePhysiology(){
   else if(p.sys<90)p.mental='unruhig und leicht verwirrt';
   else p.mental='wach und unruhig';
   if(p.mental!==old){state.lastMentalReport=p.mental;logEvent(`Bewusstseinslage verändert: ${p.mental}.`,'warning');}
-  const criticalMap=state.difficulty==='hard'?46:state.difficulty==='medium'?38:30;
+  const criticalMap=profile.criticalMap;
   const critical=(currentMap<criticalMap||p.spo2<10||p.hr<28||p.hr>195);
   state.criticalSeconds=critical?state.criticalSeconds+TICK_SECONDS:Math.max(0,state.criticalSeconds-TICK_SECONDS*2);
-  const threshold=state.difficulty==='hard'?24:state.difficulty==='medium'?75:99999;
+  const threshold=profile.arrestSeconds;
   if(!state.dead&&state.criticalSeconds>=threshold){
     state.dead=true;state.deathReason=currentMap<38?'prolongierter Kreislaufschock':p.spo2<10?'extreme prolongierte Hypoxämie':'prolongierte vitale Entgleisung';
     p.hr=0;p.sys=0;p.dia=0;p.spo2=Math.max(0,p.spo2);p.rr=0;p.mental='nicht ansprechbar';
@@ -223,7 +198,7 @@ function renderTasks(){const active=state.tasks.filter(t=>!t.done&&!t.cancelled)
 function cancelTask(taskId){const t=state.tasks.find(x=>x.id===taskId&&!x.done&&!x.cancelled);if(!t)return;t.cancelled=true;t.done=true;const staff=state.staff.find(s=>s.id===t.staffId);if(staff){staff.taskId=null;staff.busyUntil=state.elapsed;}logEvent(`${t.label} abgebrochen.`,'warning');addChat('Team vor Ort',`${t.label} wurde abgebrochen.`);renderAll();}
 function renderChat(){const node=el('chatLog');const oldTop=node.scrollTop;const nearBottom=node.scrollHeight-node.scrollTop-node.clientHeight<60;node.innerHTML=state.chat.map(m=>`<div class="message ${m.cls}"><div class="message-meta">${escapeHtml(m.sender)} · ${formatTime(m.time)}</div><div>${escapeHtml(m.text).replace(/\n/g,'<br>')}</div></div>`).join('');if(state.chatAutoFollow||nearBottom){node.scrollTop=node.scrollHeight;state.chatAutoFollow=false;}else node.scrollTop=oldTop;}
 function renderEvents(){const node=el('eventLog');if(!node)return;node.innerHTML=state.events.slice().reverse().map(e=>`<div class="event-row"><span>${formatTime(e.time)}</span><div>${escapeHtml(e.text)}</div></div>`).join('');}
-function renderButtons(){el('timer').textContent=formatTime(SIM_DURATION-state.elapsed);if(el('participantName'))el('participantName').textContent=participantUsername||'–';const alarmRemaining=Math.max(0,state.alarmSilencedUntil-state.elapsed);el('alarmBtn').textContent=alarmRemaining>0?`⏸ Alarm ${formatTime(alarmRemaining)}`:'⏸ Alarm 2 min';el('alarmBtn').classList.toggle('alarm-paused',alarmRemaining>0);el('crossedBtn').disabled=!state.crossedBloodAvailable;const giveCrossed=el('giveCrossedEkBtn'),giveUncrossed=el('giveUncrossedEkBtn');if(giveCrossed)giveCrossed.disabled=state.bloodInventory.crossed<1;if(giveUncrossed)giveUncrossed.disabled=state.bloodInventory.uncrossed<1;el('openLabResultsBtn').disabled=!state.labsAvailable.size;el('openBgaResultsBtn').disabled=!state.bgaAvailable;el('openSonoResultsBtn').disabled=!state.sonoResult;el('uncrossedCount').textContent=state.bloodInventory.uncrossed;el('crossedCount').textContent=state.bloodInventory.crossed;el('givenCount').textContent=state.therapies.bloodUnitsGiven;el('durationSelect').disabled=state.running&&!state.ended;el('difficultySelect').disabled=state.running&&!state.ended;el('finishBtn').disabled=!state.running||state.ended;const lb=el('openLabResultsBtn'),bb=el('openBgaResultsBtn'),sb=el('openSonoResultsBtn');lb.classList.toggle('new-result',state.newLabResult);bb.classList.toggle('new-result',state.newBgaResult);sb.classList.toggle('new-result',state.newSonoResult);}
+function renderButtons(){el('timer').textContent=formatTime(SIM_DURATION-state.elapsed);if(el('participantName'))el('participantName').textContent=participantUsername||'–';const alarmRemaining=Math.max(0,state.alarmSilencedUntil-state.elapsed);el('alarmBtn').textContent=alarmRemaining>0?`⏸ Alarm ${formatTime(alarmRemaining)}`:'⏸ Alarm 2 min';el('alarmBtn').classList.toggle('alarm-paused',alarmRemaining>0);el('crossedBtn').disabled=!state.crossedBloodAvailable;const giveCrossed=el('giveCrossedEkBtn'),giveUncrossed=el('giveUncrossedEkBtn');if(giveCrossed)giveCrossed.disabled=state.bloodInventory.crossed<1;if(giveUncrossed)giveUncrossed.disabled=state.bloodInventory.uncrossed<1;el('openLabResultsBtn').disabled=!state.labsAvailable.size;el('openBgaResultsBtn').disabled=!state.bgaAvailable;el('openSonoResultsBtn').disabled=!state.sonoResult;el('uncrossedCount').textContent=state.bloodInventory.uncrossed;el('crossedCount').textContent=state.bloodInventory.crossed;el('givenCount').textContent=state.therapies.bloodUnitsGiven;el('durationSelect').disabled=state.running&&!state.ended;el('difficultySelect').disabled=state.running&&!state.ended;if(el('caseSelect'))el('caseSelect').disabled=state.running&&!state.ended;el('finishBtn').disabled=!state.running||state.ended;const lb=el('openLabResultsBtn'),bb=el('openBgaResultsBtn'),sb=el('openSonoResultsBtn');lb.classList.toggle('new-result',state.newLabResult);bb.classList.toggle('new-result',state.newBgaResult);sb.classList.toggle('new-result',state.newSonoResult);}
 function renderAll(){renderVitals();renderStaff();renderTasks();renderChat();renderEvents();renderButtons();}
 
 function measureNibp(){assignTask('Nichtinvasive Blutdruckmessung',20,()=>{const p=state.patient;state.lastMeasurements.nibp={sys:Math.round(p.sys+jitter(2)),dia:Math.round(p.dia+jitter(2)),map:map(p.sys,p.dia),time:state.elapsed};},{roles:['nurse']});}
@@ -244,7 +219,7 @@ function currentBga(){
 }
 function requestBga(mode){const arterial=mode==='arterial';const hasArtery=state.access.has('artery');const duration=arterial?(hasArtery?15:45):30;const roles=arterial&&!hasArtery?['doctor']:['nurse','doctor'];const label=arterial?(hasArtery?'Arterielle BGA über liegende Arterie':'Arterielle BGA per Einmalpunktion'):'Venöse BGA';return assignTask(`${label} abnehmen und analysieren`,duration,()=>{state.bgaAvailable=true;state.newBgaResult=true;state.bgaResults.push({time:state.elapsed,type:arterial?'arteriell':'venös',values:currentBga()});},{roles});}
 function requestEcg(){assignTask('12-Kanal-EKG schreiben',45,()=>addChat('Team vor Ort','12-Kanal-EKG: Sinustachykardie, keine akuten ST-Hebungen.'),{roles:['nurse']});}
-function requestSono(){return assignTask('Fokussierte Sonografie / POCUS durchführen',60,()=>{state.sonoResult={time:state.elapsed,text:'V. cava inferior schmal und atemvariabel; linksventrikulär hyperdynam; kein Perikarderguss; kein Hinweis auf Rechtsherzbelastung; freie Flüssigkeit im Abdomen nicht sicher nachweisbar.'};state.newSonoResult=true;addChat('Dr. Weber','POCUS ist abgeschlossen. Der Befund kann geöffnet werden.');},{roles:['doctor']});}
+function requestSono(){return assignTask('Fokussierte Sonografie / POCUS durchführen',60,()=>{state.sonoResult={time:state.elapsed,text:getActiveCase().diagnostics.sono};state.newSonoResult=true;addChat('Dr. Weber','POCUS ist abgeschlossen. Der Befund kann geöffnet werden.');},{roles:['doctor']});}
 function showSonoResults(){state.newSonoResult=false;if(!state.sonoResult)return;el('resultsTitle').textContent='POCUS / Sono';el('resultsContent').innerHTML=`<div class="result-group"><h3>${formatTime(state.sonoResult.time)}</h3><p>${escapeHtml(state.sonoResult.text)}</p></div>`;el('resultsDialog').showModal();}
 
 function setupLabDialog(){
@@ -295,11 +270,11 @@ function doAction(action){
   if(type==='count_rr'){state.assessment.add('B_rr');return countRr();}
   if(type==='measure_temp'){state.assessment.add('E_temp');return measureTemp();}
   if(type==='ask_mental'){state.assessment.add('D_mental');addChat('Pflege 1',`Der Patient ist aktuell ${state.patient.mental}.`);return true;}
-  if(type==='ask_skin'){state.assessment.add('C_skin');addChat('Pflege 2',`Die Haut ist blass, kühl und feucht. Rekapillarisierungszeit etwa ${state.patient.sys<80?'4':'3'} Sekunden.`);return true;}
-  if(type==='ask_drainage'){state.assessment.add('C_bleeding');addChat('Pflege 1',`Die Drainage fördert weiter frisches Blut, grob ${Math.round(260+state.elapsed*1.35)} ml seit Fallbeginn.`);return true;}
+  if(type==='ask_skin'){state.assessment.add('C_skin');addChat('Pflege 2',`Die Haut ist ${getActiveCase().patient.visible.skin}. Rekapillarisierungszeit etwa ${state.patient.sys<80?'4':'3'} Sekunden.`);return true;}
+  if(type==='ask_drainage'){state.assessment.add('C_bleeding');const visible=getActiveCase().patient.visible;addChat('Pflege 1',`Die Drainage fördert weiter ${visible.drainageDescription}, grob ${Math.round(visible.drainageBaseMl+state.elapsed*visible.drainagePerSecondMl)} ml seit Fallbeginn.`);return true;}
   if(type==='ask_urine'){state.assessment.add('C_urine');addChat('Pflege 2',state.access.has('bladder')?'Seit Anlage nur geringe Urinmenge.':'Ohne DK ist die Diurese nicht quantifiziert.');return true;}
-  if(type==='ask_allergy'){state.assessment.add('S_allergy');addChat('Pflege 1','Keine bekannte schwere Allergie.');return true;}
-  if(type==='ask_auscultation'){state.assessment.add('B_auscultation');logEvent('Auskultationsbefund erhoben.');addChat('Team vor Ort','Auskultation: beidseits vesikuläres Atemgeräusch, basal leicht abgeschwächt, keine Rasselgeräusche und kein Giemen. Herztöne rein, tachykard und regelmäßig.');return true;}
+  if(type==='ask_allergy'){state.assessment.add('S_allergy');addChat('Pflege 1',getActiveCase().history.allergy);return true;}
+  if(type==='ask_auscultation'){state.assessment.add('B_auscultation');logEvent('Auskultationsbefund erhoben.');addChat('Team vor Ort',`Auskultation: ${getActiveCase().diagnostics.auscultation}`);return true;}
   if(type==='measure_bz'){state.assessment.add('D_glucose');return assignTask('Blutzucker messen',15,()=>{state.lastMeasurements.bz={value:Math.round(state.patient.glucose),time:state.elapsed};addChat('Anna Keller',`Blutzucker: ${Math.round(state.patient.glucose)} mg/dl.`);},{roles:['nurse','doctor']});}
   if(type==='alert_surgeon'){return assignTask('Operateur und Anästhesie alarmieren',15,()=>{state.escalationAt=state.elapsed;addChat('Dr. Weber','Operateur und Anästhesie sind informiert und auf dem Weg.');},{roles:['doctor']});}
   if(type==='shock_position'){if(state.therapies.shockPositionUntil>state.elapsed){addChat('Anna Keller','Der Patient befindet sich bereits in Schocklage.');return true;}return assignTask('Schocklage herstellen',15,()=>{state.therapies.shockPositionUntil=state.elapsed+180;markFirstTherapy();addChat('Anna Keller','Schocklage ist hergestellt. Der venöse Rückstrom und der Blutdruck verbessern sich vorübergehend.');},{roles:['nurse','doctor']});}
@@ -373,7 +348,7 @@ async function handleChat(text){
     const placeholder={time:state.elapsed,sender:'Team vor Ort',text:'KI wertet die Nachricht aus …',cls:'team ai-thinking'};
     state.chat.push(placeholder);renderChat();
     try{
-      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,state:{elapsed:state.elapsed,visiblePatient:{heartRate:Math.round(state.patient.hr),spo2:Math.round(state.patient.spo2),arterialPressure:state.access.has('artery')?`${Math.round(state.patient.sys)}/${Math.round(state.patient.dia)}`:null,lastNibp:state.lastMeasurements.nibp,lastRespiratoryRate:state.lastMeasurements.rr,lastTemperature:state.access.has('bladder')?state.patient.temp:state.lastMeasurements.temp,consciousness:state.patient.mental,skin:'blass, kühl und feucht',drainage:`frisches Blut, etwa ${Math.round(260+state.elapsed*1.35)} ml seit Fallbeginn`},knownLabs:Object.fromEntries([...state.labsAvailable].map(id=>[id,LABS[id]?.value])),bgaHistory:state.bgaResults.map(b=>({time:b.time,values:Object.fromEntries(b.values.map(v=>[v[0],v[1]]))})),access:[...state.access],bloodInventory:state.bloodInventory,staff:state.staff.map(s=>({name:s.name,role:s.role,available:s.busyUntil<=state.elapsed})),norepiPerfusor:state.therapies.norepiPerfusor}})});
+      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,state:{elapsed:state.elapsed,visiblePatient:{heartRate:Math.round(state.patient.hr),spo2:Math.round(state.patient.spo2),arterialPressure:state.access.has('artery')?`${Math.round(state.patient.sys)}/${Math.round(state.patient.dia)}`:null,lastNibp:state.lastMeasurements.nibp,lastRespiratoryRate:state.lastMeasurements.rr,lastTemperature:state.access.has('bladder')?state.patient.temp:state.lastMeasurements.temp,consciousness:state.patient.mental,skin:getActiveCase().patient.visible.skin,drainage:`${getActiveCase().patient.visible.drainageDescription}, etwa ${Math.round(getActiveCase().patient.visible.drainageBaseMl+state.elapsed*getActiveCase().patient.visible.drainagePerSecondMl)} ml seit Fallbeginn`},knownLabs:Object.fromEntries([...state.labsAvailable].map(id=>[id,LABS[id]?.value])),bgaHistory:state.bgaResults.map(b=>({time:b.time,values:Object.fromEntries(b.values.map(v=>[v[0],v[1]]))})),access:[...state.access],bloodInventory:state.bloodInventory,staff:state.staff.map(s=>({name:s.name,role:s.role,available:s.busyUntil<=state.elapsed})),norepiPerfusor:state.therapies.norepiPerfusor}})});
       const data=await r.json();state.chat=state.chat.filter(x=>x!==placeholder);if(!r.ok)throw new Error(data.error||'KI-Fehler');
       const actions=data.actions||[];
       const results=actions.map(doAction);
@@ -423,7 +398,8 @@ function buildSavedResult(scorePercent, positives, missing){
   return {
     clientRunId:state.runId,
     username:participantUsername,
-    caseName:'Postoperative Blutung nach Hemikolektomie',
+    caseId:activeCaseId,
+    caseName:getActiveCase().title,
     difficulty:state.difficulty,
     plannedDurationSeconds:SIM_DURATION,
     elapsedSeconds:state.elapsed,
@@ -454,6 +430,7 @@ function buildSavedResult(scorePercent, positives, missing){
         crystalloidMl:state.therapies.crystalloidMl,bloodUnitsGiven:state.therapies.bloodUnitsGiven,
         txa:state.therapies.txa,medications:state.therapies.medications
       },
+      caseMetadata:{id:getActiveCase().id,title:getActiveCase().title,number:getActiveCase().number,setting:getActiveCase().setting},
       finalVitals:{hr:state.patient.hr,sys:state.patient.sys,dia:state.patient.dia,spo2:state.patient.spo2,rr:state.patient.rr,temp:state.patient.temp,mental:state.patient.mental}
     }
   };
@@ -476,14 +453,18 @@ async function saveSimulationResult(payload){
 }
 
 function showSummary(){
-  const checks=[
-    [state.escalationAt!==null&&state.escalationAt<=120,'Operatives Team früh alarmiert','Eskalation verspätet oder nicht erfolgt'],
-    [state.bgaAvailable,'BGA durchgeführt','Keine BGA durchgeführt'],
-    [state.labsAvailable.has('hb'),'Hämoglobin bestimmt','Hämoglobin nicht bestimmt'],
-    [hasUsableAccess(),'Gefäßzugang vorhanden','Kein geeigneter Gefäßzugang'],
-    [state.bloodRequested.length>0,'Blutprodukte vorbereitet','Keine Blutprodukte vorbereitet'],
-    [state.therapies.fluidEffects.length||state.therapies.bloodUnitsGiven||state.therapies.crystalloidMl>0,'Kreislauftherapie begonnen','Keine Kreislauftherapie begonnen']
-  ];
+  const evaluateCriterion=(criterion)=>{
+    const done={
+      early_escalation:state.escalationAt!==null&&state.escalationAt<=(criterion.thresholdSeconds||120),
+      bga:state.bgaAvailable,
+      lab_hb:state.labsAvailable.has('hb'),
+      vascular_access:hasUsableAccess(),
+      blood_prepared:state.bloodRequested.length>0,
+      circulation_therapy:Boolean(state.therapies.fluidEffects.length||state.therapies.bloodUnitsGiven||state.therapies.crystalloidMl>0)
+    }[criterion.id]||false;
+    return [done,criterion.labelDone,criterion.labelMissing];
+  };
+  const checks=getActiveCase().scoring.map(evaluateCriterion);
   const positives=checks.filter(x=>x[0]).map(x=>x[1]),missing=checks.filter(x=>!x[0]).map(x=>x[2]);const pct=Math.round(positives.length/checks.length*100);
   el('summaryContent').innerHTML=`<div class="summary-score">${pct} % Prozessadhärenz</div><p class="modal-note"><strong>Benutzer:</strong> ${escapeHtml(participantUsername)} · Didaktische, nicht validierte Auswertung.</p><div id="saveStatus" class="save-status">Ergebnis wird vorbereitet …</div><div class="summary-simple"><div><h3>Gut umgesetzt</h3><ul>${positives.map(x=>`<li>${x}</li>`).join('')||'<li>—</li>'}</ul></div><div><h3>Besprechen</h3><ul>${missing.map(x=>`<li>${x}</li>`).join('')||'<li>—</li>'}</ul></div><div><h3>Ergebnis</h3><ul><li>Schwierigkeit: ${{easy:'Leicht',medium:'Mittel',hard:'Schwer'}[state.difficulty]}</li><li>Patient: ${state.dead?'Kreislaufstillstand – '+state.deathReason:'am Fallende lebend'}</li><li>Kristalloide: ${state.therapies.crystalloidMl} ml</li><li>EK transfundiert: ${state.therapies.bloodUnitsGiven}</li><li>Letzter Hb: ${state.patient.hb.toFixed(1)} g/dl</li></ul></div></div>${assessmentSummaryHtml()}<h2>Wesentliche Maßnahmen</h2><div class="summary-timeline">${state.events.filter(e=>/übernimmt:|abgeschlossen|abgebrochen|alarmiert|transfund|verabreicht|BGA|Labor|Sonografie|Kreislaufstillstand/.test(e.text)).map(e=>`<div><strong>${formatTime(e.time)}</strong><span>${escapeHtml(e.text)}</span></div>`).join('')||'<p>Keine wesentlichen Maßnahmen dokumentiert.</p>'}</div><h2>Vitalparameter im Verlauf</h2><div class="chart-grid">${makeChart('Herzfrequenz','hr','#24e879',50,190,'/min')}${makeChart('MAP','map','#ff4d68',35,110,'mmHg')}${makeChart('SpO₂','spo2','#39a8ff',75,100,'%')}</div>`;el('summaryDialog').showModal();saveSimulationResult(buildSavedResult(pct,positives,missing));
 }
@@ -504,6 +485,8 @@ function bind(){
   onClick('norepiDownBtn',()=>adjustNorepi(-1));onClick('norepiUpBtn',()=>adjustNorepi(1));onClick('norepiStopBtn',stopNorepi);
   const chatLog=el('chatLog');if(chatLog)chatLog.addEventListener('scroll',()=>{state.chatAutoFollow=chatLog.scrollHeight-chatLog.scrollTop-chatLog.clientHeight<60;});
   const chatForm=el('chatForm');if(chatForm)chatForm.addEventListener('submit',e=>{e.preventDefault();const input=el('chatInput');if(input){handleChat(input.value);input.value='';}});
+  const caseSelect=el('caseSelect');if(caseSelect){caseSelect.innerHTML=Object.values(window.TELECARE_CASES).filter(c=>c.enabled!==false).map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.number)} · ${escapeHtml(c.shortTitle)}</option>`).join('');caseSelect.value=activeCaseId;caseSelect.onchange=()=>{if(state.running&&!state.ended)return;activeCaseId=caseSelect.value;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);const c=getActiveCase();el('caseSubtitle').textContent=`${c.shortTitle} · ${c.number}`;const durationSelect=el('durationSelect');if(durationSelect){durationSelect.value=String(c.defaultDurationSeconds||600);SIM_DURATION=Number(durationSelect.value);}state=initialState();renderAll();};}
+  const c=getActiveCase();if(el('caseSubtitle'))el('caseSubtitle').textContent=`${c.shortTitle} · ${c.number}`;
   const durationSelect=el('durationSelect');if(durationSelect)durationSelect.onchange=()=>{if(!state.running){SIM_DURATION=Number(durationSelect.value);renderButtons();}};const difficultySelect=el('difficultySelect');if(difficultySelect)difficultySelect.onchange=()=>{if(!state.running)state.difficulty=difficultySelect.value;};
   setupLabDialog();setupAccessDialog();setupBloodDialog();
 }
