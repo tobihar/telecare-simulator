@@ -76,3 +76,11 @@ Ein neuer Fall wird als Objekt in `cases.js` ergänzt und anschließend in `wind
 - Bewertungskriterien
 
 Der Fall kann anschließend oben im Simulator ausgewählt werden. Während einer laufenden Simulation ist die Fallauswahl gesperrt.
+
+## Zentrale medizinische Wissensschicht
+
+- `medications.js`: Medikamente, Synonyme, Zugangsbedarf, Ausführungszeit und physiologische Basiswirkungen.
+- `interventions.js`: nichtmedikamentöse Maßnahmen wie Volumen, EK, Schocklage und Noradrenalin.
+- `cases.js`: fallspezifische Wirkungsmodifikatoren unter `treatmentModifiers`.
+
+Ein Multiplikator von `1` lässt die Basiswirkung unverändert. Beispiel: `fluid_500: 0.3` schwächt den Volumeneffekt in einem kardiogenen Fall ab; `norepi_perfusor: 1.5` verstärkt die Reaktion auf Noradrenalin.

@@ -1,0 +1,42 @@
+(function () {
+  const medications = {
+    adrenaline:{label:'Adrenalin',aliases:['adrenalin','epinephrin'],taskSeconds:20,requiresAccess:true,effect:{duration:120,hr:30,sys:28,dia:16}},
+    amiodarone:{label:'Amiodaron',aliases:['amiodaron'],taskSeconds:30,requiresAccess:true,effect:{duration:240,hr:-18}},
+    atropine:{label:'Atropin',aliases:['atropin'],taskSeconds:20,requiresAccess:true,effect:{duration:120,hr:38}},
+    adenosine:{label:'Adenosin',aliases:['adenosin'],taskSeconds:20,requiresAccess:true,effect:{duration:18,hr:-70}},
+    aspirin:{label:'ASS',aliases:['ass','aspirin','acetylsalicylsäure'],taskSeconds:20,requiresAccess:false,effect:{duration:600}},
+    heparin:{label:'Heparin',aliases:['heparin'],taskSeconds:20,requiresAccess:true,effect:{duration:600}},
+    nitroglycerin:{label:'Nitroglycerin',aliases:['nitro','nitroglycerin','glyceroltrinitrat'],taskSeconds:20,requiresAccess:false,effect:{duration:180,sys:-18,dia:-10}},
+    urapidil:{label:'Urapidil',aliases:['urapidil','ebrantil'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-24,dia:-14}},
+    metoprolol:{label:'Metoprolol',aliases:['metoprolol'],taskSeconds:20,requiresAccess:true,effect:{duration:240,hr:-28,sys:-9,dia:-4}},
+    furosemide:{label:'Furosemid',aliases:['furosemid','lasix'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-6}},
+    salbutamol:{label:'Salbutamol',aliases:['salbutamol'],taskSeconds:25,requiresAccess:false,effect:{duration:240,hr:12,spo2:4}},
+    ipratropium:{label:'Ipratropium',aliases:['ipratropium','atrovent'],taskSeconds:25,requiresAccess:false,effect:{duration:240,spo2:2}},
+    prednisolone:{label:'Prednisolon',aliases:['prednisolon'],taskSeconds:25,requiresAccess:true,effect:{duration:600}},
+    dimetindene:{label:'Dimetinden',aliases:['dimetinden','fenistil'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-4}},
+    ketamine:{label:'Ketamin',aliases:['ketamin','ketanest'],taskSeconds:25,requiresAccess:true,effect:{duration:150,hr:12,sys:12}},
+    midazolam:{label:'Midazolam',aliases:['midazolam','dormicum'],taskSeconds:20,requiresAccess:true,effect:{duration:180,sys:-10,dia:-5,rr:-7,spo2:-2}},
+    propofol:{label:'Propofol',aliases:['propofol'],taskSeconds:20,requiresAccess:true,effect:{duration:150,sys:-24,dia:-14,rr:-12,spo2:-3}},
+    etomidate:{label:'Etomidat',aliases:['etomidat'],taskSeconds:20,requiresAccess:true,effect:{duration:90,sys:-4,rr:-5}},
+    fentanyl:{label:'Fentanyl',aliases:['fentanyl'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-8,dia:-4,rr:-8,spo2:-3}},
+    morphine:{label:'Morphin',aliases:['morphin'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-11,dia:-6,rr:-8,spo2:-3}},
+    piritramide:{label:'Piritramid',aliases:['piritramid','dipidolor'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-9,dia:-5,rr:-7,spo2:-2}},
+    naloxone:{label:'Naloxon',aliases:['naloxon'],taskSeconds:20,requiresAccess:true,effect:{duration:150,rr:9,spo2:6,hr:8}},
+    flumazenil:{label:'Flumazenil',aliases:['flumazenil','anexate'],taskSeconds:20,requiresAccess:true,effect:{duration:120,rr:6,spo2:3}},
+    rocuronium:{label:'Rocuronium',aliases:['rocuronium','esmeron'],taskSeconds:20,requiresAccess:true,effect:{duration:420,paralysis:true}},
+    succinylcholine:{label:'Succinylcholin',aliases:['succinylcholin','lysthenon','suxamethonium'],taskSeconds:20,requiresAccess:true,effect:{duration:120,paralysis:true}},
+    calcium:{label:'Calcium',aliases:['calcium','kalzium'],taskSeconds:25,requiresAccess:true,effect:{duration:150,sys:10,dia:6,iCa:0.14}},
+    magnesium:{label:'Magnesium',aliases:['magnesium'],taskSeconds:25,requiresAccess:true,effect:{duration:240,hr:-8,sys:-5}},
+    bicarbonate:{label:'Natriumbicarbonat',aliases:['bicarbonat','bikarbonat','natriumbicarbonat'],taskSeconds:25,requiresAccess:true,effect:{duration:150,sys:4}},
+    glucose:{label:'Glukose',aliases:['glukose','glucose'],taskSeconds:20,requiresAccess:true,effect:{duration:150,hr:4}},
+    insulin:{label:'Insulin',aliases:['insulin'],taskSeconds:20,requiresAccess:true,effect:{duration:600}},
+    glucagon:{label:'Glukagon',aliases:['glukagon','glucagon'],taskSeconds:20,requiresAccess:true,effect:{duration:150,hr:12,sys:8}},
+    vasopressin:{label:'Vasopressin',aliases:['vasopressin'],taskSeconds:25,requiresAccess:true,effect:{duration:240,sys:22,dia:15}},
+    dobutamine:{label:'Dobutamin',aliases:['dobutamin'],taskSeconds:30,requiresAccess:true,effect:{duration:240,hr:14,sys:18}},
+    ceftriaxone:{label:'Ceftriaxon',aliases:['ceftriaxon'],taskSeconds:30,requiresAccess:true,effect:{duration:600}},
+    pip_tazo:{label:'Piperacillin/Tazobactam',aliases:['piperacillin','tazobactam','pip taz','pip-taz'],taskSeconds:30,requiresAccess:true,effect:{duration:600}},
+    meropenem:{label:'Meropenem',aliases:['meropenem'],taskSeconds:30,requiresAccess:true,effect:{duration:600}}
+  };
+
+  window.TELECARE_MEDICATIONS = Object.freeze(medications);
+})();

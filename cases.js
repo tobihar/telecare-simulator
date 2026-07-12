@@ -82,6 +82,17 @@
       sono: 'V. cava inferior schmal und atemvariabel; linksventrikulär hyperdynam; kein Perikarderguss; kein Hinweis auf Rechtsherzbelastung; freie Flüssigkeit im Abdomen nicht sicher nachweisbar.',
       auscultation: 'Beidseits vesikuläres Atemgeräusch, keine Rasselgeräusche, keine relevante Seitendifferenz. Herztöne tachykard, regelmäßig.'
     },
+    treatmentModifiers: {
+      medications: { default: 1 },
+      interventions: {
+        default: 1,
+        fluid_500: 1,
+        blood_unit: 1,
+        shock_position: 1,
+        norepi_bolus: 1,
+        norepi_perfusor: 1
+      }
+    },
     physiology: {
       difficulty: {
         easy:   { progression: 1.0, spo2Loss: 10.5, criticalMap: 30, arrestSeconds: 99999 },
