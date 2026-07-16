@@ -112,7 +112,7 @@
     scoring: [
       { id:'early_escalation', labelDone:'Chirurgie rechtzeitig informiert', labelMissing:'Chirurgie verspätet oder nicht informiert', thresholdSeconds:120 },
       { id:'bga', labelDone:'BGA durchgeführt', labelMissing:'Keine BGA durchgeführt' },
-      { id:'lab_hb', labelDone:'Hämoglobin kontrolliert', labelMissing:'Keine Hb-Kontrolle in Labor oder BGA' },
+      { id:'lab_hb', labelDone:'Hämoglobin bestimmt', labelMissing:'Hämoglobin nicht bestimmt' },
       { id:'vascular_access', labelDone:'Gefäßzugang vorhanden', labelMissing:'Kein geeigneter Gefäßzugang' },
       { id:'blood_prepared', labelDone:'Blutprodukte vorbereitet', labelMissing:'Keine Blutprodukte vorbereitet' },
       { id:'circulation_therapy', labelDone:'Kreislauftherapie begonnen', labelMissing:'Keine Kreislauftherapie begonnen' }

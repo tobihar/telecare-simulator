@@ -162,25 +162,25 @@
 @media(max-width:1000px){.game-topbar{grid-template-columns:1fr auto}.game-meta{grid-column:1/-1;grid-row:2;justify-content:flex-start}.game-topbar .top-actions{grid-column:2;grid-row:1}.game-brand{grid-column:1;grid-row:1}}
 @media(max-width:700px){.start-form{grid-template-columns:1fr}.start-field:first-child,.start-submit,.start-form .form-error{grid-column:auto}.start-card{padding:24px}.game-topbar{display:flex;flex-wrap:wrap}.game-meta{order:3;width:100%;gap:12px}.game-topbar .top-actions{width:100%;overflow-x:auto}.game-brand{flex:1}}
 
-/* Hervorgehobene neue Befunde im Chat */
-.message.result{border-color:#2bdc78;background:linear-gradient(135deg,rgba(23,117,66,.34),rgba(7,42,27,.78));box-shadow:0 0 0 1px rgba(43,220,120,.22),0 8px 24px rgba(0,0,0,.22)}
-.message.result .message-meta{color:#73f0aa;font-weight:900}
-.blood-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.blood-grid section{display:grid;gap:9px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#0a1018}.blood-grid h3{margin:0 0 3px;font-size:13px;color:var(--blue)}.blood-grid button{text-align:left}.blood-grid button small{display:block;margin-top:4px;color:var(--muted)}
-@media(max-width:680px){.blood-grid{grid-template-columns:1fr}}
 
-/* Vollständiger mehrseitiger Ausdruck des Abschlussprotokolls */
+/* Neue diagnostische Befunde und Blutprodukte im Chat */
+.message.result-arrival{background:linear-gradient(135deg,#0a3523,#102c28);border-color:#2edb86;box-shadow:0 0 0 1px rgba(46,219,134,.18),0 8px 22px rgba(0,0,0,.2)}
+.message.result-arrival .message-meta{color:#70f2ae;font-weight:800}.message.result-arrival::before{content:'NEUER BEFUND';display:inline-block;margin-bottom:6px;padding:2px 7px;border-radius:999px;background:#157348;color:#eafff3;font-size:9px;font-weight:900;letter-spacing:.08em}
+
+/* Vollständiger Druck des Abschlussberichts */
 @media print{
   @page{size:A4;margin:12mm}
-  body{background:#fff!important;color:#111!important;overflow:visible!important}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important;color:#111!important}
   body>*:not(#summaryDialog){display:none!important}
-  #summaryDialog{display:block!important;position:static!important;inset:auto!important;width:100%!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important;overflow:visible!important}
+  #summaryDialog[open]{display:block!important;position:static!important;inset:auto!important;width:auto!important;max-width:none!important;height:auto!important;max-height:none!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important;overflow:visible!important}
   #summaryDialog::backdrop{display:none!important}
-  #summaryDialog .summary-card{display:block!important;width:100%!important;max-width:none!important;max-height:none!important;height:auto!important;overflow:visible!important;background:#fff!important;color:#111!important;border:0!important;box-shadow:none!important;padding:0!important}
-  #summaryDialog .modal-head{border-bottom:1px solid #bbb!important;margin-bottom:10px!important}
-  #summaryDialog .modal-head button,#summaryDialog .modal-actions{display:none!important}
-  #summaryDialog .summary-simple,#summaryDialog .chart-grid{break-inside:avoid;page-break-inside:avoid}
-  #summaryDialog .summary-simple>div,#summaryDialog .vital-chart,#summaryDialog .summary-details,#summaryDialog .summary-timeline{background:#fff!important;color:#111!important;border:1px solid #bbb!important;box-shadow:none!important;overflow:visible!important;max-height:none!important}
-  #summaryDialog h1,#summaryDialog h2,#summaryDialog h3,#summaryDialog p,#summaryDialog li,#summaryDialog span,#summaryDialog strong{color:#111!important}
-  #summaryDialog svg{max-width:100%!important}
-  #summaryDialog .summary-timeline>div{break-inside:avoid;page-break-inside:avoid;border-color:#ddd!important}
+  #summaryDialog .modal-card{width:auto!important;max-width:none!important;max-height:none!important;height:auto!important;overflow:visible!important;background:#fff!important;color:#111!important;border:0!important;box-shadow:none!important;padding:0!important}
+  #summaryDialog .modal-head,.modal-actions{display:none!important}
+  #summaryDialog .summary-timeline{max-height:none!important;overflow:visible!important;background:#fff!important;color:#111!important;border-color:#bbb!important}
+  #summaryDialog .summary-simple>div,#summaryDialog .vital-chart,#summaryDialog .summary-details{background:#fff!important;color:#111!important;border-color:#bbb!important;break-inside:avoid}
+  #summaryDialog .chart-label{fill:#222!important}.chart-axis{stroke:#555!important}
+  #summaryDialog h2,#summaryDialog h3{break-after:avoid}
+  #summaryDialog .chart-grid{grid-template-columns:1fr!important}
+  #summaryDialog .vital-chart{page-break-inside:avoid;margin-bottom:8mm}
 }
+.trend-table-wrap{overflow-x:auto;max-width:100%;border:1px solid var(--line);border-radius:10px}.trend-table{min-width:680px}.trend-table th:first-child{position:sticky;left:0;z-index:2;background:#0d1117;min-width:180px}.trend-table thead th{vertical-align:bottom;white-space:nowrap}.trend-table th small{display:block;margin-top:4px;color:var(--muted);font-size:9px;font-weight:500}.trend-table td{text-align:center;white-space:nowrap}.trend-missing{color:var(--muted)}

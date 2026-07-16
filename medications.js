@@ -16,7 +16,7 @@
     dimetindene:{label:'Dimetinden',aliases:['dimetinden','fenistil'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-4}},
     ketamine:{label:'Ketamin',aliases:['ketamin','ketanest'],taskSeconds:25,requiresAccess:true,effect:{duration:150,hr:12,sys:12}},
     midazolam:{label:'Midazolam',aliases:['midazolam','dormicum'],taskSeconds:20,requiresAccess:true,effect:{duration:180,sys:-10,dia:-5,rr:-7,spo2:-2}},
-    propofol:{label:'Propofol',aliases:['propofol'],taskSeconds:20,requiresAccess:true,effect:{duration:180,sys:-32,dia:-18,rr:-22,spo2:-6}},
+    propofol:{label:'Propofol',aliases:['propofol'],taskSeconds:20,requiresAccess:true,effect:{duration:180,sys:-30,dia:-18,rr:-19,spo2:-6}},
     etomidate:{label:'Etomidat',aliases:['etomidat'],taskSeconds:20,requiresAccess:true,effect:{duration:90,sys:-4,rr:-5}},
     fentanyl:{label:'Fentanyl',aliases:['fentanyl'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-8,dia:-4,rr:-8,spo2:-3}},
     morphine:{label:'Morphin',aliases:['morphin'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-11,dia:-6,rr:-8,spo2:-3}},
@@ -36,7 +36,7 @@
     ceftriaxone:{label:'Ceftriaxon',aliases:['ceftriaxon'],taskSeconds:30,requiresAccess:true,effect:{duration:600}},
     pip_tazo:{label:'Piperacillin/Tazobactam',aliases:['piperacillin','tazobactam','pip taz','pip-taz'],taskSeconds:30,requiresAccess:true,effect:{duration:600}},
     meropenem:{label:'Meropenem',aliases:['meropenem'],taskSeconds:30,requiresAccess:true,effect:{duration:600}},
-    fibrinogen:{label:'Fibrinogenkonzentrat',aliases:['fibrinogen','fibrinogenkonzentrat','haemocomplettan','haemocomplettan p'],taskSeconds:30,requiresAccess:true,effect:{duration:600,bleedingMultiplier:0.62}}
+    fibrinogen:{label:'Fibrinogenkonzentrat',aliases:['fibrinogen','fibrinogenkonzentrat','haemocomplettan','haemocomplettan p'],taskSeconds:30,requiresAccess:true,effect:{duration:600,bleedingReduction:0.25}}
   };
 
   window.TELECARE_MEDICATIONS = Object.freeze(medications);
