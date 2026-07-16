@@ -70,3 +70,29 @@ dialog::backdrop{background:rgba(28,39,55,.48);backdrop-filter:blur(3px)}
 
 
 .evaluation-admin-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}.evaluation-admin-grid .metric strong{font-size:18px}@media(max-width:800px){.evaluation-admin-grid{grid-template-columns:1fr}}
+
+/* Dozenten-Dashboard: Navigation, Löschung und Evaluationen */
+.admin-tabs{display:flex;gap:8px;background:var(--panel);border:1px solid var(--line);padding:7px;border-radius:14px;box-shadow:0 6px 20px rgba(37,55,79,.06)}
+.tab-btn{background:#eef3f8;color:#41546a;border-color:#d2dce8}
+.tab-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.admin-view{display:grid;gap:14px}
+.row-actions{display:flex;gap:7px;white-space:nowrap}
+.compact{padding:7px 9px;font-size:11px}
+.danger{background:#c9364f;border-color:#b72d45;color:#fff}
+.danger-outline{border-color:#d68a98!important;color:#a6243b!important;background:#fff!important}
+.detail-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 15px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.summary-header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;background:var(--panel);border:1px solid var(--line);padding:18px 20px;border-radius:15px;box-shadow:var(--shadow)}
+.summary-header h2{margin:0 0 4px}.summary-header p{margin:0}
+.summary-header select{min-width:280px;padding:11px;border:1px solid var(--line-strong);border-radius:10px;background:#fff;color:var(--text)}
+.summary-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,240px));gap:12px}
+.summary-kpis .metric strong{font-size:25px}
+.summary-panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:var(--shadow)}
+.summary-panel h3{margin:0 0 15px}
+.summary-row{display:grid;grid-template-columns:minmax(220px,1fr) minmax(240px,2fr) 55px;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid #e7ebf1}
+.summary-row:last-child{border-bottom:0}
+.summary-label{display:flex;justify-content:space-between;gap:10px;align-items:center}.summary-label span{font-size:13px}.summary-label strong{font-size:13px}
+.summary-track{height:16px;background:#e7edf4;border-radius:999px;overflow:hidden}.summary-fill{height:100%;border-radius:999px}.summary-fill.good{background:#27a35a}.summary-fill.medium{background:#e5a72d}.summary-fill.bad{background:#d44a55}
+.summary-row small{color:var(--muted);text-align:right}
+.technical-summary{display:flex;align-items:baseline;gap:10px}.technical-summary strong{font-size:34px;color:var(--red)}.technical-summary span{color:var(--muted)}
+.empty-state{background:var(--panel);border:1px dashed var(--line-strong);border-radius:14px;padding:25px;text-align:center}
+@media(max-width:800px){.admin-tabs{overflow:auto}.summary-header{align-items:stretch;flex-direction:column}.summary-header select{min-width:0;width:100%}.summary-row{grid-template-columns:1fr}.summary-kpis{grid-template-columns:1fr}.row-actions{flex-direction:column}}

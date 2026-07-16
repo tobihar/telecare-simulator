@@ -23,21 +23,42 @@
 
     <section id="dashboardView" class="dashboard hidden">
       <header class="dashboard-head">
-        <div><div class="eyebrow">TeleCare</div><h1>Ergebnisse</h1><p id="sessionInfo"></p></div>
+        <div><div class="eyebrow">TeleCare</div><h1>Dozentenbereich</h1><p id="sessionInfo"></p></div>
         <div class="head-actions"><a class="button secondary" href="/api/admin/export.csv">CSV exportieren</a><button id="logoutBtn" class="secondary">Abmelden</button></div>
       </header>
-      <div class="toolbar">
-        <input id="searchInput" placeholder="Benutzername suchen …" />
-        <button id="searchBtn">Suchen</button>
-        <button id="refreshBtn" class="secondary">Aktualisieren</button>
-      </div>
-      <p id="dashboardMessage" class="message"></p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Datum</th><th>Benutzername</th><th>Fall</th><th>Schwierigkeit</th><th>Ergebnis</th><th>Score</th><th>Evaluation</th><th></th></tr></thead>
-          <tbody id="resultsBody"></tbody>
-        </table>
-      </div>
+
+      <nav class="admin-tabs" aria-label="Bereiche">
+        <button class="tab-btn active" data-view="resultsView">Ergebnisse</button>
+        <button class="tab-btn" data-view="caseSummaryView">Fall-Evaluationen</button>
+        <button class="tab-btn" data-view="systemSummaryView">System-Evaluation</button>
+      </nav>
+
+      <section id="resultsView" class="admin-view">
+        <div class="toolbar">
+          <input id="searchInput" placeholder="Benutzername suchen …" />
+          <button id="searchBtn">Suchen</button>
+          <button id="refreshBtn" class="secondary">Aktualisieren</button>
+        </div>
+        <p id="dashboardMessage" class="message"></p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Datum</th><th>Benutzername</th><th>Fall</th><th>Schwierigkeit</th><th>Ergebnis</th><th>Score</th><th>Evaluation</th><th></th></tr></thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="caseSummaryView" class="admin-view hidden">
+        <div class="summary-header"><div><h2>Evaluation der Fälle</h2><p>Zusammenfassung nach Fall. Niedrige Werte markieren möglichen Verbesserungsbedarf.</p></div><select id="caseSummarySelect"></select></div>
+        <p id="caseSummaryMessage" class="message"></p>
+        <div id="caseSummaryContent"></div>
+      </section>
+
+      <section id="systemSummaryView" class="admin-view hidden">
+        <div class="summary-header"><div><h2>Evaluation des TeleCare-Systems</h2><p>Gesamtauswertung aller abgegebenen Systembewertungen.</p></div></div>
+        <p id="systemSummaryMessage" class="message"></p>
+        <div id="systemSummaryContent"></div>
+      </section>
     </section>
   </main>
 

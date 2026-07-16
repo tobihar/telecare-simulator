@@ -276,6 +276,47 @@ async function getResult(req,res,id){
   try{const data=await supabaseRequest(`simulation_results?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,{method:'GET'});if(!data?.length)return json(res,404,{error:'Ergebnis nicht gefunden.'});const evals=await supabaseRequest(`simulation_evaluations?select=*&simulation_result_id=eq.${encodeURIComponent(id)}&limit=1`,{method:'GET'}).catch(()=>[]);json(res,200,{result:{...data[0],evaluation:evals?.[0]||null}});}
   catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
 }
+async function deleteResult(req,res,id){
+  if(!adminRequired(req,res))return;
+  try{
+    await supabaseRequest(`simulation_results?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});
+    json(res,200,{ok:true});
+  }catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
+}
+async function deleteEvaluation(req,res,id){
+  if(!adminRequired(req,res))return;
+  try{
+    await supabaseRequest(`simulation_evaluations?simulation_result_id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});
+    await supabaseRequest(`simulation_results?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({evaluation_completed:false,evaluation_skipped:false})});
+    json(res,200,{ok:true});
+  }catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
+}
+function averageFrom(items,key){
+  const values=items.map(x=>Number(x?.[key])).filter(v=>Number.isFinite(v)&&v>=1&&v<=5);
+  return values.length?values.reduce((a,b)=>a+b,0)/values.length:0;
+}
+async function evaluationSummary(req,res){
+  if(!adminRequired(req,res))return;
+  try{
+    const data=await supabaseRequest('simulation_evaluations?select=case_name,answers,skipped&skipped=eq.false&order=created_at.desc&limit=10000',{method:'GET'});
+    const evaluations=(data||[]).filter(x=>x&&!x.skipped&&x.answers&&typeof x.answers==='object');
+    const systemKeys=['system_easy','system_clear','system_chat','system_overview','system_teaching','system_more_cases'];
+    const caseKeys=['case_realistic','case_reactions','case_difficulty','case_apply_knowledge','case_understanding','case_overwhelmed','case_recommend'];
+    const build=(items,section,keys,invertedKeys=[])=>{
+      const objects=items.map(x=>x.answers?.[section]||{});
+      const averages=Object.fromEntries(keys.map(k=>[k,Number(averageFrom(objects,k).toFixed(3))]));
+      const scoredValues=keys.map(k=>invertedKeys.includes(k)?6-Number(averages[k]):Number(averages[k])).filter(Number.isFinite);
+      const overallAverage=scoredValues.length?scoredValues.reduce((a,b)=>a+b,0)/scoredValues.length:0;
+      const technicalYes=items.filter(x=>x.answers?.technicalProblems===true).length;
+      return {count:items.length,averages,overallAverage:Number(overallAverage.toFixed(3)),technicalProblems:{yes:technicalYes,total:items.length}};
+    };
+    const system=build(evaluations,'system',systemKeys);
+    const groups=new Map();
+    for(const item of evaluations){const name=String(item.case_name||'Unbekannter Fall');if(!groups.has(name))groups.set(name,[]);groups.get(name).push(item);}
+    const cases=[...groups.entries()].map(([caseName,items])=>({caseName,...build(items,'case',caseKeys,['case_overwhelmed'])})).sort((a,b)=>a.caseName.localeCompare(b.caseName,'de'));
+    json(res,200,{system,cases});
+  }catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
+}
 
 function csvCell(value){const s=String(value??'');return /[";,\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 async function exportCsv(req,res){
@@ -302,8 +343,12 @@ const server=http.createServer(async(req,res)=>{
     if(req.method==='GET'&&u.pathname==='/api/admin/session')return json(res,isAdmin(req)?200:401,{authenticated:isAdmin(req),username:isAdmin(req)?ADMIN_USERNAME:null,database:databaseConfigured()});
     if(req.method==='GET'&&u.pathname==='/api/admin/results')return listResults(req,res,u);
     if(req.method==='GET'&&u.pathname==='/api/admin/export.csv')return exportCsv(req,res);
+    if(req.method==='GET'&&u.pathname==='/api/admin/evaluations/summary')return evaluationSummary(req,res);
+    const evaluationDelete=u.pathname.match(/^\/api\/admin\/results\/([a-zA-Z0-9-]+)\/evaluation$/);
+    if(req.method==='DELETE'&&evaluationDelete)return deleteEvaluation(req,res,evaluationDelete[1]);
     const detail=u.pathname.match(/^\/api\/admin\/results\/([a-zA-Z0-9-]+)$/);
     if(req.method==='GET'&&detail)return getResult(req,res,detail[1]);
+    if(req.method==='DELETE'&&detail)return deleteResult(req,res,detail[1]);
     if(req.method==='GET'||req.method==='HEAD')return staticFile(req,res,u.pathname);
     text(res,405,'Method not allowed');
   }catch(e){console.error('Unhandled server error:',e);if(!res.headersSent)json(res,500,{error:'Interner Serverfehler.'});else res.end();}

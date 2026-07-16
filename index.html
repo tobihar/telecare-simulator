@@ -131,8 +131,14 @@
 
   <dialog id="evaluationDialog" class="modal evaluation-modal">
     <div class="modal-card wide evaluation-card">
-      <div class="modal-head"><div><span class="kicker">Pflicht vor der Auswertung</span><h2>Evaluation</h2></div></div>
-      <p class="modal-note">Bitte bewerte den Fall und das TeleCare-System. Deine Antworten werden automatisch zwischengespeichert. Es werden keine realen Patientendaten benötigt.</p>
+      <div class="modal-head evaluation-head">
+        <div><span class="kicker">Pflicht vor der Auswertung</span><h2>Evaluation</h2></div>
+        <details class="evaluation-skip evaluation-skip-top">
+          <summary>Dozentenzugang</summary>
+          <form id="evaluationSkipForm"><input id="evaluationSkipPassword" type="password" autocomplete="off" placeholder="Passwort" required><button type="submit">Überspringen</button><p id="evaluationSkipError" class="form-error hidden"></p></form>
+        </details>
+      </div>
+      <p class="modal-note">Bitte bewerte den Fall und das TeleCare-System. Deine Antworten werden automatisch zwischengespeichert und vertraulich ausgewertet. Sie sind nur im geschützten Dozentenbereich einsehbar. Es werden keine realen Patientendaten benötigt.</p>
       <form id="evaluationForm">
         <section class="evaluation-section"><h3>Fragen zum TeleCare-System</h3><div id="systemEvaluationQuestions" class="evaluation-questions"></div></section>
         <section class="evaluation-section"><h3>Fragen zum Fall</h3><div id="caseEvaluationQuestions" class="evaluation-questions"></div></section>
@@ -144,7 +150,6 @@
         <p id="evaluationError" class="form-error hidden">Bitte beantworte alle Pflichtfragen.</p>
         <div class="modal-actions evaluation-actions"><button type="submit" class="primary">Evaluation absenden & Auswertung anzeigen</button></div>
       </form>
-      <details class="evaluation-skip"><summary>Evaluation mit Dozentenpasswort überspringen</summary><form id="evaluationSkipForm"><input id="evaluationSkipPassword" type="password" autocomplete="off" placeholder="Passwort" required><button type="submit">Überspringen</button><p id="evaluationSkipError" class="form-error hidden"></p></form></details>
       <p id="evaluationSaveStatus" class="save-status"></p>
     </div>
   </dialog>
