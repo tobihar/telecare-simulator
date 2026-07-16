@@ -88,3 +88,40 @@ Ein Multiplikator von `1` lässt die Basiswirkung unverändert. Beispiel: `fluid
 ## Semi-physiologische Engine
 
 Die Datei `physiology.js` enthält ein bewusst vereinfachtes hybrides Modell für zirkulierendes Volumen, venösen Rückstrom, Gefäßtonus, Kontraktilität, Atemantrieb und Perfusionsdefizit. Es ist keine vollständige Humanphysiologie-Simulation. Details und automatisierte Vergleichsergebnisse stehen in `HYBRID_VALIDATION_REPORT.md`.
+
+## Evaluation nach Fallende
+
+Nach Ende eines Falls erscheint vor der persönlichen Auswertung ein Pflichtfragebogen mit:
+
+- 6 Fragen zum TeleCare-System
+- 7 Fragen zum konkreten Fall
+- Frage nach technischen Problemen
+
+Alle Likert-Fragen werden von 1 bis 5 beantwortet. Eingaben werden fortlaufend im Browser zwischengespeichert. Wird die Seite geschlossen oder neu geladen, öffnet sich auf demselben Gerät und im selben Browser wieder die noch offene Evaluation.
+
+Die Auswertung wird erst nach erfolgreicher Abgabe angezeigt. Mit einem Dozentenpasswort kann die Evaluation übersprungen werden.
+
+### Einmalige Datenbankmigration
+
+Im Supabase SQL Editor die Datei `supabase-evaluation-migration.sql` ausführen. Alternativ kann die vollständige `supabase-setup.sql` erneut ausgeführt werden.
+
+### Neue Render-Variable
+
+```text
+EVALUATION_SKIP_PASSWORD=DEIN_PASSWORT
+```
+
+Dieses Passwort ist ausschließlich zum Überspringen der Evaluation gedacht und sollte nicht an Lernende weitergegeben werden.
+
+### Dozentenbereich
+
+Unter `/admin` werden jetzt angezeigt:
+
+- Status der Evaluation: abgegeben, übersprungen oder offen
+- alle Einzelantworten in der Detailansicht
+- technische Probleme und Freitext
+- Evaluationen im CSV-Export
+
+## Noradrenalin-Perfusor
+
+Wird bei der niedrigsten Laufstufe erneut auf `−` geklickt, geht der Perfusor in **Standby (0,00 µg/kg/min)**. Mit `+` wird er wieder auf der niedrigsten Stufe gestartet. `Stop` entfernt den Perfusor vollständig.
