@@ -84,3 +84,7 @@ Der Fall kann anschließend oben im Simulator ausgewählt werden. Während einer
 - `cases.js`: fallspezifische Wirkungsmodifikatoren unter `treatmentModifiers`.
 
 Ein Multiplikator von `1` lässt die Basiswirkung unverändert. Beispiel: `fluid_500: 0.3` schwächt den Volumeneffekt in einem kardiogenen Fall ab; `norepi_perfusor: 1.5` verstärkt die Reaktion auf Noradrenalin.
+
+## Semi-physiologische Engine
+
+Die Datei `physiology.js` enthält ein bewusst vereinfachtes hybrides Modell für zirkulierendes Volumen, venösen Rückstrom, Gefäßtonus, Kontraktilität, Atemantrieb und Perfusionsdefizit. Es ist keine vollständige Humanphysiologie-Simulation. Details und automatisierte Vergleichsergebnisse stehen in `HYBRID_VALIDATION_REPORT.md`.

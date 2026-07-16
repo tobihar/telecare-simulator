@@ -62,3 +62,5 @@ dialog::backdrop{background:rgba(28,39,55,.48);backdrop-filter:blur(3px)}
 .tag-list{display:flex;flex-wrap:wrap;gap:7px}
 .tag{padding:5px 8px;border:1px solid #bfd1e4;background:var(--blue-soft);border-radius:999px;color:#31536f;font-size:11px}
 @media(max-width:760px){.admin-shell{padding:10px}.dashboard-head,.toolbar{align-items:stretch;flex-direction:column}.head-actions{flex-wrap:wrap}.toolbar input{min-width:0;width:100%}.detail-grid{grid-template-columns:1fr}}
+.admin-chart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.admin-chart{border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px}.admin-chart h4{margin:0 0 6px;color:var(--text)}.admin-chart svg{width:100%;height:auto;display:block}.admin-chart-axis{stroke:#8090a4;stroke-width:1.2}.admin-chart-guide{stroke:#e4e9f0;stroke-width:1}.admin-chart-label{fill:#65758b;font-size:11px}
+@media(max-width:1000px){.admin-chart-grid{grid-template-columns:1fr}}

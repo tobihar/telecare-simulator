@@ -79,7 +79,7 @@
       riskFactors: 'Frische große abdominalchirurgische Operation.'
     },
     diagnostics: {
-      sono: 'V. cava inferior schmal und atemvariabel; linksventrikulär hyperdynam; kein Perikarderguss; kein Hinweis auf Rechtsherzbelastung; freie Flüssigkeit im Abdomen nicht sicher nachweisbar.',
+      sono: 'V. cava inferior schmal und atemvariabel; linksventrikulär hyperdynam; kein Perikarderguss; kein Hinweis auf Rechtsherzbelastung; freie Flüssigkeit im Abdomen nachweisbar. Das Abdomen ist gespannt und hart.',
       auscultation: 'Beidseits vesikuläres Atemgeräusch, keine Rasselgeräusche, keine relevante Seitendifferenz. Herztöne tachykard, regelmäßig.'
     },
     treatmentModifiers: {
@@ -110,9 +110,9 @@
       bleedingGainPerTick: 0.012
     },
     scoring: [
-      { id:'early_escalation', labelDone:'Operatives Team früh alarmiert', labelMissing:'Eskalation verspätet oder nicht erfolgt', thresholdSeconds:120 },
+      { id:'early_escalation', labelDone:'Chirurgie rechtzeitig informiert', labelMissing:'Chirurgie verspätet oder nicht informiert', thresholdSeconds:120 },
       { id:'bga', labelDone:'BGA durchgeführt', labelMissing:'Keine BGA durchgeführt' },
-      { id:'lab_hb', labelDone:'Hämoglobin bestimmt', labelMissing:'Hämoglobin nicht bestimmt' },
+      { id:'lab_hb', labelDone:'Hämoglobin kontrolliert', labelMissing:'Keine Hb-Kontrolle in Labor oder BGA' },
       { id:'vascular_access', labelDone:'Gefäßzugang vorhanden', labelMissing:'Kein geeigneter Gefäßzugang' },
       { id:'blood_prepared', labelDone:'Blutprodukte vorbereitet', labelMissing:'Keine Blutprodukte vorbereitet' },
       { id:'circulation_therapy', labelDone:'Kreislauftherapie begonnen', labelMissing:'Keine Kreislauftherapie begonnen' }
