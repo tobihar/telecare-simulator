@@ -199,3 +199,42 @@
 .evaluation-skip-top input{min-width:140px}
 .evaluation-skip-top .form-error{grid-column:1/-1;margin:0}
 @media(max-width:700px){.evaluation-head{display:grid}.evaluation-skip-top{margin:0;text-align:left;width:100%}.evaluation-skip-top form{grid-template-columns:1fr}}
+
+
+/* Tablet-/iPad-Layout: eigener Modus statt verkleinertem Desktop */
+.tablet-orientation-hint{display:none}
+@media (min-width:768px) and (max-width:1180px){
+  html,body{min-height:100%;overflow:auto}
+  body{overscroll-behavior:none}
+  .app-shell{max-width:none;width:100%;min-height:100dvh;padding:8px;display:flex;flex-direction:column;gap:8px}
+  .game-topbar{margin:0;gap:10px;padding:8px 10px;position:sticky;top:0;z-index:20}
+  .game-brand strong{font-size:17px}.game-brand span{display:none}
+  .game-meta{gap:12px}.game-meta>div{min-width:72px}.game-meta .game-timer strong{font-size:21px}
+  .game-topbar .top-actions{overflow-x:auto;scrollbar-width:none}.game-topbar .top-actions::-webkit-scrollbar{display:none}
+  .game-topbar .top-actions button{min-height:44px;padding:8px 10px}
+  .vital-strip{margin:0;gap:6px;padding:6px;grid-template-columns:repeat(4,minmax(0,1fr));position:sticky;top:72px;z-index:15}
+  .strip-vital{min-height:82px;padding:7px}.strip-vital strong{font-size:25px}.strip-vital.nibp strong,.strip-vital.art strong{font-size:20px}
+  button,.action-btn,.choice-grid button,.chat-form button{min-height:44px}
+  input,textarea,select{font-size:16px}
+  .main-layout{min-height:0;align-items:stretch;margin:0}
+  .left-column,.right-column{min-width:0;display:grid;gap:8px;align-content:start}
+  .main-chat{min-height:0;height:auto}.chat-log{min-height:300px;max-height:none}.chat-form{position:sticky;bottom:0;background:var(--panel);padding-top:6px;z-index:5}
+  .panel{padding:10px;border-radius:12px}.panel-title-row{margin-bottom:7px}.panel h2{font-size:15px}
+  .staff-card{min-height:92px}.order-list{max-height:190px}.patient-map{grid-template-columns:72px 1fr}
+  dialog.modal{max-height:94dvh}.modal-card{max-height:92dvh;overflow:auto}
+}
+@media (min-width:768px) and (max-width:1180px) and (orientation:landscape){
+  html,body{height:100%;overflow:hidden}
+  .app-shell{height:100dvh;overflow:hidden}
+  .main-layout{flex:1;display:grid;grid-template-columns:245px minmax(0,1fr) 285px;grid-template-areas:'left chat right';gap:8px;overflow:hidden}
+  .left-column{grid-area:left;overflow:auto}.main-chat{grid-area:chat;height:100%;overflow:hidden}.right-column{grid-area:right;overflow:auto}
+  .chat-log{flex:1;min-height:0;overflow:auto}
+  .vital-strip{grid-template-columns:repeat(6,minmax(105px,1fr)) minmax(220px,1.2fr);top:0;position:relative}
+}
+@media (min-width:768px) and (max-width:1180px) and (orientation:portrait){
+  .tablet-orientation-hint{display:block;background:#3b2a08;color:#ffe39a;border:1px solid #8c681c;border-radius:10px;padding:8px 12px;text-align:center;font-size:12px;font-weight:800}
+  .vital-strip{top:112px;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .main-layout{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:'chat chat' 'left right';gap:8px}
+  .main-chat{grid-area:chat;min-height:48dvh}.left-column{grid-area:left}.right-column{grid-area:right}
+  .chat-log{min-height:34dvh;max-height:48dvh}
+}

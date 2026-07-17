@@ -9,12 +9,13 @@
    */
   function createInitial(caseConfig) {
     const initial = caseConfig.patient.initial;
+    const septic = caseConfig.physiology?.model === 'sepsis';
     return {
-      circulatingVolume: 0.91,
-      venousTone: 1.0,
-      vascularTone: 1.02,
-      contractility: 1.0,
-      respiratoryDrive: 1.0,
+      circulatingVolume: septic ? 0.73 : 0.91,
+      venousTone: septic ? 0.94 : 1.0,
+      vascularTone: septic ? 0.72 : 1.02,
+      contractility: septic ? 0.86 : 1.0,
+      respiratoryDrive: septic ? 1.42 : 1.0,
       oxygenReserve: clamp(initial.spo2 / 96, 0.7, 1.05),
       perfusionDebt: clamp((4.0 - initial.lactate) / 10, 0.04, 0.25),
       strokeVolumeIndex: 0.88,
@@ -49,10 +50,11 @@
     } = args;
 
     const med = medicationDomainTotals(medicationEffects);
-    const diseaseVolumeTarget = clamp(0.98 - severity * 0.42, 0.22, 0.98);
-    const diseaseToneTarget = clamp(1.08 - Math.max(0, severity - 0.55) * 0.18, 0.72, 1.16);
-    const diseaseContractilityTarget = clamp(1.0 - severity * 0.08, 0.68, 1.02);
-    const diseaseRespiratoryTarget = clamp(1.0 + severity * 0.32, 0.55, 1.75);
+    const septic = caseConfig.physiology?.model === 'sepsis';
+    const diseaseVolumeTarget = septic ? clamp(0.76 - severity * 0.10, 0.48, 0.78) : clamp(0.98 - severity * 0.42, 0.22, 0.98);
+    const diseaseToneTarget = septic ? clamp(0.82 - severity * 0.20, 0.43, 0.84) : clamp(1.08 - Math.max(0, severity - 0.55) * 0.18, 0.72, 1.16);
+    const diseaseContractilityTarget = septic ? clamp(0.91 - severity * 0.11, 0.58, 0.92) : clamp(1.0 - severity * 0.08, 0.68, 1.02);
+    const diseaseRespiratoryTarget = septic ? clamp(1.42 + severity * 0.22, 1.25, 1.90) : clamp(1.0 + severity * 0.32, 0.55, 1.75);
 
     // Schwere Hypoxie wirkt zeitverzögert auf Kontraktilität und Herzfrequenz.
     if (patient.spo2 < 60) {
@@ -82,9 +84,9 @@
     // Noradrenalin wirkt bei ausreichender Vorlast deutlich stärker. Bei schwerer
     // Hypovolämie bleibt der vasopressorische Effekt bewusst begrenzt.
     const volumeResponse = clamp(0.18 + Math.pow(effectiveVolume, 1.35) * 0.86, 0.20, 1.08);
-    const norepiDoseTone = norepiRate * 0.092 * mod('norepi_perfusor');
+    const norepiDoseTone = norepiRate * (septic ? 0.38 : 0.092) * mod('norepi_perfusor');
     const norepiTone = (norepiBolus * 0.22 * mod('norepi_bolus') + norepiDoseTone) * volumeResponse;
-    const effectiveTone = clamp(core.vascularTone + norepiTone, 0.55, 1.82);
+    const effectiveTone = clamp(core.vascularTone + norepiTone, 0.55, septic ? 1.58 : 1.82);
     const effectiveContractility = clamp(core.contractility + (norepiBolus * 0.050 + norepiRate * 0.015) * volumeResponse, 0.38, 1.48);
 
     const currentHr = clamp(patient.hr, 20, 190);

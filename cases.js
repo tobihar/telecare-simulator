@@ -119,8 +119,91 @@
     ]
   };
 
+
+  const septicShock = {
+    id: 'septic_shock_05',
+    title: 'Septischer Schock bei Urosepsis',
+    shortTitle: 'Septischer Schock',
+    number: 'Fall 05',
+    setting: 'Notaufnahme',
+    enabled: true,
+    defaultDurationSeconds: 600,
+    availableDurations: [300, 600, 900, 1200],
+    briefing: {
+      sender: 'Fatou',
+      text: 'Es ist Sonntag, 09:15 Uhr, in der Notaufnahme. Vom angrenzenden Pflegeheim wird die 75-jährige Frau Berger vorgestellt. Sie habe beim Frühstück nichts gegessen und sei so schläfrig gewesen, dass sie fast vom Stuhl gefallen wäre. Sie trägt dauerhaft einen Blasenkatheter; der Urin ist trüb und flockig. Eine Pflegeassistenz aus dem Heim ist dabei, kennt die Patientin aber kaum. Bitte übernehmen Sie.'
+    },
+    patient: {
+      age: 75, sex: 'weiblich', weightKg: 60,
+      initial: {hr:110,sys:65,dia:35,spo2:90,rr:34,temp:38.9,mental:'somnolent und verwirrt',lactate:10.0,hb:9.4,iCa:1.06,glucose:80,bleeding:0},
+      visible: {skin:'warm und feucht, peripher schlecht perfundiert',observationDescription:'Dauerkatheter mit trübem, flockigem Urin; seit Stunden nahezu keine Urinausscheidung',urineMlPerHour:0}
+    },
+    initialAccess: ['bladder'],
+    staff: [
+      {id:1,name:'Annika',role:'doctor',icon:'🩺'},
+      {id:2,name:'Stefan',role:'nurse',icon:'👨‍⚕️'},
+      {id:3,name:'Fatou',role:'nurse',icon:'👩‍⚕️'}
+    ],
+    labs: {
+      hb:{label:'Hämoglobin',value:'9,4 g/dl',norm:'12,0–16,0 g/dl',abnormal:true,dynamic:'hb'},
+      hct:{label:'Hämatokrit',value:'28 %',norm:'36–46 %',abnormal:true,dynamic:'hct'},
+      platelets:{label:'Thrombozyten',value:'108.000/µl',norm:'150.000–400.000/µl',abnormal:true},
+      leukocytes:{label:'Leukozyten',value:'22,4 /nl',norm:'4,0–10,0 /nl',abnormal:true},
+      crp:{label:'CRP',value:'300 mg/l',norm:'<5 mg/l',abnormal:true},
+      pct:{label:'Prokalzitonin',value:'34 ng/ml',norm:'<0,5 ng/ml',abnormal:true},
+      il6:{label:'IL-6',value:'1.850 pg/ml',norm:'<7 pg/ml',abnormal:true},
+      sodium:{label:'Natrium',value:'130 mmol/l',norm:'135–145 mmol/l',abnormal:true},
+      potassium:{label:'Kalium',value:'5,0 mmol/l',norm:'3,5–5,1 mmol/l'},
+      calcium:{label:'Calcium gesamt',value:'2,02 mmol/l',norm:'2,15–2,55 mmol/l',abnormal:true,dynamic:'calcium'},
+      creatinine:{label:'Kreatinin',value:'3,0 mg/dl',norm:'0,6–1,1 mg/dl',abnormal:true},
+      urea:{label:'Harnstoff',value:'112 mg/dl',norm:'17–43 mg/dl',abnormal:true},
+      ast:{label:'AST (GOT)',value:'88 U/l',norm:'<35 U/l',abnormal:true},
+      alt:{label:'ALT (GPT)',value:'62 U/l',norm:'<35 U/l',abnormal:true},
+      bilirubin:{label:'Bilirubin gesamt',value:'1,8 mg/dl',norm:'<1,2 mg/dl',abnormal:true},
+      inr:{label:'INR',value:'1,5',norm:'0,9–1,2',abnormal:true},
+      aptt:{label:'aPTT',value:'43 s',norm:'25–35 s',abnormal:true},
+      fibrinogen:{label:'Fibrinogen',value:'520 mg/dl',norm:'200–400 mg/dl',abnormal:true},
+      d_dimer:{label:'D-Dimere',value:'5,8 mg/l FEU',norm:'<0,5 mg/l FEU',abnormal:true},
+      lactate:{label:'Laktat',value:'10,0 mmol/l',norm:'0,5–2,2 mmol/l',abnormal:true,dynamic:'lactate'},
+      troponin:{label:'hs-Troponin T',value:'72 ng/l',norm:'<14 ng/l',abnormal:true},
+      blood_cultures:{label:'Blutkulturen',value:'Abgenommen – Ergebnis frühestens in mehreren Stunden/Tagen',norm:'—'},
+      urine_culture:{label:'Urinkultur',value:'Abgenommen – mikrobiologisches Ergebnis ausstehend',norm:'—'}
+    },
+    bga: { staticRows:[['Na⁺','130 mmol/l','135–145 mmol/l',true],['K⁺','5,0 mmol/l','3,5–5,1 mmol/l',false]] },
+    history: {
+      allergy:'Keine Allergien bekannt.',
+      symptoms:'Aufgrund fortgeschrittener Demenz und Somnolenz kaum Eigenangaben. Druckschmerz im Unterbauch, Klopfschmerz über dem linken Nierenlager; laut Begleitperson einmaliges Erbrechen.',
+      medication:'Der Medikamentenplan wird vom Pflegeheim nachgeliefert. Laut Pflegeassistenz nimmt Frau Berger „viele Medikamente“.',
+      previousHistory:'Fortgeschrittene Alzheimer-Demenz, arterielle Hypertonie und Pflegebedürftigkeit.',
+      lastMeal:'Zuletzt gestern Abend gegessen; beim Frühstück heute praktisch nichts aufgenommen.',
+      events:'Beim Frühstück durch ausgeprägte Schläfrigkeit aufgefallen. Laut Pflegeassistenz ging es ihr bereits seit einiger Zeit „nicht gut“.',
+      riskFactors:'Dauerkatheter, Pflegebedürftigkeit und mögliche Harnwegsinfektion.'
+    },
+    diagnostics: {
+      sono:'Global leicht bis mäßig reduzierte linksventrikuläre Pumpfunktion, kein Perikarderguss. V. cava inferior deutlich atemkollaptisch. Linke Niere vergrößert und echoärmer mit unscharfer Mark-Rinden-Differenzierung. Einliegender Blasenkatheter, Konkrement und etwa 100 ml Blasenfüllung.',
+      auscultation:'Beidseits vesikuläres Atemgeräusch, keine Rasselgeräusche. Herztöne tachykard und absolut arrhythmisch.',
+      ecg:'Tachykardes Vorhofflimmern, Linkstyp, keine akuten ST-Hebungen.'
+    },
+    treatmentModifiers:{medications:{default:1,pip_tazo:1,ceftriaxone:1,meropenem:1},interventions:{default:1,fluid_500:1,norepi_bolus:1,norepi_perfusor:1,shock_position:1,blood_unit:.25}},
+    physiology:{
+      model:'sepsis',
+      difficulty:{easy:{progression:.72,spo2Loss:5.0,criticalMap:28,arrestSeconds:99999},medium:{progression:.90,spo2Loss:7.0,criticalMap:25,arrestSeconds:120},hard:{progression:1.10,spo2Loss:9.0,criticalMap:28,arrestSeconds:75}},
+      lactateGainPerTick:.018,hbLossPerTick:0,bleedingGainPerTick:0,tempTarget:39.3
+    },
+    scoring:[
+      {id:'sepsis_recognized',labelDone:'Sepsis beziehungsweise septischen Schock erkannt',labelMissing:'Sepsis/Schock nicht rechtzeitig erkannt',thresholdSeconds:240},
+      {id:'bga',labelDone:'BGA und Laktat bestimmt',labelMissing:'Keine BGA/Laktatbestimmung'},
+      {id:'blood_cultures',labelDone:'Blutkulturen angefordert',labelMissing:'Keine Blutkulturen angefordert'},
+      {id:'antibiotic',labelDone:'Breit wirksames Antibiotikum verabreicht',labelMissing:'Antibiotikum nicht oder verspätet verabreicht',thresholdSeconds:420},
+      {id:'circulation_therapy',labelDone:'Volumen- und Kreislauftherapie begonnen',labelMissing:'Keine angemessene Kreislauftherapie'},
+      {id:'norepi',labelDone:'Noradrenalin bei persistierender Hypotonie eingesetzt',labelMissing:'Noradrenalin trotz persistierender Hypotonie nicht eingesetzt'},
+      {id:'map_target',labelDone:'MAP-Ziel von mindestens 65 mmHg erreicht',labelMissing:'MAP-Ziel nicht erreicht'}
+    ]
+  };
+
   window.TELECARE_CASES = Object.freeze({
-    [postoperativeBleeding.id]: postoperativeBleeding
+    [postoperativeBleeding.id]: postoperativeBleeding,
+    [septicShock.id]: septicShock
   });
   window.TELECARE_DEFAULT_CASE_ID = postoperativeBleeding.id;
 })();
