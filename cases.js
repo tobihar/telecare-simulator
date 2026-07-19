@@ -2,7 +2,7 @@
   const postoperativeBleeding = {
     id: 'postop_bleeding_01',
     title: 'Postoperative Blutung nach Hemikolektomie',
-    shortTitle: 'Postoperative Blutung',
+    shortTitle: 'Herr Müller',
     number: 'Fall 01',
     setting: 'Aufwachraum / Tele-ICU',
     enabled: true,
@@ -10,7 +10,7 @@
     availableDurations: [300, 600, 900, 1200],
     briefing: {
       sender: 'Anna Keller',
-      text: '68-jähriger Patient nach Hemikolektomie im Aufwachraum. Seit wenigen Minuten fällt der Blutdruck ab, die Herzfrequenz steigt und über die Drainage kommt frisches Blut. Der Patient ist noch ansprechbar. Bitte übernehmen Sie.'
+      text: '68-jähriger Patient Herr Müller nach Hemikolektomie im Aufwachraum. Seit wenigen Minuten fällt der Blutdruck ab, die Herzfrequenz steigt und über die Drainage kommt frisches Blut. Der Patient ist noch ansprechbar. Bitte übernehmen Sie.'
     },
     patient: {
       age: 68,
