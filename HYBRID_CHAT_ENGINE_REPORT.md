@@ -17,7 +17,7 @@ Der Chat verarbeitet spielrelevante Aufträge zuverlässig lokal und nutzt Gemin
 - Gemini darf standardisierte Aktionen zurückgeben, diese werden clientseitig semantisch validiert.
 - Nicht zur Eingabe passende KI-Aktionen werden verworfen.
 - Medikamentenaktionen werden nur akzeptiert, wenn genau dieses Medikament genannt wurde; allgemeine Antibiose wird als Pip/Taz behandelt.
-- Laboraktionen unterstützen Blutkulturen, Urinkultur und weitere Sepsisparameter.
+- Laboraktionen unterstützen Blutkulturen, Urinkultur und weitere Frau Bergerparameter.
 
 ## Parser-Tests
 

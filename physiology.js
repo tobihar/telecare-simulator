@@ -108,18 +108,18 @@
     patient.dia = approach(patient.dia, targetDia, 0.17) + jitter(0.8);
     const currentMap = Math.round((patient.sys + 2 * patient.dia) / 3);
 
-    const easySepsis=septic&&args.difficulty==='easy';
-    const lowPressureReflex = Math.max(0, 68 - currentMap) * (easySepsis?0.38:0.92);
-    const volumeReflex = Math.max(0, 0.88 - effectiveVolume) * (easySepsis?20:39);
+    const easyFrau Berger=septic&&args.difficulty==='easy';
+    const lowPressureReflex = Math.max(0, 68 - currentMap) * (easyFrau Berger?0.38:0.92);
+    const volumeReflex = Math.max(0, 0.88 - effectiveVolume) * (easyFrau Berger?20:39);
     const highPressureReflex = Math.max(0, currentMap - 78) * 0.35;
     const hypoxicBradycardia = core.hypoxiaDose > 65 ? (core.hypoxiaDose - 65) * 0.38 : 0;
     let targetHr = clamp(106 + severity * 29 + lowPressureReflex + volumeReflex - highPressureReflex + med.chronotropy - hypoxicBradycardia, 20, 175);
-    const easyEarlySepsis = septic && args.difficulty === 'easy' && Number(args.caseConfig?.defaultDurationSeconds || 600) > 0;
-    if (easyEarlySepsis && args.severity < 0.55) targetHr = Math.min(targetHr, 120);
+    const easyEarlyFrau Berger = septic && args.difficulty === 'easy' && Number(args.caseConfig?.defaultDurationSeconds || 600) > 0;
+    if (easyEarlyFrau Berger && args.severity < 0.55) targetHr = Math.min(targetHr, 120);
     const previousHr = patient.hr;
-    const proposedHr = approach(patient.hr, targetHr, easyEarlySepsis?0.022:0.20) + jitter(easyEarlySepsis?0.22:1.4);
+    const proposedHr = approach(patient.hr, targetHr, easyEarlyFrau Berger?0.022:0.20) + jitter(easyEarlyFrau Berger?0.22:1.4);
     // Auf "Leicht" darf die Herzfrequenz nicht innerhalb weniger Sekunden springen.
-    patient.hr = easyEarlySepsis ? clamp(proposedHr, previousHr-0.45, previousHr+0.65) : proposedHr;
+    patient.hr = easyEarlyFrau Berger ? clamp(proposedHr, previousHr-0.45, previousHr+0.65) : proposedHr;
 
     let targetRr = clamp(22 * core.respiratoryDrive, 0, 48);
     if (paralyzed) targetRr = therapies.ventilation ? 14 : 0;

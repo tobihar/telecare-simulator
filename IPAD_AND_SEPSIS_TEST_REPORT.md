@@ -1,4 +1,4 @@
-# TeleCare – iPad- und Sepsis-Update: Testbericht
+# TeleCare – iPad- und Frau Berger-Update: Testbericht
 
 ## Umgesetzt
 
@@ -11,7 +11,7 @@
 - Hochformat: Chat zuerst, danach die beiden Seitenbereiche
 - Fall 05 „Frau Berger“: septischer Schock bei katheterassoziierter Urosepsis
 - fallbezogene Anamnese, Labor, BGA, EKG, POCUS, Personal, Ausgangszustand und Bewertung
-- eigenes vasoplegisches Sepsismodell
+- eigenes vasoplegisches Frau Bergermodell
 - Volumenreagibilität, aber MAP-Ziel erst mit Noradrenalin zuverlässig erreichbar
 - Blutkulturen, Urinkultur und Antibiotikagabe mehrfach dokumentierbar
 
