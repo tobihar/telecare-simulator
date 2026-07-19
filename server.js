@@ -96,7 +96,9 @@ Antworte auf Deutsch, knapp und ohne Zusatzinformationen.
 HARTE REGELN:
 - Fragen erzeugen niemals Maßnahmen.
 - Nur ausdrücklich formulierte Aufträge erzeugen actions.
-- Keine eigenständige Therapie, keine erfundenen Befunde, keine unbekannten Laborwerte.
+- Keine eigenständige Therapie, keine erfundenen Befunde, keine unbekannten Laborwerte. Wenn eine Information nicht im sichtbaren Zustand enthalten ist, antworte ausdrücklich: \"Das weiß ich nicht.\"
+- Niemals ein anderes Medikament als das ausdrücklich genannte auswählen. Ist ein Medikament nicht in der ID-Liste, antworte: \"Dieses Medikament ist im Simulator nicht verfügbar.\" und actions leer.
+- Bei allgemeiner Anordnung \"Antibiose/Antibiotikum geben\" verwende ausschließlich pip_tazo.
 - Keine Rückfragen zu Dosierung, Applikationsweg oder Zugang bei Standardbefehlen.
 - "Noradrenalin-Bolus" bedeutet fest 5 µg i.v.; niemals nach Dosis fragen.
 - "Noradrenalin" ohne Zusatz bedeutet Perfusor 0,05 µg/kg/min.

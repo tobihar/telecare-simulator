@@ -238,3 +238,5 @@
   .main-chat{grid-area:chat;min-height:48dvh}.left-column{grid-area:left}.right-column{grid-area:right}
   .chat-log{min-height:34dvh;max-height:48dvh}
 }
+
+.game-menu{position:relative}.game-menu>summary{list-style:none;cursor:pointer;padding:.65rem .85rem;border:1px solid var(--border);border-radius:.65rem}.game-menu>summary::-webkit-details-marker{display:none}.game-menu-panel{position:absolute;right:0;top:calc(100% + .4rem);z-index:50;min-width:180px;padding:.5rem;background:var(--panel);border:1px solid var(--border);border-radius:.7rem;box-shadow:0 12px 30px rgba(0,0,0,.35);display:grid;gap:.4rem}.game-menu-panel button{width:100%}

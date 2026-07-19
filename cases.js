@@ -135,7 +135,7 @@
     },
     patient: {
       age: 75, sex: 'weiblich', weightKg: 60,
-      initial: {hr:110,sys:65,dia:35,spo2:90,rr:34,temp:38.9,mental:'somnolent und verwirrt',lactate:10.0,hb:9.4,iCa:1.06,glucose:80,bleeding:0},
+      initial: {hr:110,sys:60,dia:35,spo2:90,rr:34,temp:38.9,mental:'somnolent und verwirrt',lactate:10.0,hb:9.4,iCa:1.06,glucose:80,bleeding:0},
       visible: {skin:'warm und feucht, peripher schlecht perfundiert',observationDescription:'Dauerkatheter mit trübem, flockigem Urin; seit Stunden nahezu keine Urinausscheidung',urineMlPerHour:0}
     },
     initialAccess: ['bladder'],
@@ -174,7 +174,7 @@
       allergy:'Keine Allergien bekannt.',
       symptoms:'Aufgrund fortgeschrittener Demenz und Somnolenz kaum Eigenangaben. Druckschmerz im Unterbauch, Klopfschmerz über dem linken Nierenlager; laut Begleitperson einmaliges Erbrechen.',
       medication:'Der Medikamentenplan wird vom Pflegeheim nachgeliefert. Laut Pflegeassistenz nimmt Frau Berger „viele Medikamente“.',
-      previousHistory:'Fortgeschrittene Alzheimer-Demenz, arterielle Hypertonie und Pflegebedürftigkeit.',
+      previousHistory:'Fortgeschrittene Alzheimer-Demenz und Pflegebedürftigkeit. Weitere Vorerkrankungen sind der Begleitperson nicht bekannt; der Medikamentenplan wird nachgeliefert.',
       lastMeal:'Zuletzt gestern Abend gegessen; beim Frühstück heute praktisch nichts aufgenommen.',
       events:'Beim Frühstück durch ausgeprägte Schläfrigkeit aufgefallen. Laut Pflegeassistenz ging es ihr bereits seit einiger Zeit „nicht gut“.',
       riskFactors:'Dauerkatheter, Pflegebedürftigkeit und mögliche Harnwegsinfektion.'
@@ -186,8 +186,8 @@
     },
     treatmentModifiers:{medications:{default:1,pip_tazo:1,ceftriaxone:1,meropenem:1},interventions:{default:1,fluid_500:1,norepi_bolus:1,norepi_perfusor:1,shock_position:1,blood_unit:.25}},
     physiology:{
-      model:'sepsis',
-      difficulty:{easy:{progression:.72,spo2Loss:5.0,criticalMap:28,arrestSeconds:99999},medium:{progression:.90,spo2Loss:7.0,criticalMap:25,arrestSeconds:120},hard:{progression:1.10,spo2Loss:9.0,criticalMap:28,arrestSeconds:75}},
+      model:'sepsis', fluidDurationSeconds:900,
+      difficulty:{easy:{progression:.42,initialSys:60,spo2Loss:5.0,criticalMap:28,arrestSeconds:99999},medium:{progression:.90,initialSys:65,spo2Loss:7.0,criticalMap:25,arrestSeconds:120},hard:{progression:1.10,initialSys:65,spo2Loss:9.0,criticalMap:28,arrestSeconds:75}},
       lactateGainPerTick:.018,hbLossPerTick:0,bleedingGainPerTick:0,tempTarget:39.3
     },
     scoring:[

@@ -18,6 +18,7 @@
     midazolam:{label:'Midazolam',aliases:['midazolam','dormicum'],taskSeconds:20,requiresAccess:true,effect:{duration:180,sys:-10,dia:-5,rr:-7,spo2:-2}},
     propofol:{label:'Propofol',aliases:['propofol'],taskSeconds:20,requiresAccess:true,effect:{duration:180,sys:-30,dia:-18,rr:-19,spo2:-6}},
     etomidate:{label:'Etomidat',aliases:['etomidat'],taskSeconds:20,requiresAccess:true,effect:{duration:90,sys:-4,rr:-5}},
+    paracetamol:{label:'Paracetamol',aliases:['paracetamol','acetaminophen','ben-u-ron','benuron','perfalgan'],taskSeconds:20,requiresAccess:true,effect:{duration:240}},
     fentanyl:{label:'Fentanyl',aliases:['fentanyl'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-8,dia:-4,rr:-8,spo2:-3}},
     morphine:{label:'Morphin',aliases:['morphin'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-11,dia:-6,rr:-8,spo2:-3}},
     piritramide:{label:'Piritramid',aliases:['piritramid','dipidolor'],taskSeconds:20,requiresAccess:true,effect:{duration:240,sys:-9,dia:-5,rr:-7,spo2:-2}},

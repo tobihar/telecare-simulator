@@ -66,7 +66,7 @@
     }
     const hypoxicContractilityPenalty = clamp(core.hypoxiaDose / 180, 0, 0.48);
 
-    core.circulatingVolume = approach(core.circulatingVolume, diseaseVolumeTarget, 0.055);
+    core.circulatingVolume = approach(core.circulatingVolume, diseaseVolumeTarget, septic&&args.difficulty==='easy'?0.018:0.055);
     core.venousTone = approach(core.venousTone, 1.0 + severity * 0.025, 0.08);
     core.vascularTone = approach(core.vascularTone, diseaseToneTarget + med.vascularTone, 0.16);
     core.contractility = approach(core.contractility, diseaseContractilityTarget + med.contractility - hypoxicContractilityPenalty, 0.13);
@@ -108,12 +108,13 @@
     patient.dia = approach(patient.dia, targetDia, 0.17) + jitter(0.8);
     const currentMap = Math.round((patient.sys + 2 * patient.dia) / 3);
 
-    const lowPressureReflex = Math.max(0, 68 - currentMap) * 0.92;
-    const volumeReflex = Math.max(0, 0.88 - effectiveVolume) * 39;
+    const easySepsis=septic&&args.difficulty==='easy';
+    const lowPressureReflex = Math.max(0, 68 - currentMap) * (easySepsis?0.38:0.92);
+    const volumeReflex = Math.max(0, 0.88 - effectiveVolume) * (easySepsis?20:39);
     const highPressureReflex = Math.max(0, currentMap - 78) * 0.35;
     const hypoxicBradycardia = core.hypoxiaDose > 65 ? (core.hypoxiaDose - 65) * 0.38 : 0;
     const targetHr = clamp(106 + severity * 29 + lowPressureReflex + volumeReflex - highPressureReflex + med.chronotropy - hypoxicBradycardia, 20, 175);
-    patient.hr = approach(patient.hr, targetHr, 0.20) + jitter(1.4);
+    patient.hr = approach(patient.hr, targetHr, septic&&args.difficulty==='easy'?0.035:0.20) + jitter(septic&&args.difficulty==='easy'?0.5:1.4);
 
     let targetRr = clamp(22 * core.respiratoryDrive, 0, 48);
     if (paralyzed) targetRr = therapies.ventilation ? 14 : 0;
@@ -144,7 +145,7 @@
       perfusionIndex,
       hypoxiaDose: core.hypoxiaDose,
       severeHypoxiaSeconds: core.severeHypoxiaSeconds,
-      lactateDelta: 0.014 + core.perfusionDebt * 0.038,
+      lactateDelta: septic ? (0.012 + core.perfusionDebt*0.034 - fluidCount*0.018 - (norepiRate>0&&currentMap>=60?0.008:0)) : (0.014 + core.perfusionDebt * 0.038),
       internal: {
         effectiveVolume, venousReturn, vascularTone: effectiveTone,
         contractility: effectiveContractility, strokeVolumeIndex: core.strokeVolumeIndex,
