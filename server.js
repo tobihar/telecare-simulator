@@ -41,7 +41,7 @@ const MIME = {
   '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
 };
 const ACTIONS = ['ask_mental','ask_skin','ask_drainage','ask_urine','ask_allergy','ask_auscultation','measure_bz','measure_nibp','count_rr','measure_temp','alert_surgeon','insert_pvk','insert_artery','oxygen','warming','fluid','norepi_bolus','norepi_perfusor','txa','give_ek','give_medication','request_bga','sono','ventilate','shock_position'];
-const MEDS = ['adrenaline','amiodarone','atropine','adenosine','aspirin','heparin','nitroglycerin','urapidil','metoprolol','furosemide','salbutamol','ipratropium','prednisolone','dimetindene','ketamine','midazolam','propofol','etomidate','fentanyl','morphine','piritramide','naloxone','flumazenil','rocuronium','succinylcholine','calcium','magnesium','bicarbonate','glucose','insulin','glucagon','vasopressin','dobutamine','ceftriaxone','pip_tazo','meropenem','fibrinogen'];
+const MEDS = ['adrenaline','amiodarone','atropine','adenosine','aspirin','heparin','nitroglycerin','urapidil','metoprolol','furosemide','salbutamol','ipratropium','prednisolone','dimetindene','ketamine','midazolam','propofol','etomidate','fentanyl','morphine','piritramide','naloxone','flumazenil','rocuronium','succinylcholine','calcium','magnesium','bicarbonate','glucose','insulin','glucagon','vasopressin','dobutamine','paracetamol','ceftriaxone','pip_tazo','meropenem','fibrinogen'];
 
 function json(res, status, data, extraHeaders = {}) {
   res.writeHead(status, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store', ...extraHeaders});
@@ -68,7 +68,7 @@ async function sendFile(req, res, relative) {
   if (!abs) return text(res, 403, 'Forbidden');
   try {
     const f = await readFile(abs);
-    res.writeHead(200, {'Content-Type':MIME[path.extname(abs)] || 'application/octet-stream','Cache-Control':path.extname(abs)==='.html'?'no-cache':'public, max-age=300'});
+    res.writeHead(200, {'Content-Type':MIME[path.extname(abs)] || 'application/octet-stream','Cache-Control':'no-store'});
     if (req.method === 'HEAD') return res.end();
     res.end(f);
   } catch {
@@ -82,7 +82,7 @@ async function staticFile(req, res, pathname) {
   if (!abs) return text(res, 403, 'Forbidden');
   try {
     const f = await readFile(abs);
-    res.writeHead(200, {'Content-Type':MIME[path.extname(abs)] || 'application/octet-stream','Cache-Control':path.extname(abs)==='.html'?'no-cache':'public, max-age=300'});
+    res.writeHead(200, {'Content-Type':MIME[path.extname(abs)] || 'application/octet-stream','Cache-Control':'no-store'});
     if (req.method === 'HEAD') return res.end();
     res.end(f);
   } catch {
@@ -91,32 +91,28 @@ async function staticFile(req, res, pathname) {
 }
 
 function promptFor(message,state){return `Du bist ausschließlich das Team vor Ort in einer medizinischen Telekonsultations-Simulation.
-Antworte auf Deutsch, knapp und ohne Zusatzinformationen.
+Antworte auf Deutsch, knapp, konkret und ausschließlich anhand der übergebenen Falldaten.
 
 HARTE REGELN:
+- Du darfst keine medizinischen Fakten ergänzen, ableiten oder plausibel erfinden.
+- Wenn die Antwort nicht ausdrücklich in caseFacts, visiblePatient, knownLabs oder bgaHistory enthalten ist, antworte: "Das ist uns aktuell nicht bekannt."
+- Verwende das in caseFacts hinterlegte Geschlecht konsequent. Bei weiblich: "die Patientin"; bei männlich: "der Patient".
 - Fragen erzeugen niemals Maßnahmen.
-- Nur ausdrücklich formulierte Aufträge erzeugen actions.
-- Keine eigenständige Therapie, keine erfundenen Befunde, keine unbekannten Laborwerte. Wenn eine Information nicht im sichtbaren Zustand enthalten ist, antworte ausdrücklich: \"Das weiß ich nicht.\"
-- Niemals ein anderes Medikament als das ausdrücklich genannte auswählen. Ist ein Medikament nicht in der ID-Liste, antworte: \"Dieses Medikament ist im Simulator nicht verfügbar.\" und actions leer.
-- Bei allgemeiner Anordnung \"Antibiose/Antibiotikum geben\" verwende ausschließlich pip_tazo.
-- Keine Rückfragen zu Dosierung, Applikationsweg oder Zugang bei Standardbefehlen.
-- "Noradrenalin-Bolus" bedeutet fest 5 µg i.v.; niemals nach Dosis fragen.
-- "Noradrenalin" ohne Zusatz bedeutet Perfusor 0,05 µg/kg/min.
-- "Volumen", "500 VE", "500 ml VE" oder "Flüssigkeit" bedeutet 500 ml Kristalloid; niemals nach Zugang oder Applikationsweg fragen.
-- "Schocklage", "Beine hoch" oder "Beine anheben" bedeutet shock_position.
-- "NIBP messen", "RR messen" oder "Blutdruck messen" bedeutet measure_nibp.
-- "AF auszählen" bedeutet count_rr. "Temperatur messen" bedeutet measure_temp.
-- "Legt einen Zugang" bedeutet einen grünen PVK.
-- "Legt eine Arterie" bedeutet insert_artery, niemals insert_pvk.
-- "BGA" ohne arteriell/venös: kurze Rückfrage "Arteriell oder venös?" und actions leer.
+- Nur ausdrücklich formulierte Aufträge dürfen actions erzeugen.
+- Bei einer Frage nenne nur den erfragten Befund, maximal zwei kurze Sätze.
+- Verwechsle ABCDE-Bereiche nicht: Atemwege/Airway nur mit airway beantworten; Vigilanz nur mit consciousness; Blutung nur mit bleeding.
+- Niemals ein anderes Medikament als das ausdrücklich genannte auswählen. Ist es nicht in der ID-Liste, antworte: "Dieses Medikament ist im Simulator nicht verfügbar." und actions leer.
+- Bei allgemeiner Anordnung "Antibiose/Antibiotikum geben" verwende ausschließlich pip_tazo.
 - Bei einem erkannten Auftrag ist reply exakt leer. Die Simulation bestätigt selbst.
-- Bei einer Frage nur den erfragten Befund nennen, maximal zwei kurze Sätze.
-- Keine Sätze wie "Welche Maßnahmen sollen wir ergreifen?", "Wir warten auf weitere Anweisungen" oder "Soll die Gabe über einen Zugang erfolgen?".
+- BGA ohne arteriell/venös: "Arteriell oder venös?" und actions leer.
+- Keine therapeutischen Vorschläge, keine Differentialdiagnosen und keine Rückfragen, außer der genannten BGA-Rückfrage.
 
 Erlaubte Aktionen: ${ACTIONS.join(', ')}
 Medikamenten-IDs: ${MEDS.join(', ')}
 
-Sichtbarer Zustand: ${JSON.stringify(state??{})}
+Vollständige Falldaten und aktueller Zustand:
+${JSON.stringify(state??{})}
+
 Nachricht: ${message}
 
 Antworte ausschließlich als JSON:

@@ -428,6 +428,42 @@ function trackAssessmentFromText(q){
   checks.forEach(([re,key])=>{if(re.test(q))state.assessment.add(key);});
 }
 
+
+function getCaseAnswer(q){
+  const c=getActiveCase();
+  const f=c.chatFacts||{};
+  const answer=(text,key)=>text?{text,key}:null;
+  const rules=[
+    [/(^|\b)(atemweg|atemwege|airway|stridor|mund frei)(\b|\?)/,()=>answer(f.airway,'A_airway')],
+    [/(^|\b)(atmung|breathing|spontanatmung)(\b|\?)/,()=>answer(f.breathing,'B_rr')],
+    [/(auskult|abhören|atemgeräusch|lunge.*hören|herztöne)/,()=>answer(c.diagnostics?.auscultation,'B_auscultation')],
+    [/(vigilanz|bewusst|gcs|ansprech|somnolent|orientiert|wachheit)/,()=>answer(f.consciousness||c.patient.initial.mental,'D_mental')],
+    [/(pupill)/,()=>answer(f.pupils,'D_mental')],
+    [/(haut|rekap|kapillar)/,()=>answer(f.skin||c.patient.visible.skin,'C_skin')],
+    [/(kritische.*äußere.*blutung|äußere.*blutung|blutverlust|blutung)/,()=>answer(f.bleeding,'C_bleeding')],
+    [/(puls|peripher.*tast)/,()=>answer(f.pulse,'C_pulse')],
+    [/(halsvene|jugular)/,()=>answer(f.neckVeins,'C_skin')],
+    [/(ödem|oedem)/,()=>answer(f.edema,'C_skin')],
+    [/(urin|diurese|ausscheid)/,()=>answer(f.urine||c.patient.visible.observationDescription,'C_urine')],
+    [/(infektionsfokus|fokus|urosepsis|harnwegsinfekt)/,()=>answer(f.focus,'S_symptoms')],
+    [/(blasenkatheter|dauerkatheter|katheter)/,()=>answer(f.catheter,'S_risk')],
+    [/(bauch|abdomen|nierenlager|flanke)/,()=>answer(f.abdomen||c.history.symptoms,'S_symptoms')],
+    [/(blutzucker|\bbz\b|glukose)/,()=>answer(f.glucose,'D_glucose')],
+    [/(temperatur|fieber)/,()=>answer(f.temperature,'E_exposure')],
+    [/(allerg)/,()=>answer(f.allergy||c.history.allergy,'S_allergy')],
+    [/(dauer)?medikament|medikationsplan|nimmt.*medikament/,()=>answer(f.medication||c.history.medication,'S_medication')],
+    [/(vorerkrank|vorgeschichte|krankheit)/,()=>answer(f.previousHistory||c.history.previousHistory,'S_history')],
+    [/(letzte.*mahlzeit|zuletzt.*gegessen|nahrung|nüchtern)/,()=>answer(f.lastMeal||c.history.lastMeal,'S_lastmeal')],
+    [/(seit wann|beginn|ereignis|was.*passiert|verlauf)/,()=>answer(f.events||c.history.events,'S_events')],
+    [/(risikofaktor|risiko)/,()=>answer(f.riskFactors||c.history.riskFactors,'S_risk')],
+    [/(symptom|beschwer|schmerz|übel|erbrochen)/,()=>answer(f.symptoms||c.history.symptoms,'S_symptoms')],
+    [/(sono|ultraschall|pocus|focus|fast(?:-test)?)/,()=>answer(c.diagnostics?.sono,null)],
+    [/(ekg|rhythmus)/,()=>answer(c.diagnostics?.ecg,null)]
+  ];
+  for(const [re,fn] of rules){if(re.test(q)){const hit=fn();if(hit)return hit;}}
+  return null;
+}
+
 function latestKnownLabs(){
   const latest={};
   state.labResults.forEach(result=>(result.values||[]).forEach(v=>{if(v?.id)latest[v.id]=v.value;}));
@@ -447,19 +483,8 @@ async function handleChat(text){
   if((/\bbga\b|blutgasanalyse/.test(q))&&!/arteriell|arterielle|art\.|venös|venoes|venöse/.test(q)){
     addChat('Team vor Ort','Soll die BGA arteriell oder venös abgenommen werden?');return;
   }
-  const caseData=getActiveCase();
-  const directAnswers=[
-    [/allerg/,caseData.history.allergy,'S_allergy'],
-    [/(dauer)?medikament|medikationsplan|nimmt.*medikament/,caseData.history.medication,'S_medication'],
-    [/vorerkrank|vorgeschichte|krankheit/,caseData.history.previousHistory,'S_history'],
-    [/letzte.*mahlzeit|zuletzt.*gegessen|nahrung|nüchtern/,caseData.history.lastMeal,'S_lastmeal'],
-    [/seit wann|beginn|ereignis|was.*passiert|verlauf/,caseData.history.events,'S_events'],
-    [/risikofaktor|risiko/,caseData.history.riskFactors,'S_risk'],
-    [/symptom|beschwer|schmerz|übel|erbrochen|flanke|bauch/,caseData.history.symptoms,'S_symptoms']
-  ];
-  const direct=directAnswers.find(([re])=>re.test(q));
-  if(direct){state.assessment.add(direct[2]);addChat('Team vor Ort',direct[1]);return;}
-  if(/kritische.*äußere.*blutung|äußere.*blutung/.test(q)){addChat('Team vor Ort','Es besteht keine kritische äußere Blutung.');return;}
+  const direct=getCaseAnswer(q);
+  if(direct){if(direct.key)state.assessment.add(direct.key);addChat('Team vor Ort',direct.text);return;}
   const localActions=localInterpret(q);
   if(localActions.length){localActions.forEach(doAction);return;}
   if(looksLikeMedicationOrder(q)){addChat('Team vor Ort','Dieses Medikament ist im Simulator nicht verfügbar oder konnte nicht eindeutig erkannt werden. Es wurde kein Ersatzmedikament angeordnet.');return;}
@@ -468,21 +493,12 @@ async function handleChat(text){
     const placeholder={time:state.elapsed,sender:'Team vor Ort',text:'KI wertet die Nachricht aus …',cls:'team ai-thinking'};
     state.chat.push(placeholder);renderChat();
     try{
-      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,state:{elapsed:state.elapsed,visiblePatient:{heartRate:Math.round(state.patient.hr),spo2:Math.round(state.patient.spo2),arterialPressure:state.access.has('artery')?`${Math.round(state.patient.sys)}/${Math.round(state.patient.dia)}`:null,lastNibp:state.lastMeasurements.nibp,lastRespiratoryRate:state.lastMeasurements.rr,lastTemperature:state.access.has('bladder')?state.patient.temp:state.lastMeasurements.temp,consciousness:state.patient.mental,skin:getActiveCase().patient.visible.skin,observation:getActiveCase().patient.visible.drainageDescription?`${getActiveCase().patient.visible.drainageDescription}, etwa ${Math.round(getActiveCase().patient.visible.drainageBaseMl+state.elapsed*getActiveCase().patient.visible.drainagePerSecondMl)} ml seit Fallbeginn`:getActiveCase().patient.visible.observationDescription},knownLabs:latestKnownLabs(),bgaHistory:state.bgaResults.map(b=>({time:b.time,values:Object.fromEntries(b.values.map(v=>[v[0],v[1]]))})),access:[...state.access],bloodInventory:state.bloodInventory,staff:state.staff.map(s=>({name:s.name,role:s.role,available:s.busyUntil<=state.elapsed})),norepiPerfusor:state.therapies.norepiPerfusor,caseFacts:{sex:getActiveCase().patient.sex,history:getActiveCase().history,diagnostics:getActiveCase().diagnostics}}})});
+      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,state:{elapsed:state.elapsed,visiblePatient:{heartRate:Math.round(state.patient.hr),spo2:Math.round(state.patient.spo2),arterialPressure:state.access.has('artery')?`${Math.round(state.patient.sys)}/${Math.round(state.patient.dia)}`:null,lastNibp:state.lastMeasurements.nibp,lastRespiratoryRate:state.lastMeasurements.rr,lastTemperature:state.access.has('bladder')?state.patient.temp:state.lastMeasurements.temp,consciousness:state.patient.mental,skin:getActiveCase().patient.visible.skin,observation:getActiveCase().patient.visible.drainageDescription?`${getActiveCase().patient.visible.drainageDescription}, etwa ${Math.round(getActiveCase().patient.visible.drainageBaseMl+state.elapsed*getActiveCase().patient.visible.drainagePerSecondMl)} ml seit Fallbeginn`:getActiveCase().patient.visible.observationDescription},knownLabs:latestKnownLabs(),bgaHistory:state.bgaResults.map(b=>({time:b.time,values:Object.fromEntries(b.values.map(v=>[v[0],v[1]]))})),access:[...state.access],bloodInventory:state.bloodInventory,staff:state.staff.map(s=>({name:s.name,role:s.role,available:s.busyUntil<=state.elapsed})),norepiPerfusor:state.therapies.norepiPerfusor,caseFacts:{caseId:getActiveCase().id,title:getActiveCase().title,sex:getActiveCase().patient.sex,age:getActiveCase().patient.age,history:getActiveCase().history,diagnostics:getActiveCase().diagnostics,chatFacts:getActiveCase().chatFacts||{},briefing:getActiveCase().briefing,initial:getActiveCase().patient.initial}}})});
       const data=await r.json();state.chat=state.chat.filter(x=>x!==placeholder);if(!r.ok)throw new Error(data.error||'KI-Fehler');
-      const actions=filterSafeActions(q,data.actions||[]);
-      const results=actions.map(doAction);
-      const accepted=results.filter(Boolean).length;
-      const rejected=results.length-accepted;
-      if(actions.length===0){
-        if(data.reply)addChat('Team vor Ort',data.reply);
-        else addChat('Team vor Ort','Das weiß ich nicht sicher beziehungsweise kann ich im Simulator nicht zuverlässig beantworten. Bitte formulieren Sie die Frage genauer.');
-      }else if(rejected>0&&accepted>0){
-        addChat('Team vor Ort','Ein Teil der Anordnung wurde übernommen. Nicht durchführbare Anteile wurden abgelehnt.');
-      }
-      // Bei vollständig übernommenen Aufträgen erzeugen die konkreten
-      // Simulationsfunktionen bereits die passende Bestätigung. Keine zweite
-      // generische KI-Antwort anhängen.
+      // Gemini dient nur als sprachlicher Fallback. Spielaktionen werden ausschließlich
+      // durch die lokale, deterministische Action-Engine ausgelöst.
+      if(data.reply)addChat('Team vor Ort',data.reply);
+      else addChat('Team vor Ort','Das ist uns aktuell nicht bekannt oder im Simulator nicht verfügbar.');
       return;
     }catch(e){
       state.chat=state.chat.filter(x=>x!==placeholder);state.aiAvailable=false;el('aiStatus').textContent='Regel-Fallback';el('aiStatus').className='status-pill idle';addChat('System','Gemini war nicht erreichbar. Der lokale Regel-Chat übernimmt.','system');
