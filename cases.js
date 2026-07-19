@@ -216,7 +216,6 @@
       lactateGainPerTick:.018,hbLossPerTick:0,bleedingGainPerTick:0,tempTarget:39.3
     },
     scoring:[
-      {id:'sepsis_recognized',labelDone:'Frau Berger beziehungsweise septischen Schock erkannt',labelMissing:'Frau Berger/Schock nicht rechtzeitig erkannt',thresholdSeconds:240},
       {id:'bga',labelDone:'BGA und Laktat bestimmt',labelMissing:'Keine BGA/Laktatbestimmung'},
       {id:'blood_cultures',labelDone:'Blutkulturen angefordert',labelMissing:'Keine Blutkulturen angefordert'},
       {id:'antibiotic',labelDone:'Breit wirksames Antibiotikum verabreicht',labelMissing:'Antibiotikum nicht oder verspätet verabreicht',thresholdSeconds:420},
