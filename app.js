@@ -398,9 +398,79 @@ function doAction(action){
   return false;
 }
 
-function localInterpret(q){
-  const a=[]; const isQuestion=/\?|^(wie|ist|sind|hat|haben|kann|können|braucht|liegt|gibt)/.test(q.trim());if(/blutkultur|blutkulturen|\bbk\b/.test(q)&&!isQuestion)a.push({type:'request_lab',labs:['blood_cultures']});if(/(?:nibp|nichtinvasiv.*blutdruck|blutdruck.*mess|rr.*mess)/.test(q)&&!isQuestion)a.push({type:'measure_nibp'});if(/(?:atemfrequenz|\baf\b).*(?:zähl|mess|bestimm)|(?:zähl|mess|bestimm).*(?:atemfrequenz|\baf\b)/.test(q)&&!isQuestion)a.push({type:'count_rr'});if(/temperatur.*(?:mess|bestimm)|(?:mess|bestimm).*temperatur/.test(q)&&!isQuestion)a.push({type:'measure_temp'});if(/bewusst|orientiert|gcs|ansprech|vigilanz|somnolent|wachheit/.test(q))a.push({type:'ask_mental'});if(/haut|rekap|kapillar/.test(q))a.push({type:'ask_skin'});if(/drainage|blutverlust|blutung/.test(q))a.push({type:'ask_drainage'});if(/urin|ausscheid/.test(q))a.push({type:'ask_urine'});if(/allerg/.test(q))a.push({type:'ask_allergy'});if(/auskult|abhören|atemgeräusch|herztöne/.test(q))a.push({type:'ask_auscultation'});if(/\bbz\b|blutzucker|glukose.*mess|zucker.*mess/.test(q))a.push({type:'measure_bz'});
-  if(!isQuestion){if(/operateur|chirurg|op-team|anästhesie.*alarm|intensiv|schockraum|hilfe.*holen|oberarzt/.test(q))a.push({type:'alert_surgeon'});if(/\bbga\b|blutgasanalyse/.test(q)){if(/arteriell|arterielle|art\./.test(q))a.push({type:'request_bga',mode:'arterial'});else if(/venös|venoes|venöse/.test(q))a.push({type:'request_bga',mode:'venous'});}if(/(arterie|arterielle kanüle|arteriellen zugang).*(leg|anleg|platzier)|(leg|anleg|platzier).*(arterie|arterielle kanüle|arteriellen zugang)/.test(q))a.push({type:'insert_artery'});else if(/(leg|legt|legen|anlage).*(zugang|pvk)|^(zugang|pvk).*(leg|legen)/.test(q))a.push({type:'insert_pvk',quantity:/\b(zwei|2)\b/.test(q)?2:1,size:/orange/.test(q)?'orange':/rosa|pink/.test(q)?'pink':'green'});if(/sauerstoff|\bo2\b/.test(q))a.push({type:'oxygen'});if(/beatm|ambu|beutel.?maske/.test(q))a.push({type:'ventilate'});if(/sono|ultraschall|pocus|focus|fast(?:-test)?/.test(q))a.push({type:'sono'});if(/wärm|decke|hypotherm/.test(q))a.push({type:'warming'});if(/schocklage|beine.*hoch|beine.*anheb|autotransfusion/.test(q))a.push({type:'shock_position'});if(/kristall|volumen|ringer|infusion/.test(q))a.push({type:'fluid'});if(/tranexam|txa/.test(q))a.push({type:'txa'});if(/(?:antibiose|antibiotikum|antibiotika).*(?:geben|start|verabreich|anhäng|anord)|^(?:antibiose|antibiotikum|antibiotika)$/.test(q))a.push({type:'give_medication',medication:'pip_tazo'});if(/noradrenalin|norepi/.test(q)){if(/bolus/.test(q))a.push({type:'norepi_bolus'});else a.push({type:'norepi_perfusor'});}if(/\bek\b|erythro|transfund|blutkonserve/.test(q))a.push({type:'give_ek'});for(const [medId,med] of Object.entries(MEDICATIONS)){const aliases=[med.label,...(med.aliases||[])].map(x=>String(x).toLowerCase());if(medId==='adrenaline'&&/(noradrenalin|norepi)/.test(q))continue;if(aliases.some(alias=>q.includes(alias))&&!a.some(x=>x.type==='give_medication'&&x.medication===medId)){if(medId==='glucose'&&/(mess|bestimm|kontroll)/.test(q))continue;a.push({type:'give_medication',medication:medId});}}}return a;
+function normalizeChatText(value){
+  return String(value||'')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/µ/g,'u')
+    .replace(/ß/g,'ss')
+    .replace(/[^a-z0-9.,/+\-\s]/g,' ')
+    .replace(/(\d)\s*(ml|mg|g|ve)\b/g,'$1 $2')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function isQuestionLike(q){
+  return /\?$/.test(q)||/^(wie|ist|sind|hat|haben|kann|konnen|braucht|liegt|liegen|gibt|welch|was|wo|warum)\b/.test(q);
+}
+function accessDescription(){
+  const labels=[];
+  if([...state.access].some(id=>id.startsWith('pvk_pink')))labels.push('ein rosa peripherer Venenzugang');
+  if([...state.access].some(id=>id.startsWith('pvk_green')))labels.push('ein grüner peripherer Venenzugang');
+  if([...state.access].some(id=>id.startsWith('pvk_orange')))labels.push('ein orangefarbener peripherer Venenzugang');
+  if(state.access.has('artery'))labels.push('eine arterielle Kanüle');
+  if(state.access.has('bladder'))labels.push('ein Blasenkatheter');
+  if(!labels.length)return 'Aktuell liegt kein Gefäßzugang.';
+  return `Aktuell liegen ${labels.join(', ').replace(/, ([^,]*)$/, ' und $1')}.`;
+}
+function localInterpret(raw){
+  const q=normalizeChatText(raw),a=[],question=isQuestionLike(q);
+  const command=/(bitte|jetzt|legen|leg|legt|anlage|anlegen|platzieren|platzier|geben|gib|verabreichen|anhangen|starten|starte|lauf|laufen|bolus|perfusor|abnehmen|bestimmen|messen|mach|durchfuhren)/.test(q);
+
+  if(/\b(blutkultur(?:en)?|bk)\b/.test(q)&&(!question||command))a.push({type:'request_lab',labs:['blood_cultures']});
+  if(/\b(urinkultur)\b/.test(q)&&(!question||command))a.push({type:'request_lab',labs:['urine_culture']});
+  if(/(?:nibp|nichtinvasiv.*blutdruck|blutdruck.*mess|rr.*mess)/.test(q)&&(!question||command))a.push({type:'measure_nibp'});
+  if(/(?:atemfrequenz|\baf\b).*(?:zahl|mess|bestimm)|(?:zahl|mess|bestimm).*(?:atemfrequenz|\baf\b)/.test(q)&&(!question||command))a.push({type:'count_rr'});
+  if(/temperatur.*(?:mess|bestimm)|(?:mess|bestimm).*temperatur/.test(q)&&(!question||command))a.push({type:'measure_temp'});
+  if(/bewusst|orientiert|gcs|ansprech|vigilanz|somnolent|wachheit/.test(q))a.push({type:'ask_mental'});
+  if(/haut|rekap|kapillar/.test(q))a.push({type:'ask_skin'});
+  if(/drainage|blutverlust|blutung/.test(q))a.push({type:'ask_drainage'});
+  if(/urin|ausscheid/.test(q))a.push({type:'ask_urine'});
+  if(/allerg/.test(q))a.push({type:'ask_allergy'});
+  if(/auskult|abhoren|atemgerausch|herztone/.test(q))a.push({type:'ask_auscultation'});
+  if(/\bbz\b|blutzucker|glukose.*mess|zucker.*mess/.test(q))a.push({type:'measure_bz'});
+
+  if(!question||command){
+    if(/operateur|chirurg|op team|anasthesie.*alarm|intensiv|schockraum|hilfe.*holen|oberarzt/.test(q))a.push({type:'alert_surgeon'});
+    if(/\bbga\b|blutgasanalyse/.test(q)){
+      if(/arteriell|arterielle|\bart\b/.test(q))a.push({type:'request_bga',mode:'arterial'});
+      else if(/venos|venose/.test(q))a.push({type:'request_bga',mode:'venous'});
+    }
+    if(/\b(arterie|arterielle kanule|arterieller zugang)\b/.test(q)&&command)a.push({type:'insert_artery'});
+    else if(/\b(pvk|viggo|venflon|braunule|peripherer? venenzugang)\b/.test(q)||(/\bzugang\b/.test(q)&&command)){
+      a.push({type:'insert_pvk',quantity:/\b(zwei|2)\b/.test(q)?2:1,size:/orange/.test(q)?'orange':/rosa|pink/.test(q)?'pink':'green'});
+    }
+    if(/sauerstoff|\bo2\b/.test(q))a.push({type:'oxygen'});
+    if(/beatm|ambu|beutel.?maske/.test(q))a.push({type:'ventilate'});
+    if(/sono|ultraschall|pocus|focus|fast(?: test)?/.test(q))a.push({type:'sono'});
+    if(/warm|decke|hypotherm/.test(q))a.push({type:'warming'});
+    if(/schocklage|beine.*hoch|beine.*anheb|autotransfusion/.test(q))a.push({type:'shock_position'});
+    if(/\b(kristall|kristalloid|volumen|ringer|nacl|elektrolyt|ve)\b/.test(q)||/\b(250|500|1000)\s*ml\b/.test(q))a.push({type:'fluid'});
+    if(/tranexam|\btxa\b/.test(q))a.push({type:'txa'});
+    if(/(?:antibiose|antibiotikum|antibiotika).*(?:geben|start|verabreich|anhang|anord)|^(?:antibiose|antibiotikum|antibiotika)$/.test(q))a.push({type:'give_medication',medication:'pip_tazo'});
+    if(/\b(nor|noradrenalin|norepi|norepinephrin)\b/.test(q)){
+      if(/bolus/.test(q))a.push({type:'norepi_bolus'});else a.push({type:'norepi_perfusor'});
+    }
+    if(/\bek\b|erythro|transfund|blutkonserve/.test(q))a.push({type:'give_ek'});
+    for(const [medId,med] of Object.entries(MEDICATIONS)){
+      const aliases=[med.label,...(med.aliases||[])].map(normalizeChatText);
+      if(medId==='adrenaline'&&/\b(nor|noradrenalin|norepi)\b/.test(q))continue;
+      if(aliases.some(alias=>alias&&q.includes(alias))&&!a.some(x=>x.type==='give_medication'&&x.medication===medId)){
+        if(medId==='glucose'&&/(mess|bestimm|kontroll)/.test(q))continue;
+        a.push({type:'give_medication',medication:medId});
+      }
+    }
+  }
+  return a.filter((x,i,arr)=>arr.findIndex(y=>JSON.stringify(y)===JSON.stringify(x))===i);
 }
 function trackAssessmentFromText(q){
   if(/sepsis|septisch|septischer schock|urosepsis/.test(q)){state.assessment.add('sepsis_recognized');if(state.sepsisRecognizedAt===null)state.sepsisRecognizedAt=state.elapsed;}
@@ -434,6 +504,7 @@ function getCaseAnswer(q){
   const f=c.chatFacts||{};
   const answer=(text,key)=>text?{text,key}:null;
   const rules=[
+    [/(^|\b)(zugang|zugange|gefasszugang|pvk vorhanden|venenzugang vorhanden)(\b|\?)/,()=>answer(accessDescription(),null)],
     [/(^|\b)(atemweg|atemwege|airway|stridor|mund frei)(\b|\?)/,()=>answer(f.airway,'A_airway')],
     [/(^|\b)(atmung|breathing|spontanatmung)(\b|\?)/,()=>answer(f.breathing,'B_rr')],
     [/(auskult|abhören|atemgeräusch|lunge.*hören|herztöne)/,()=>answer(c.diagnostics?.auscultation,'B_auscultation')],
@@ -471,11 +542,37 @@ function latestKnownLabs(){
 }
 function medicationMentioned(q,medId){const med=MEDICATIONS[medId];if(!med)return false;return [medId,med.label,...(med.aliases||[])].some(x=>q.includes(String(x).toLowerCase()));}
 function filterSafeActions(q,actions){return (actions||[]).filter(action=>{if(action.type!=='give_medication')return true;if(action.medication==='pip_tazo'&&/(antibiose|antibiotikum|antibiotika)/.test(q))return true;return medicationMentioned(q,action.medication);});}
+function actionMatchesText(raw,action){
+  const q=normalizeChatText(raw);
+  const patterns={
+    insert_pvk:/\b(pvk|viggo|venflon|braunule|venenzugang|zugang)\b/,
+    insert_artery:/\b(arterie|arterielle kanule|arterieller zugang)\b/,
+    fluid:/\b(kristall|kristalloid|volumen|ringer|nacl|elektrolyt|ve)\b|\b(250|500|1000)\s*ml\b/,
+    norepi_bolus:/\b(nor|noradrenalin|norepi|norepinephrin)\b.*\bbolus\b|\bbolus\b.*\b(nor|noradrenalin|norepi)\b/,
+    norepi_perfusor:/\b(nor|noradrenalin|norepi|norepinephrin)\b/,
+    oxygen:/\b(sauerstoff|o2)\b/,
+    request_bga:/\b(bga|blutgasanalyse)\b/,
+    request_lab:/\b(labor|blutkultur|bk|urinkultur)\b/,
+    sono:/\b(sono|ultraschall|pocus|focus|fast)\b/,
+    give_ek:/\b(ek|erythro|transfusion|blutkonserve)\b/,
+    give_medication:/.*/,
+    measure_nibp:/\b(nibp|blutdruck|rr)\b/,
+    count_rr:/\b(atemfrequenz|af)\b/,
+    measure_temp:/\b(temperatur|fieber)\b/,
+    measure_bz:/\b(blutzucker|bz|glukose)\b/,
+    ventilate:/\b(beatm|ambu|beutel maske)\b/,
+    shock_position:/\b(schocklage|beine hoch|autotransfusion)\b/,
+    warming:/\b(warm|decke|hypotherm)\b/,
+    txa:/\b(tranexam|txa)\b/
+  };
+  if(action.type==='give_medication')return medicationMentioned(q,action.medication)||(action.medication==='pip_tazo'&&/\b(antibiose|antibiotikum|antibiotika)\b/.test(q));
+  return patterns[action.type]?patterns[action.type].test(q):false;
+}
 function looksLikeMedicationOrder(q){return /(gib|geben|gebe|verabreich|anhäng|anord|starte|starten).{0,35}(mg|g\b|medikament|tablette|i\.v\.|iv\b)|^(paracetamol|fentanyl|morphin|meropenem|ceftriaxon|piperacillin|pip.?taz)/.test(q);}
 async function handleChat(text){
   const t=text.trim();if(!t)return;
   addChat('Telekonsultation',t,'user');
-  const q=t.toLowerCase();
+  const q=normalizeChatText(t);
   trackAssessmentFromText(q);
 
   // Eindeutige Aufträge werden zuerst lokal erkannt. Dadurch gibt es keine
@@ -483,10 +580,12 @@ async function handleChat(text){
   if((/\bbga\b|blutgasanalyse/.test(q))&&!/arteriell|arterielle|art\.|venös|venoes|venöse/.test(q)){
     addChat('Team vor Ort','Soll die BGA arteriell oder venös abgenommen werden?');return;
   }
-  const direct=getCaseAnswer(q);
-  if(direct){if(direct.key)state.assessment.add(direct.key);addChat('Team vor Ort',direct.text);return;}
+  // Eindeutige Aufträge werden vor Befundfragen verarbeitet. So wird z. B.
+  // „FAST“, „Viggo“, „500 VE“ oder „Nor Bolus“ als Maßnahme ausgeführt.
   const localActions=localInterpret(q);
   if(localActions.length){localActions.forEach(doAction);return;}
+  const direct=getCaseAnswer(q);
+  if(direct){if(direct.key)state.assessment.add(direct.key);addChat('Team vor Ort',direct.text);return;}
   if(looksLikeMedicationOrder(q)){addChat('Team vor Ort','Dieses Medikament ist im Simulator nicht verfügbar oder konnte nicht eindeutig erkannt werden. Es wurde kein Ersatzmedikament angeordnet.');return;}
 
   if(state.aiAvailable){
@@ -495,10 +594,12 @@ async function handleChat(text){
     try{
       const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,state:{elapsed:state.elapsed,visiblePatient:{heartRate:Math.round(state.patient.hr),spo2:Math.round(state.patient.spo2),arterialPressure:state.access.has('artery')?`${Math.round(state.patient.sys)}/${Math.round(state.patient.dia)}`:null,lastNibp:state.lastMeasurements.nibp,lastRespiratoryRate:state.lastMeasurements.rr,lastTemperature:state.access.has('bladder')?state.patient.temp:state.lastMeasurements.temp,consciousness:state.patient.mental,skin:getActiveCase().patient.visible.skin,observation:getActiveCase().patient.visible.drainageDescription?`${getActiveCase().patient.visible.drainageDescription}, etwa ${Math.round(getActiveCase().patient.visible.drainageBaseMl+state.elapsed*getActiveCase().patient.visible.drainagePerSecondMl)} ml seit Fallbeginn`:getActiveCase().patient.visible.observationDescription},knownLabs:latestKnownLabs(),bgaHistory:state.bgaResults.map(b=>({time:b.time,values:Object.fromEntries(b.values.map(v=>[v[0],v[1]]))})),access:[...state.access],bloodInventory:state.bloodInventory,staff:state.staff.map(s=>({name:s.name,role:s.role,available:s.busyUntil<=state.elapsed})),norepiPerfusor:state.therapies.norepiPerfusor,caseFacts:{caseId:getActiveCase().id,title:getActiveCase().title,sex:getActiveCase().patient.sex,age:getActiveCase().patient.age,history:getActiveCase().history,diagnostics:getActiveCase().diagnostics,chatFacts:getActiveCase().chatFacts||{},briefing:getActiveCase().briefing,initial:getActiveCase().patient.initial}}})});
       const data=await r.json();state.chat=state.chat.filter(x=>x!==placeholder);if(!r.ok)throw new Error(data.error||'KI-Fehler');
-      // Gemini dient nur als sprachlicher Fallback. Spielaktionen werden ausschließlich
-      // durch die lokale, deterministische Action-Engine ausgelöst.
+      // Gemini übersetzt freie Formulierungen in standardisierte Aktionen. Jede Aktion
+      // wird lokal gegen die tatsächlich genannten Begriffe geprüft, bevor sie ausgeführt wird.
+      const safeActions=filterSafeActions(q,data.actions||[]).filter(action=>actionMatchesText(q,action));
+      if(safeActions.length){safeActions.forEach(doAction);return;}
       if(data.reply)addChat('Team vor Ort',data.reply);
-      else addChat('Team vor Ort','Das ist uns aktuell nicht bekannt oder im Simulator nicht verfügbar.');
+      else addChat('Team vor Ort','Ich habe die Anweisung nicht sicher verstanden. Bitte nennen Sie Maßnahme oder Befund etwas genauer.');
       return;
     }catch(e){
       state.chat=state.chat.filter(x=>x!==placeholder);state.aiAvailable=false;el('aiStatus').textContent='Regel-Fallback';el('aiStatus').className='status-pill idle';addChat('System','Gemini war nicht erreichbar. Der lokale Regel-Chat übernimmt.','system');

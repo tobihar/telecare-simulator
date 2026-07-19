@@ -138,7 +138,7 @@
       initial: {hr:110,sys:60,dia:35,spo2:90,rr:34,temp:38.9,mental:'somnolent und verwirrt',lactate:10.0,hb:9.4,iCa:1.06,glucose:80,bleeding:0},
       visible: {skin:'warm und feucht, peripher schlecht perfundiert',observationDescription:'Dauerkatheter mit trübem, flockigem Urin; seit Stunden nahezu keine Urinausscheidung',urineMlPerHour:0}
     },
-    initialAccess: ['bladder'],
+    initialAccess: ['pvk_pink','bladder'],
     staff: [
       {id:1,name:'Annika',role:'doctor',icon:'🩺'},
       {id:2,name:'Stefan',role:'nurse',icon:'👨‍⚕️'},
@@ -185,6 +185,7 @@
       ecg:'Tachykardes Vorhofflimmern, Linkstyp, keine akuten ST-Hebungen.'
     },
     chatFacts: {
+      access:'Es liegt ein rosa peripherer Venenzugang. Zusätzlich liegt ein Blasenkatheter; eine arterielle Kanüle und ein ZVK sind nicht vorhanden.',
       airway:'Die Atemwege der Patientin sind frei.',
       breathing:'Die Patientin atmet spontan. Die Atemfrequenz ist erhöht; die Lunge ist beidseits vesikulär belüftet.',
       consciousness:'Die Patientin ist somnolent und verwirrt. Ausgangs-GCS 11.',
