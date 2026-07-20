@@ -200,27 +200,34 @@ async function saveResult(req, res) {
 async function saveEvaluation(req,res){
   try{
     if(!databaseConfigured())return json(res,503,{error:'Evaluationsspeicherung ist noch nicht konfiguriert.'});
-    const input=await body(req),username=cleanUsername(input.username),resultId=String(input.simulationResultId||'').trim();
-    if(username.length<2)return json(res,400,{error:'Benutzername fehlt.'});
+    const input=await body(req);
     const answers=input.answers&&typeof input.answers==='object'?input.answers:{},system=answers.system||{},caseAnswers=answers.case||{};
     const requiredSystem=['system_easy','system_clear','system_chat','system_overview','system_teaching','system_more_cases'];
     const requiredCase=['case_realistic','case_reactions','case_difficulty','case_apply_knowledge','case_understanding','case_overwhelmed','case_recommend'];
     const valid=v=>Number.isInteger(Number(v))&&Number(v)>=1&&Number(v)<=5;
     if(!requiredSystem.every(k=>valid(system[k]))||!requiredCase.every(k=>valid(caseAnswers[k]))||typeof answers.technicalProblems!=='boolean')return json(res,400,{error:'Die Evaluation ist unvollständig.'});
-    const record={simulation_result_id:resultId||null,client_run_id:String(input.clientRunId||'').slice(0,100)||null,username,case_name:String(input.caseName||'').slice(0,120),difficulty:String(input.difficulty||'easy').slice(0,20),answers:{system,case:caseAnswers,technicalProblems:Boolean(answers.technicalProblems),technicalProblemText:String(answers.technicalProblemText||'').slice(0,1000)},skipped:false};
-    const data=await supabaseRequest('simulation_evaluations?on_conflict=client_run_id',{method:'POST',headers:{Prefer:'return=representation,resolution=merge-duplicates'},body:JSON.stringify(record)});
-    if(resultId)await supabaseRequest(`simulation_results?id=eq.${encodeURIComponent(resultId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({evaluation_completed:true,evaluation_skipped:false})});
-    json(res,201,{ok:true,id:Array.isArray(data)?data[0]?.id:null});
+    const caseId=String(input.caseId||'').trim().replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100);
+    const caseName=String(input.caseName||'').trim().slice(0,120);
+    const difficulty=['easy','medium','hard'].includes(String(input.difficulty))?String(input.difficulty):'easy';
+    if(!caseId||!caseName)return json(res,400,{error:'Fallangabe fehlt.'});
+    const record={
+      case_id:caseId,
+      case_name:caseName,
+      difficulty,
+      answers:{
+        system,
+        case:caseAnswers,
+        technicalProblems:Boolean(answers.technicalProblems),
+        technicalProblemText:String(answers.technicalProblemText||'').trim().slice(0,1000)
+      }
+    };
+    await supabaseRequest('simulation_evaluations',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(record)});
+    json(res,201,{ok:true});
   }catch(e){console.error('Save evaluation failed:',e);json(res,500,{error:e instanceof Error?e.message:String(e)});}
 }
 async function verifyEvaluationSkip(req,res){
   try{
     const input=await body(req);if(!EVALUATION_SKIP_PASSWORD)return json(res,503,{error:'Überspringen ist nicht konfiguriert.'});if(!safeEqual(input.password||'',EVALUATION_SKIP_PASSWORD))return json(res,401,{error:'Passwort falsch.'});
-    if(!databaseConfigured())return json(res,503,{error:'Evaluationsspeicherung ist noch nicht konfiguriert.'});
-    const resultId=String(input.simulationResultId||'').trim();
-    const record={simulation_result_id:resultId||null,client_run_id:String(input.clientRunId||'').slice(0,100)||null,username:cleanUsername(input.username)||'unbekannt',case_name:String(input.caseName||'').slice(0,120),difficulty:String(input.difficulty||'easy').slice(0,20),answers:{},skipped:true};
-    await supabaseRequest('simulation_evaluations?on_conflict=client_run_id',{method:'POST',headers:{Prefer:'return=representation,resolution=merge-duplicates'},body:JSON.stringify(record)});
-    if(resultId)await supabaseRequest(`simulation_results?id=eq.${encodeURIComponent(resultId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({evaluation_completed:false,evaluation_skipped:true})});
     json(res,200,{ok:true});
   }catch(e){console.error('Skip evaluation failed:',e);json(res,500,{error:e instanceof Error?e.message:String(e)});}
 }
@@ -267,7 +274,7 @@ async function listResults(req,res,url){
   try{
     const search=(url.searchParams.get('search')||'').trim();
     const limit=Math.min(500,Math.max(1,Number(url.searchParams.get('limit'))||200));
-    let query=`simulation_results?select=id,username,created_at,case_name,difficulty,planned_duration_seconds,elapsed_seconds,outcome,score_percent,evaluation_completed,evaluation_skipped&order=created_at.desc&limit=${limit}`;
+    let query=`simulation_results?select=id,username,created_at,case_name,difficulty,planned_duration_seconds,elapsed_seconds,outcome,score_percent&order=created_at.desc&limit=${limit}`;
     if(search)query+=`&username=ilike.*${encodeURIComponent(search.replace(/[,*()]/g,''))}*`;
     const data=await supabaseRequest(query,{method:'GET'});
     json(res,200,{results:data||[]});
@@ -275,7 +282,7 @@ async function listResults(req,res,url){
 }
 async function getResult(req,res,id){
   if(!adminRequired(req,res))return;
-  try{const data=await supabaseRequest(`simulation_results?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,{method:'GET'});if(!data?.length)return json(res,404,{error:'Ergebnis nicht gefunden.'});const evals=await supabaseRequest(`simulation_evaluations?select=*&simulation_result_id=eq.${encodeURIComponent(id)}&limit=1`,{method:'GET'}).catch(()=>[]);json(res,200,{result:{...data[0],evaluation:evals?.[0]||null}});}
+  try{const data=await supabaseRequest(`simulation_results?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,{method:'GET'});if(!data?.length)return json(res,404,{error:'Ergebnis nicht gefunden.'});json(res,200,{result:data[0]});}
   catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
 }
 async function deleteResult(req,res,id){
@@ -285,11 +292,20 @@ async function deleteResult(req,res,id){
     json(res,200,{ok:true});
   }catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
 }
+async function listEvaluations(req,res,url){
+  if(!adminRequired(req,res))return;
+  try{
+    const caseId=String(url.searchParams.get('caseId')||'').trim().replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100);
+    if(!caseId)return json(res,400,{error:'Fallangabe fehlt.'});
+    const limit=Math.min(1000,Math.max(1,Number(url.searchParams.get('limit'))||500));
+    const data=await supabaseRequest(`simulation_evaluations?select=id,case_id,case_name,difficulty,answers,submitted_on&case_id=eq.${encodeURIComponent(caseId)}&order=submitted_on.desc,id.desc&limit=${limit}`,{method:'GET'});
+    json(res,200,{evaluations:data||[]});
+  }catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
+}
 async function deleteEvaluation(req,res,id){
   if(!adminRequired(req,res))return;
   try{
-    await supabaseRequest(`simulation_evaluations?simulation_result_id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});
-    await supabaseRequest(`simulation_results?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({evaluation_completed:false,evaluation_skipped:false})});
+    await supabaseRequest(`simulation_evaluations?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});
     json(res,200,{ok:true});
   }catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
 }
@@ -300,8 +316,8 @@ function averageFrom(items,key){
 async function evaluationSummary(req,res){
   if(!adminRequired(req,res))return;
   try{
-    const data=await supabaseRequest('simulation_evaluations?select=case_name,answers,skipped&skipped=eq.false&order=created_at.desc&limit=10000',{method:'GET'});
-    const evaluations=(data||[]).filter(x=>x&&!x.skipped&&x.answers&&typeof x.answers==='object');
+    const data=await supabaseRequest('simulation_evaluations?select=case_id,case_name,answers&limit=10000',{method:'GET'});
+    const evaluations=(data||[]).filter(x=>x&&x.answers&&typeof x.answers==='object');
     const systemKeys=['system_easy','system_clear','system_chat','system_overview','system_teaching','system_more_cases'];
     const caseKeys=['case_realistic','case_reactions','case_difficulty','case_apply_knowledge','case_understanding','case_overwhelmed','case_recommend'];
     const build=(items,section,keys,invertedKeys=[])=>{
@@ -314,8 +330,8 @@ async function evaluationSummary(req,res){
     };
     const system=build(evaluations,'system',systemKeys);
     const groups=new Map();
-    for(const item of evaluations){const name=String(item.case_name||'Unbekannter Fall');if(!groups.has(name))groups.set(name,[]);groups.get(name).push(item);}
-    const cases=[...groups.entries()].map(([caseName,items])=>({caseName,...build(items,'case',caseKeys,['case_overwhelmed'])})).sort((a,b)=>a.caseName.localeCompare(b.caseName,'de'));
+    for(const item of evaluations){const caseId=String(item.case_id||'legacy'),caseName=String(item.case_name||'Unbekannter Fall'),key=`${caseId}\u0000${caseName}`;if(!groups.has(key))groups.set(key,{caseId,caseName,items:[]});groups.get(key).items.push(item);}
+    const cases=[...groups.values()].map(group=>({caseId:group.caseId,caseName:group.caseName,...build(group.items,'case',caseKeys,['case_overwhelmed'])})).sort((a,b)=>a.caseName.localeCompare(b.caseName,'de'));
     json(res,200,{system,cases});
   }catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
 }
@@ -324,11 +340,19 @@ function csvCell(value){const s=String(value??'');return /[";,\n\r]/.test(s)?`"$
 async function exportCsv(req,res){
   if(!adminRequired(req,res))return;
   try{
-    const data=await supabaseRequest('simulation_results?select=id,username,created_at,case_name,difficulty,planned_duration_seconds,elapsed_seconds,outcome,score_percent,summary,evaluation_completed,evaluation_skipped&order=created_at.desc&limit=5000',{method:'GET'});
-    const evals=await supabaseRequest('simulation_evaluations?select=simulation_result_id,answers,skipped&limit=5000',{method:'GET'}).catch(()=>[]),byResult=new Map((evals||[]).map(e=>[e.simulation_result_id,e]));
-    const rows=[['Benutzername','Datum','Fall','Schwierigkeit','Spieldauer (s)','Ergebnis','Score (%)','Evaluation','Bedienung einfach','Oberfläche übersichtlich','Chat verstanden','Patient überblickt','Pflegeunterricht geeignet','Weitere Fälle','Fall realistisch','Reaktionen nachvollziehbar','Schwierigkeit angemessen','Kenntnisse angewendet','Verständnis verbessert','Überfordert','Empfehlung','Technische Probleme','Technik-Kommentar']];
-    for(const r of data||[]){const ev=byResult.get(r.id),a=ev?.answers||{},sys=a.system||{},cas=a.case||{};rows.push([r.username,r.created_at,r.case_name,r.difficulty,r.elapsed_seconds,r.outcome,r.score_percent,ev?.skipped?'übersprungen':ev?'abgegeben':'offen',sys.system_easy??'',sys.system_clear??'',sys.system_chat??'',sys.system_overview??'',sys.system_teaching??'',sys.system_more_cases??'',cas.case_realistic??'',cas.case_reactions??'',cas.case_difficulty??'',cas.case_apply_knowledge??'',cas.case_understanding??'',cas.case_overwhelmed??'',cas.case_recommend??'',a.technicalProblems===true?'ja':a.technicalProblems===false?'nein':'',a.technicalProblemText??'']);}
+    const data=await supabaseRequest('simulation_results?select=username,created_at,case_name,difficulty,elapsed_seconds,outcome,score_percent&order=created_at.desc&limit=5000',{method:'GET'});
+    const rows=[['Benutzername','Datum','Fall','Schwierigkeit','Spieldauer (s)','Ergebnis','Score (%)']];
+    for(const r of data||[])rows.push([r.username,r.created_at,r.case_name,r.difficulty,r.elapsed_seconds,r.outcome,r.score_percent]);
     const csv='\uFEFF'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n');text(res,200,csv,'text/csv; charset=utf-8',{'Content-Disposition':`attachment; filename="telecare-ergebnisse-${new Date().toISOString().slice(0,10)}.csv"`});
+  }catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
+}
+async function exportEvaluationCsv(req,res){
+  if(!adminRequired(req,res))return;
+  try{
+    const data=await supabaseRequest('simulation_evaluations?select=case_name,difficulty,answers,submitted_on&order=submitted_on.desc,id.desc&limit=10000',{method:'GET'});
+    const rows=[['Datum','Fall','Schwierigkeit','Bedienung einfach','Oberfläche übersichtlich','Chat verstanden','Patient überblickt','Pflegeunterricht geeignet','Weitere Fälle','Fall realistisch','Reaktionen nachvollziehbar','Schwierigkeit angemessen','Kenntnisse angewendet','Verständnis verbessert','Überfordert','Empfehlung','Technische Probleme','Technik-Kommentar']];
+    for(const r of data||[]){const a=r.answers||{},sys=a.system||{},cas=a.case||{};rows.push([r.submitted_on,r.case_name,r.difficulty,sys.system_easy??'',sys.system_clear??'',sys.system_chat??'',sys.system_overview??'',sys.system_teaching??'',sys.system_more_cases??'',cas.case_realistic??'',cas.case_reactions??'',cas.case_difficulty??'',cas.case_apply_knowledge??'',cas.case_understanding??'',cas.case_overwhelmed??'',cas.case_recommend??'',a.technicalProblems===true?'ja':a.technicalProblems===false?'nein':'',a.technicalProblemText??'']);}
+    const csv='\uFEFF'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n');text(res,200,csv,'text/csv; charset=utf-8',{'Content-Disposition':`attachment; filename="telecare-anonyme-evaluationen-${new Date().toISOString().slice(0,10)}.csv"`});
   }catch(e){json(res,500,{error:e instanceof Error?e.message:String(e)});}
 }
 
@@ -345,9 +369,11 @@ const server=http.createServer(async(req,res)=>{
     if(req.method==='GET'&&u.pathname==='/api/admin/session')return json(res,isAdmin(req)?200:401,{authenticated:isAdmin(req),username:isAdmin(req)?ADMIN_USERNAME:null,database:databaseConfigured()});
     if(req.method==='GET'&&u.pathname==='/api/admin/results')return listResults(req,res,u);
     if(req.method==='GET'&&u.pathname==='/api/admin/export.csv')return exportCsv(req,res);
+    if(req.method==='GET'&&u.pathname==='/api/admin/evaluations/export.csv')return exportEvaluationCsv(req,res);
     if(req.method==='GET'&&u.pathname==='/api/admin/evaluations/summary')return evaluationSummary(req,res);
-    const evaluationDelete=u.pathname.match(/^\/api\/admin\/results\/([a-zA-Z0-9-]+)\/evaluation$/);
-    if(req.method==='DELETE'&&evaluationDelete)return deleteEvaluation(req,res,evaluationDelete[1]);
+    if(req.method==='GET'&&u.pathname==='/api/admin/evaluations')return listEvaluations(req,res,u);
+    const evaluationDetail=u.pathname.match(/^\/api\/admin\/evaluations\/([a-zA-Z0-9-]+)$/);
+    if(req.method==='DELETE'&&evaluationDetail)return deleteEvaluation(req,res,evaluationDetail[1]);
     const detail=u.pathname.match(/^\/api\/admin\/results\/([a-zA-Z0-9-]+)$/);
     if(req.method==='GET'&&detail)return getResult(req,res,detail[1]);
     if(req.method==='DELETE'&&detail)return deleteResult(req,res,detail[1]);

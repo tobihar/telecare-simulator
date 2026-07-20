@@ -24,12 +24,12 @@
     <section id="dashboardView" class="dashboard hidden">
       <header class="dashboard-head">
         <div><div class="eyebrow">TeleCare</div><h1>Dozentenbereich</h1><p id="sessionInfo"></p></div>
-        <div class="head-actions"><a class="button secondary" href="/api/admin/export.csv">CSV exportieren</a><button id="logoutBtn" class="secondary">Abmelden</button></div>
+        <div class="head-actions"><a class="button secondary" href="/api/admin/export.csv">Ergebnisse CSV</a><a class="button secondary" href="/api/admin/evaluations/export.csv">Evaluationen CSV</a><button id="logoutBtn" class="secondary">Abmelden</button></div>
       </header>
 
       <nav class="admin-tabs" aria-label="Bereiche">
         <button class="tab-btn active" data-view="resultsView">Ergebnisse</button>
-        <button class="tab-btn" data-view="caseSummaryView">Fall-Evaluationen</button>
+        <button class="tab-btn" data-view="caseSummaryView">Anonyme Evaluationen</button>
         <button class="tab-btn" data-view="systemSummaryView">System-Evaluation</button>
       </nav>
 
@@ -42,16 +42,22 @@
         <p id="dashboardMessage" class="message"></p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Datum</th><th>Benutzername</th><th>Fall</th><th>Schwierigkeit</th><th>Ergebnis</th><th>Score</th><th>Evaluation</th><th></th></tr></thead>
+            <thead><tr><th>Datum</th><th>Benutzername</th><th>Fall</th><th>Schwierigkeit</th><th>Ergebnis</th><th>Score</th><th></th></tr></thead>
             <tbody id="resultsBody"></tbody>
           </table>
         </div>
       </section>
 
       <section id="caseSummaryView" class="admin-view hidden">
-        <div class="summary-header"><div><h2>Evaluation der Fälle</h2><p>Zusammenfassung nach Fall. Niedrige Werte markieren möglichen Verbesserungsbedarf.</p></div><select id="caseSummarySelect"></select></div>
+        <div class="summary-header"><div><h2>Anonyme Evaluationen nach Fall</h2><p>Die Fragebögen enthalten keine Benutzernamen und sind nicht mit Simulationsergebnissen verknüpft.</p></div></div>
         <p id="caseSummaryMessage" class="message"></p>
+        <div id="caseFolderList" class="case-folder-list" aria-label="Fälle"></div>
         <div id="caseSummaryContent"></div>
+        <section class="anonymous-surveys-panel">
+          <div class="survey-panel-head"><div><h3>Einzelne anonyme Fragebögen</h3><p>Jeder Bogen kann separat geöffnet und gelöscht werden.</p></div></div>
+          <p id="caseSurveyMessage" class="message"></p>
+          <div id="caseSurveyList" class="case-survey-list"></div>
+        </section>
       </section>
 
       <section id="systemSummaryView" class="admin-view hidden">

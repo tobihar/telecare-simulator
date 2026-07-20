@@ -139,14 +139,14 @@
           <form id="evaluationSkipForm"><input id="evaluationSkipPassword" type="password" autocomplete="off" placeholder="Passwort" required><button type="submit">Überspringen</button><p id="evaluationSkipError" class="form-error hidden"></p></form>
         </details>
       </div>
-      <p class="modal-note">Bitte bewerte den Fall und das TeleCare-System. Deine Antworten werden automatisch zwischengespeichert und vertraulich ausgewertet. Sie sind nur im geschützten Dozentenbereich einsehbar. Es werden keine realen Patientendaten benötigt.</p>
+      <p class="modal-note"><strong>Diese Evaluation ist anonym.</strong> Sie wird getrennt vom Simulationsergebnis gespeichert und enthält weder Benutzername noch Durchlauf-ID. Gespeichert werden nur Fall, Schwierigkeit, Antworten und Datum. Der Entwurf bleibt bis zum Absenden ausschließlich auf diesem Gerät gespeichert.</p>
       <form id="evaluationForm">
         <section class="evaluation-section"><h3>Fragen zum TeleCare-System</h3><div id="systemEvaluationQuestions" class="evaluation-questions"></div></section>
         <section class="evaluation-section"><h3>Fragen zum Fall</h3><div id="caseEvaluationQuestions" class="evaluation-questions"></div></section>
         <section class="evaluation-section technical-section">
           <h3>Technik</h3>
           <fieldset class="evaluation-question"><legend>Gab es technische Probleme?</legend><div class="binary-options"><label><input type="radio" name="technicalProblems" value="no" required> Nein</label><label><input type="radio" name="technicalProblems" value="yes" required> Ja</label></div></fieldset>
-          <label id="technicalProblemTextWrap" class="technical-text hidden">Bitte kurz beschreiben (freiwillig)<textarea id="technicalProblemText" name="technicalProblemText" rows="3" maxlength="1000"></textarea></label>
+          <label id="technicalProblemTextWrap" class="technical-text hidden">Bitte kurz beschreiben – ohne Namen oder andere persönliche Angaben (freiwillig)<textarea id="technicalProblemText" name="technicalProblemText" rows="3" maxlength="1000"></textarea></label>
         </section>
         <p id="evaluationError" class="form-error hidden">Bitte beantworte alle Pflichtfragen.</p>
         <div class="modal-actions evaluation-actions"><button type="submit" class="primary">Evaluation absenden & Auswertung anzeigen</button></div>

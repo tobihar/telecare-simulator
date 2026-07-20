@@ -1,10 +1,11 @@
 const el=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const fmtDate=value=>new Intl.DateTimeFormat('de-DE',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
+const fmtDay=value=>new Intl.DateTimeFormat('de-DE',{dateStyle:'medium'}).format(new Date(`${value}T12:00:00`));
 const fmtTime=seconds=>`${String(Math.floor((Number(seconds)||0)/60)).padStart(2,'0')}:${String(Math.round(Number(seconds)||0)%60).padStart(2,'0')}`;
 const difficulty={easy:'Leicht',medium:'Mittel',hard:'Schwer'};
 const evaluationLabels={system_easy:'Bedienung einfach',system_clear:'Oberfläche übersichtlich',system_chat:'Chat verstand Anweisungen',system_overview:'Patientenzustand überblickt',system_teaching:'Für Pflegeunterricht geeignet',system_more_cases:'Weitere Fälle gewünscht',case_realistic:'Fall realistisch',case_reactions:'Reaktionen nachvollziehbar',case_difficulty:'Schwierigkeit angemessen',case_apply_knowledge:'Schockkenntnisse angewendet',case_understanding:'Unterricht besser verstanden',case_overwhelmed:'Überfordert',case_recommend:'Fall empfohlen'};
-let cachedSummary=null;
+let cachedSummary=null,activeEvaluationCaseId=null;
 
 function makeVitalChart(data,title,key,color,minFixed,maxFixed,unit){
   if(!Array.isArray(data)||data.length<2)return '<p class="muted">Keine ausreichenden Verlaufsdaten.</p>';
@@ -38,37 +39,27 @@ document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',
   if(btn.dataset.view==='caseSummaryView')loadEvaluationSummary('case');
   if(btn.dataset.view==='systemSummaryView')loadEvaluationSummary('system');
 }));
-el('caseSummarySelect').addEventListener('change',renderCaseSummary);
-
 async function loadResults(){const msg=el('dashboardMessage');msg.textContent='Ergebnisse werden geladen …';try{const q=encodeURIComponent(el('searchInput').value.trim()),d=await api(`/api/admin/results?search=${q}`);renderRows(d.results||[]);msg.textContent=`${d.results?.length||0} Ergebnis(se)`;}catch(err){if(err.message==='Nicht angemeldet.')return showLogin();msg.textContent=err.message;}}
 function renderRows(rows){
-  el('resultsBody').innerHTML=rows.length?rows.map(r=>`<tr><td>${esc(fmtDate(r.created_at))}</td><td><strong>${esc(r.username)}</strong></td><td>${esc(r.case_name)}</td><td>${esc(difficulty[r.difficulty]||r.difficulty)}</td><td>${esc(r.outcome)}</td><td class="score">${Number(r.score_percent)} %</td><td>${r.evaluation_skipped?'übersprungen':r.evaluation_completed?'abgegeben':'offen'}</td><td class="row-actions"><button class="detail-btn" data-id="${esc(r.id)}">Öffnen</button><button class="danger compact delete-result-btn" data-id="${esc(r.id)}" data-name="${esc(r.username)}">Löschen</button></td></tr>`).join(''):'<tr><td colspan="8">Keine Ergebnisse vorhanden.</td></tr>';
+  el('resultsBody').innerHTML=rows.length?rows.map(r=>`<tr><td>${esc(fmtDate(r.created_at))}</td><td><strong>${esc(r.username)}</strong></td><td>${esc(r.case_name)}</td><td>${esc(difficulty[r.difficulty]||r.difficulty)}</td><td>${esc(r.outcome)}</td><td class="score">${Number(r.score_percent)} %</td><td class="row-actions"><button class="detail-btn" data-id="${esc(r.id)}">Öffnen</button><button class="danger compact delete-result-btn" data-id="${esc(r.id)}" data-name="${esc(r.username)}">Löschen</button></td></tr>`).join(''):'<tr><td colspan="7">Keine Ergebnisse vorhanden.</td></tr>';
   document.querySelectorAll('.detail-btn').forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
   document.querySelectorAll('.delete-result-btn').forEach(b=>b.onclick=()=>deleteResult(b.dataset.id,b.dataset.name));
 }
 async function deleteResult(id,name){
-  if(!confirm(`Durchlauf von ${name} einschließlich Evaluation endgültig löschen?`))return;
+  if(!confirm(`Durchlauf von ${name} endgültig löschen? Anonyme Evaluationen sind davon unabhängig.`))return;
   try{await api(`/api/admin/results/${encodeURIComponent(id)}`,{method:'DELETE'});cachedSummary=null;await loadResults();}catch(e){alert(e.message);}
 }
-async function deleteEvaluation(id){
-  if(!confirm('Nur die Evaluation dieses Durchlaufs endgültig löschen? Das Simulationsergebnis bleibt erhalten.'))return;
-  try{await api(`/api/admin/results/${encodeURIComponent(id)}/evaluation`,{method:'DELETE'});cachedSummary=null;el('detailDialog').close();await loadResults();}catch(e){alert(e.message);}
-}
-
-function evaluationHtml(ev){
-  if(!ev)return '<p class="muted">Noch keine Evaluation abgegeben.</p>';
-  if(ev.skipped)return '<p class="muted">Mit Dozentenpasswort übersprungen.</p>';
-  const a=ev.answers||{},items=[...Object.entries(a.system||{}),...Object.entries(a.case||{})];
+function evaluationAnswersHtml(a){
+  const items=[...Object.entries(a?.system||{}),...Object.entries(a?.case||{})];
   return `<div class="evaluation-admin-grid">${items.map(([k,v])=>`<div class="metric"><span>${esc(evaluationLabels[k]||k)}</span><strong>${Number(v)}/5</strong></div>`).join('')}</div><div class="metric"><span>Technische Probleme</span><strong>${a.technicalProblems?'Ja':'Nein'}</strong>${a.technicalProblemText?`<p>${esc(a.technicalProblemText)}</p>`:''}</div>`;
 }
 async function openDetail(id){
   el('detailTitle').textContent='Ergebnis wird geladen …';el('detailContent').innerHTML='';el('detailDialog').showModal();
   try{
     const {result:r}=await api(`/api/admin/results/${encodeURIComponent(id)}`);el('detailTitle').textContent=r.username;
-    const s=r.summary||{},d=r.details||{},events=d.essentialEvents||d.events||[],chat=d.chat||[],ev=r.evaluation||null;
-    el('detailContent').innerHTML=`<div class="detail-grid"><div class="metric"><span>Datum</span><strong>${esc(fmtDate(r.created_at))}</strong></div><div class="metric"><span>Fall</span><strong>${esc(r.case_name)}</strong></div><div class="metric"><span>Score</span><strong class="score">${Number(r.score_percent)} %</strong></div><div class="metric"><span>Schwierigkeit</span><strong>${esc(difficulty[r.difficulty]||r.difficulty)}</strong></div><div class="metric"><span>Spieldauer</span><strong>${fmtTime(r.elapsed_seconds)}</strong></div><div class="metric"><span>Ergebnis</span><strong>${esc(r.outcome)}</strong></div><div class="metric"><span>Kristalloide</span><strong>${Number(s.crystalloidMl||0)} ml</strong></div><div class="metric"><span>EK gegeben</span><strong>${Number(s.bloodUnitsGiven||0)}</strong></div><div class="metric"><span>Letzter Hb</span><strong>${s.lastHb??'–'} g/dl</strong></div></div><div class="detail-actions"><button class="danger" id="deleteWholeResultBtn">Durchlauf löschen</button>${ev?'<button class="secondary danger-outline" id="deleteEvaluationBtn">Nur Evaluation löschen</button>':''}</div><h3 class="section-title">Evaluation</h3>${evaluationHtml(ev)}<h3 class="section-title">Vitalparameterverlauf</h3>${vitalChartsHtml(d.vitals||[])}<h3 class="section-title">Laborverlauf</h3>${investigationTrendTable(d.labResults||[],'Labor')}<h3 class="section-title">BGA-Verlauf</h3>${investigationTrendTable(d.bgaResults||[],'BGA')}<h3 class="section-title">ABCDE & SAMPLER</h3><div class="tag-list">${(s.assessment||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join('')||'<span class="tag">Keine Einträge</span>'}</div><h3 class="section-title">Wesentliche Maßnahmen</h3><div class="timeline">${events.map(e=>`<div><time>${fmtTime(e.time)}</time><span>${esc(e.text)}</span></div>`).join('')||'<div>Keine Maßnahmen dokumentiert.</div>'}</div><h3 class="section-title">Chatverlauf</h3><div class="chat-list">${chat.map(m=>`<div><time>${fmtTime(m.time)}</time><span><strong>${esc(m.sender)}:</strong> ${esc(m.text)}</span></div>`).join('')||'<div>Kein Chat dokumentiert.</div>'}</div>`;
+    const s=r.summary||{},d=r.details||{},events=d.essentialEvents||d.events||[],chat=d.chat||[];
+    el('detailContent').innerHTML=`<div class="detail-grid"><div class="metric"><span>Datum</span><strong>${esc(fmtDate(r.created_at))}</strong></div><div class="metric"><span>Fall</span><strong>${esc(r.case_name)}</strong></div><div class="metric"><span>Score</span><strong class="score">${Number(r.score_percent)} %</strong></div><div class="metric"><span>Schwierigkeit</span><strong>${esc(difficulty[r.difficulty]||r.difficulty)}</strong></div><div class="metric"><span>Spieldauer</span><strong>${fmtTime(r.elapsed_seconds)}</strong></div><div class="metric"><span>Ergebnis</span><strong>${esc(r.outcome)}</strong></div><div class="metric"><span>Kristalloide</span><strong>${Number(s.crystalloidMl||0)} ml</strong></div><div class="metric"><span>EK gegeben</span><strong>${Number(s.bloodUnitsGiven||0)}</strong></div><div class="metric"><span>Letzter Hb</span><strong>${s.lastHb??'–'} g/dl</strong></div></div><div class="detail-actions"><button class="danger" id="deleteWholeResultBtn">Durchlauf löschen</button></div><p class="privacy-separation-note">Anonyme Evaluationen werden getrennt von den Simulationsergebnissen verwaltet und können diesem Durchlauf nicht zugeordnet werden.</p><h3 class="section-title">Vitalparameterverlauf</h3>${vitalChartsHtml(d.vitals||[])}<h3 class="section-title">Laborverlauf</h3>${investigationTrendTable(d.labResults||[],'Labor')}<h3 class="section-title">BGA-Verlauf</h3>${investigationTrendTable(d.bgaResults||[],'BGA')}<h3 class="section-title">ABCDE & SAMPLER</h3><div class="tag-list">${(s.assessment||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join('')||'<span class="tag">Keine Einträge</span>'}</div><h3 class="section-title">Wesentliche Maßnahmen</h3><div class="timeline">${events.map(e=>`<div><time>${fmtTime(e.time)}</time><span>${esc(e.text)}</span></div>`).join('')||'<div>Keine Maßnahmen dokumentiert.</div>'}</div><h3 class="section-title">Chatverlauf</h3><div class="chat-list">${chat.map(m=>`<div><time>${fmtTime(m.time)}</time><span><strong>${esc(m.sender)}:</strong> ${esc(m.text)}</span></div>`).join('')||'<div>Kein Chat dokumentiert.</div>'}</div>`;
     el('deleteWholeResultBtn').onclick=()=>{el('detailDialog').close();deleteResult(r.id,r.username);};
-    if(el('deleteEvaluationBtn'))el('deleteEvaluationBtn').onclick=()=>deleteEvaluation(r.id);
   }catch(err){el('detailContent').innerHTML=`<p class="error">${esc(err.message)}</p>`;}
 }
 
@@ -78,20 +69,43 @@ function summaryBar(label,value,count,{inverted=false}={}){
   return `<div class="summary-row"><div class="summary-label"><span>${esc(label)}</span><strong>${display}/5</strong></div><div class="summary-track"><div class="summary-fill ${scoreClass(val,inverted)}" style="width:${width}%"></div></div><small>n = ${Number(count)||0}</small></div>`;
 }
 function renderTechnicalSummary(technical){const total=Number(technical?.total)||0,yes=Number(technical?.yes)||0,pct=total?Math.round(yes/total*100):0;return `<div class="technical-summary"><strong>${pct} %</strong><span>meldeten technische Probleme (${yes} von ${total})</span></div>`;}
-async function loadEvaluationSummary(mode){
+async function loadEvaluationSummary(mode,preferredCaseId=null){
   const msg=el(mode==='case'?'caseSummaryMessage':'systemSummaryMessage');msg.textContent='Evaluationen werden ausgewertet …';
-  try{if(!cachedSummary)cachedSummary=await api('/api/admin/evaluations/summary');if(mode==='case')setupCaseSummary();else renderSystemSummary();msg.textContent='';}catch(e){msg.textContent=e.message;}
+  try{if(!cachedSummary)cachedSummary=await api('/api/admin/evaluations/summary');if(mode==='case')setupCaseSummary(preferredCaseId);else renderSystemSummary();msg.textContent='';}catch(e){msg.textContent=e.message;}
 }
 function renderSystemSummary(){
   const s=cachedSummary?.system;if(!s||!s.count){el('systemSummaryContent').innerHTML='<p class="empty-state">Noch keine abgegebenen Evaluationen vorhanden.</p>';return;}
   el('systemSummaryContent').innerHTML=`<div class="summary-kpis"><div class="metric"><span>Evaluationen</span><strong>${s.count}</strong></div><div class="metric"><span>Mittlere Systembewertung</span><strong>${Number(s.overallAverage).toFixed(2).replace('.',',')}/5</strong></div></div><div class="summary-panel"><h3>Einzelfragen</h3>${Object.entries(s.averages||{}).map(([k,v])=>summaryBar(evaluationLabels[k]||k,v,s.count)).join('')}</div><div class="summary-panel"><h3>Technische Probleme</h3>${renderTechnicalSummary(s.technicalProblems)}</div>`;
 }
-function setupCaseSummary(){
-  const cases=cachedSummary?.cases||[];el('caseSummarySelect').innerHTML=cases.map(c=>`<option value="${esc(c.caseName)}">${esc(c.caseName)} · n=${c.count}</option>`).join('');renderCaseSummary();
+function setupCaseSummary(preferredCaseId=null){
+  const cases=cachedSummary?.cases||[],folders=el('caseFolderList');
+  if(!cases.length){activeEvaluationCaseId=null;folders.innerHTML='';el('caseSummaryContent').innerHTML='<p class="empty-state">Noch keine anonymen Evaluationen vorhanden.</p>';el('caseSurveyList').innerHTML='';return;}
+  const candidate=preferredCaseId||activeEvaluationCaseId;
+  activeEvaluationCaseId=cases.some(c=>c.caseId===candidate)?candidate:cases[0].caseId;
+  folders.innerHTML=cases.map(c=>`<button class="case-folder ${c.caseId===activeEvaluationCaseId?'active':''}" data-case-id="${esc(c.caseId)}"><span class="folder-icon" aria-hidden="true">📁</span><span><strong>${esc(c.caseName)}</strong><small>${c.count} anonyme Fragebögen</small></span></button>`).join('');
+  document.querySelectorAll('.case-folder').forEach(button=>button.onclick=()=>{activeEvaluationCaseId=button.dataset.caseId;renderCaseSummary();});
+  renderCaseSummary();
 }
 function renderCaseSummary(){
-  const name=el('caseSummarySelect').value,c=(cachedSummary?.cases||[]).find(x=>x.caseName===name);
-  if(!c){el('caseSummaryContent').innerHTML='<p class="empty-state">Noch keine fallbezogenen Evaluationen vorhanden.</p>';return;}
+  const c=(cachedSummary?.cases||[]).find(x=>x.caseId===activeEvaluationCaseId);
+  document.querySelectorAll('.case-folder').forEach(button=>button.classList.toggle('active',button.dataset.caseId===activeEvaluationCaseId));
+  if(!c){el('caseSummaryContent').innerHTML='<p class="empty-state">Noch keine fallbezogenen Evaluationen vorhanden.</p>';el('caseSurveyList').innerHTML='';return;}
   el('caseSummaryContent').innerHTML=`<div class="summary-kpis"><div class="metric"><span>Evaluationen</span><strong>${c.count}</strong></div><div class="metric"><span>Mittlere Fallbewertung</span><strong>${Number(c.overallAverage).toFixed(2).replace('.',',')}/5</strong></div></div><div class="summary-panel"><h3>Einzelfragen</h3>${Object.entries(c.averages||{}).map(([k,v])=>summaryBar(evaluationLabels[k]||k,v,c.count,{inverted:k==='case_overwhelmed'})).join('')}</div><div class="summary-panel"><h3>Technische Probleme in diesem Fall</h3>${renderTechnicalSummary(c.technicalProblems)}</div>`;
+  loadCaseEvaluations(c.caseId);
+}
+async function loadCaseEvaluations(caseId){
+  const msg=el('caseSurveyMessage');msg.textContent='Anonyme Fragebögen werden geladen …';el('caseSurveyList').innerHTML='';
+  try{const data=await api(`/api/admin/evaluations?caseId=${encodeURIComponent(caseId)}`);if(caseId!==activeEvaluationCaseId)return;renderCaseEvaluations(data.evaluations||[]);msg.textContent=`${data.evaluations?.length||0} anonyme Fragebögen`;}catch(e){msg.textContent=e.message;}
+}
+function renderCaseEvaluations(items){
+  const list=el('caseSurveyList');
+  if(!items.length){list.innerHTML='<p class="empty-state">Für diesen Fall liegen keine Fragebögen vor.</p>';return;}
+  list.innerHTML=items.map((item,index)=>`<details class="survey-card"><summary><span><strong>Anonymer Fragebogen ${items.length-index}</strong><small>${esc(fmtDay(item.submitted_on))} · ${esc(difficulty[item.difficulty]||item.difficulty)}</small></span><span class="survey-open-hint">Öffnen</span></summary><div class="survey-body">${evaluationAnswersHtml(item.answers||{})}<div class="survey-actions"><button class="danger delete-anonymous-evaluation" data-id="${esc(item.id)}">Diesen Fragebogen löschen</button></div></div></details>`).join('');
+  document.querySelectorAll('.delete-anonymous-evaluation').forEach(button=>button.onclick=event=>{event.preventDefault();deleteAnonymousEvaluation(button.dataset.id);});
+}
+async function deleteAnonymousEvaluation(id){
+  if(!confirm('Diesen anonymen Fragebogen endgültig löschen? Die Löschung kann nicht rückgängig gemacht werden.'))return;
+  const caseId=activeEvaluationCaseId;
+  try{await api(`/api/admin/evaluations/${encodeURIComponent(id)}`,{method:'DELETE'});cachedSummary=null;await loadEvaluationSummary('case',caseId);}catch(e){alert(e.message);}
 }
 checkSession();
