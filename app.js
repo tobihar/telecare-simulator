@@ -671,7 +671,7 @@ async function handleChat(text){
       else addChat('Team vor Ort','Ich habe die Anweisung nicht sicher verstanden. Bitte nennen Sie Maßnahme oder Befund etwas genauer.');
       return;
     }catch(e){
-      state.chat=state.chat.filter(x=>x!==placeholder);state.aiAvailable=false;el('aiStatus').textContent='Regel-Fallback';el('aiStatus').className='status-pill idle';addChat('System','Gemini war nicht erreichbar. Der lokale Regel-Chat übernimmt.','system');
+      state.chat=state.chat.filter(x=>x!==placeholder);el('aiStatus').textContent='Gemini gestört';el('aiStatus').className='status-pill idle';const reason=String(e?.message||'Unbekannter API-Fehler').replace(/\s+/g,' ').slice(0,220);addChat('System',`Gemini antwortet momentan nicht (${reason}). Der lokale Regel-Chat übernimmt diese Nachricht; bei der nächsten Anfrage wird Gemini erneut versucht.`,'system');
     }
   }
   addChat(teamMemberName('nurse'),'Bitte formulieren Sie die Frage noch etwas konkreter.');

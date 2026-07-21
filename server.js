@@ -25,7 +25,9 @@ loadLocalEnv();
 
 const PORT = Number(process.env.PORT) || 3000;
 const API_KEY = process.env.GEMINI_API_KEY || '';
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+const MODEL = String(process.env.GEMINI_MODEL || DEFAULT_MODEL).trim().replace(/^models\//, '') || DEFAULT_MODEL;
+const MODEL_CANDIDATES = [...new Set([MODEL, DEFAULT_MODEL])];
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'dozent';
@@ -43,6 +45,7 @@ const MIME = {
 const ACTIONS = ['ask_mental','ask_skin','ask_drainage','ask_urine','ask_allergy','ask_auscultation','measure_bz','measure_nibp','count_rr','measure_temp','alert_surgeon','insert_pvk','insert_artery','oxygen','upper_body_elevated','defib_pads','warming','fluid','norepi_bolus','norepi_perfusor','txa','give_ek','give_medication','request_lab','request_bga','request_ecg','sono','ventilate','shock_position'];
 const LAB_IDS = ['blood_cultures','urine_culture','pct','crp','leukocytes','creatinine','lactate','platelets','inr','fibrinogen','electrolytes','troponin','ck','ckmb','ldh','ast','alt','potassium','sodium'];
 const MEDS = ['adrenaline','amiodarone','atropine','adenosine','aspirin','heparin','nitroglycerin','urapidil','metoprolol','furosemide','salbutamol','ipratropium','prednisolone','dimetindene','ketamine','midazolam','propofol','etomidate','fentanyl','morphine','piritramide','naloxone','flumazenil','rocuronium','succinylcholine','calcium','magnesium','bicarbonate','glucose','insulin','glucagon','vasopressin','dobutamine','ondansetron','potassium','paracetamol','ceftriaxone','pip_tazo','meropenem','fibrinogen'];
+const GEMINI_RESPONSE_SCHEMA = {type:'OBJECT',properties:{reply:{type:'STRING'},actions:{type:'ARRAY',items:{type:'OBJECT',properties:{type:{type:'STRING',enum:ACTIONS},quantity:{type:'INTEGER',minimum:1,maximum:2},size:{type:'STRING',enum:['pink','green','orange']},volumeMl:{type:'INTEGER',enum:[250,500,1000]},medication:{type:'STRING',enum:MEDS},mode:{type:'STRING',enum:['arterial','venous']},labs:{type:'ARRAY',items:{type:'STRING',enum:LAB_IDS}}},required:['type']}}},required:['reply','actions']};
 
 function json(res, status, data, extraHeaders = {}) {
   res.writeHead(status, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store', ...extraHeaders});
@@ -127,18 +130,63 @@ Für request_bga mode arterial/venous.
 Für request_lab labs als Liste aus: ${LAB_IDS.join(', ')}.
 Für give_medication medication aus der ID-Liste.`;}
 
+function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function geminiPayload(prompt,withSchema=true){
+  const generationConfig={temperature:0,responseMimeType:'application/json'};
+  if(withSchema)generationConfig.responseSchema=GEMINI_RESPONSE_SCHEMA;
+  return {contents:[{role:'user',parts:[{text:prompt}]}],generationConfig};
+}
+function parseJsonText(raw){
+  const text=String(raw||'').trim();
+  try{return JSON.parse(text);}
+  catch{
+    const start=text.indexOf('{'),end=text.lastIndexOf('}');
+    if(start>=0&&end>start)return JSON.parse(text.slice(start,end+1));
+    throw new Error('Gemini hat keine lesbare JSON-Antwort geliefert.');
+  }
+}
+async function requestGemini(model,prompt,withSchema=true){
+  let lastError=null;
+  for(let attempt=0;attempt<2;attempt++){
+    try{
+      const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':API_KEY},body:JSON.stringify(geminiPayload(prompt,withSchema)),signal:AbortSignal.timeout(25000)});
+      const raw=await response.text();
+      let data={};try{data=raw?JSON.parse(raw):{};}catch{data={};}
+      if(response.ok)return {ok:true,data,model};
+      lastError={ok:false,status:response.status,error:data?.error?.message||`Gemini-Anfrage fehlgeschlagen (${response.status}).`,code:data?.error?.status||'',model};
+      if(![429,500,502,503,504].includes(response.status)||attempt>0)break;
+    }catch(error){
+      lastError={ok:false,status:502,error:error?.name==='TimeoutError'?'Zeitüberschreitung bei Gemini.':(error instanceof Error?error.message:String(error)),code:error?.name||'',model};
+      if(attempt>0)break;
+    }
+    await wait(350*(attempt+1));
+  }
+  return lastError||{ok:false,status:502,error:'Gemini-Anfrage fehlgeschlagen.',code:'',model};
+}
+function isSchemaError(result){return result?.status===400&&/schema|enum|invalid argument|response.?mime|response.?format/i.test(`${result.error||''} ${result.code||''}`);}
+function canTryFallbackModel(result){return [400,404,429,500,502,503,504].includes(Number(result?.status))&&!/api.?key|permission|billing/i.test(`${result?.error||''} ${result?.code||''}`);}
+
 async function chat(req,res){
   if(!API_KEY)return json(res,503,{error:'Kein GEMINI_API_KEY gesetzt.'});
   try{
     const {message,state}=await body(req);
     if(typeof message!=='string'||!message.trim())return json(res,400,{error:'Nachricht fehlt.'});
-    const payload={contents:[{role:'user',parts:[{text:promptFor(message.trim(),state)}]}],generationConfig:{temperature:0,responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{reply:{type:'STRING'},actions:{type:'ARRAY',items:{type:'OBJECT',properties:{type:{type:'STRING',enum:ACTIONS},quantity:{type:'INTEGER',minimum:1,maximum:2},size:{type:'STRING',enum:['pink','green','orange']},volumeMl:{type:'INTEGER',enum:[250,500,1000]},medication:{type:'STRING',enum:MEDS},mode:{type:'STRING',enum:['arterial','venous']},labs:{type:'ARRAY',items:{type:'STRING',enum:LAB_IDS}}},required:['type']}}},required:['reply','actions']}}};
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':API_KEY},body:JSON.stringify(payload)});
-    const d=await r.json();if(!r.ok)return json(res,r.status,{error:d?.error?.message||'Gemini-Anfrage fehlgeschlagen'});
+    const prompt=promptFor(message.trim(),state);
+    let result=null;
+    for(const model of MODEL_CANDIDATES){
+      result=await requestGemini(model,prompt,true);
+      if(!result.ok&&isSchemaError(result))result=await requestGemini(model,prompt,false);
+      if(result.ok||!canTryFallbackModel(result))break;
+    }
+    if(!result?.ok){
+      console.error(`Gemini error [${result?.model||MODEL}] ${result?.status||502} ${result?.code||''}: ${result?.error||'Unbekannter Fehler'}`);
+      return json(res,result?.status||502,{error:result?.error||'Gemini-Anfrage fehlgeschlagen.',code:result?.code||'',model:result?.model||MODEL});
+    }
+    const d=result.data;
     const modelText=d?.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('')||'{}';
-    const parsed=JSON.parse(modelText);parsed.actions=(parsed.actions||[]).filter(a=>ACTIONS.includes(a.type));
+    const parsed=parseJsonText(modelText);parsed.actions=Array.isArray(parsed.actions)?parsed.actions.filter(a=>a&&ACTIONS.includes(a.type)):[];
     if(parsed.actions.length)parsed.reply='';
-    json(res,200,{reply:typeof parsed.reply==='string'?parsed.reply:'',actions:parsed.actions});
+    json(res,200,{reply:typeof parsed.reply==='string'?parsed.reply:'',actions:parsed.actions,model:result.model});
   }catch(e){console.error(e);json(res,502,{error:e instanceof Error?e.message:String(e)});}
 }
 
