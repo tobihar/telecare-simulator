@@ -1,6 +1,6 @@
 {
   "name":"telecare-simulator",
-  "version":"4.2.0",
+  "version":"4.3.0",
   "private":true,
   "type":"module",
   "scripts":{"start":"node server.js"},

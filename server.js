@@ -40,9 +40,9 @@ const MIME = {
   '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
 };
-const ACTIONS = ['ask_mental','ask_skin','ask_drainage','ask_urine','ask_allergy','ask_auscultation','measure_bz','measure_nibp','count_rr','measure_temp','alert_surgeon','insert_pvk','insert_artery','oxygen','warming','fluid','norepi_bolus','norepi_perfusor','txa','give_ek','give_medication','request_lab','request_bga','sono','ventilate','shock_position'];
-const LAB_IDS = ['blood_cultures','urine_culture','pct','crp','leukocytes','creatinine','lactate','platelets','inr','fibrinogen','electrolytes'];
-const MEDS = ['adrenaline','amiodarone','atropine','adenosine','aspirin','heparin','nitroglycerin','urapidil','metoprolol','furosemide','salbutamol','ipratropium','prednisolone','dimetindene','ketamine','midazolam','propofol','etomidate','fentanyl','morphine','piritramide','naloxone','flumazenil','rocuronium','succinylcholine','calcium','magnesium','bicarbonate','glucose','insulin','glucagon','vasopressin','dobutamine','paracetamol','ceftriaxone','pip_tazo','meropenem','fibrinogen'];
+const ACTIONS = ['ask_mental','ask_skin','ask_drainage','ask_urine','ask_allergy','ask_auscultation','measure_bz','measure_nibp','count_rr','measure_temp','alert_surgeon','insert_pvk','insert_artery','oxygen','upper_body_elevated','defib_pads','warming','fluid','norepi_bolus','norepi_perfusor','txa','give_ek','give_medication','request_lab','request_bga','request_ecg','sono','ventilate','shock_position'];
+const LAB_IDS = ['blood_cultures','urine_culture','pct','crp','leukocytes','creatinine','lactate','platelets','inr','fibrinogen','electrolytes','troponin','ck','ckmb','ldh','ast','alt','potassium','sodium'];
+const MEDS = ['adrenaline','amiodarone','atropine','adenosine','aspirin','heparin','nitroglycerin','urapidil','metoprolol','furosemide','salbutamol','ipratropium','prednisolone','dimetindene','ketamine','midazolam','propofol','etomidate','fentanyl','morphine','piritramide','naloxone','flumazenil','rocuronium','succinylcholine','calcium','magnesium','bicarbonate','glucose','insulin','glucagon','vasopressin','dobutamine','ondansetron','potassium','paracetamol','ceftriaxone','pip_tazo','meropenem','fibrinogen'];
 
 function json(res, status, data, extraHeaders = {}) {
   res.writeHead(status, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store', ...extraHeaders});
@@ -107,6 +107,7 @@ HARTE REGELN:
 - Bei einem erkannten Auftrag ist reply exakt leer. Die Simulation bestätigt selbst.
 - BGA ohne arteriell/venös: "Arteriell oder venös?" und actions leer.
 - Interpretiere kurze klinische Aufträge und übliche Abkürzungen: z. B. '500 VE' = 500 ml kristalloide Vollelektrolytlösung, 'Viggo' = PVK, 'Nor Bolus' = Noradrenalin-Bolus.
+- Für fluid darf volumeMl nur 250, 500 oder 1000 sein. Wenn der Fall eine explizite Mengenauswahl verlangt und keine Menge genannt ist, frage knapp nach 250, 500 oder 1000 ml und erzeuge keine Aktion.
 - Bei unklarer Anweisung lieber knapp nachfragen, statt eine andere Maßnahme zu wählen.
 - Keine therapeutischen Vorschläge und keine Differentialdiagnosen, sofern nicht ausdrücklich danach gefragt wird.
 
@@ -121,6 +122,7 @@ Nachricht: ${message}
 Antworte ausschließlich als JSON:
 {"reply":"","actions":[]}
 Für insert_pvk optional quantity 1-2 und size pink/green/orange.
+Für fluid volumeMl 250, 500 oder 1000.
 Für request_bga mode arterial/venous.
 Für request_lab labs als Liste aus: ${LAB_IDS.join(', ')}.
 Für give_medication medication aus der ID-Liste.`;}
@@ -130,7 +132,7 @@ async function chat(req,res){
   try{
     const {message,state}=await body(req);
     if(typeof message!=='string'||!message.trim())return json(res,400,{error:'Nachricht fehlt.'});
-    const payload={contents:[{role:'user',parts:[{text:promptFor(message.trim(),state)}]}],generationConfig:{temperature:0,responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{reply:{type:'STRING'},actions:{type:'ARRAY',items:{type:'OBJECT',properties:{type:{type:'STRING',enum:ACTIONS},quantity:{type:'INTEGER',minimum:1,maximum:2},size:{type:'STRING',enum:['pink','green','orange']},medication:{type:'STRING',enum:MEDS},mode:{type:'STRING',enum:['arterial','venous']},labs:{type:'ARRAY',items:{type:'STRING',enum:LAB_IDS}}},required:['type']}}},required:['reply','actions']}}};
+    const payload={contents:[{role:'user',parts:[{text:promptFor(message.trim(),state)}]}],generationConfig:{temperature:0,responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{reply:{type:'STRING'},actions:{type:'ARRAY',items:{type:'OBJECT',properties:{type:{type:'STRING',enum:ACTIONS},quantity:{type:'INTEGER',minimum:1,maximum:2},size:{type:'STRING',enum:['pink','green','orange']},volumeMl:{type:'INTEGER',enum:[250,500,1000]},medication:{type:'STRING',enum:MEDS},mode:{type:'STRING',enum:['arterial','venous']},labs:{type:'ARRAY',items:{type:'STRING',enum:LAB_IDS}}},required:['type']}}},required:['reply','actions']}}};
     const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':API_KEY},body:JSON.stringify(payload)});
     const d=await r.json();if(!r.ok)return json(res,r.status,{error:d?.error?.message||'Gemini-Anfrage fehlgeschlagen'});
     const modelText=d?.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('')||'{}';

@@ -240,3 +240,12 @@
 }
 
 .game-menu{position:relative}.game-menu>summary{list-style:none;cursor:pointer;padding:.65rem .85rem;border:1px solid var(--border);border-radius:.65rem}.game-menu>summary::-webkit-details-marker{display:none}.game-menu-panel{position:absolute;right:0;top:calc(100% + .4rem);z-index:50;min-width:180px;padding:.5rem;background:var(--panel);border:1px solid var(--border);border-radius:.7rem;box-shadow:0 12px 30px rgba(0,0,0,.35);display:grid;gap:.4rem}.game-menu-panel button{width:100%}
+
+/* Fall 02: ZVD-Monitoring und präventive Defibrillationselektroden */
+.strip-vital.cvp{color:var(--amber)}
+.strip-vital.cvp strong{font-size:20px}
+.defib-pad{position:absolute;z-index:2;display:grid;place-items:center;width:18px;height:22px;border:1px solid #ffe792;border-radius:4px;background:#6b5110;color:#fff3bd;font-size:9px;box-shadow:0 0 8px rgba(255,202,85,.45)}
+.defib-pad.pad-left{left:25px;top:42px;transform:rotate(-8deg)}
+.defib-pad.pad-right{right:20px;top:61px;transform:rotate(10deg)}
+@media (min-width:1201px){.vital-strip{grid-template-columns:repeat(7,minmax(105px,1fr))}.vital-strip.has-perfusor{grid-template-columns:repeat(7,minmax(90px,1fr)) minmax(210px,1.15fr)}}
+@media (min-width:768px) and (max-width:1180px) and (orientation:landscape){.vital-strip{grid-template-columns:repeat(7,minmax(80px,1fr))}.vital-strip.has-perfusor{grid-template-columns:repeat(7,minmax(70px,1fr)) minmax(180px,1.1fr)}}

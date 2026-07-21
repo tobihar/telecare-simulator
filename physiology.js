@@ -9,17 +9,19 @@
    */
   function createInitial(caseConfig) {
     const initial = caseConfig.patient.initial;
-    const septic = caseConfig.physiology?.model === 'sepsis';
+    const model = caseConfig.physiology?.model;
+    const septic = model === 'sepsis';
+    const cardiogenic = model === 'cardiogenic';
     return {
-      circulatingVolume: septic ? 0.73 : 0.91,
-      venousTone: septic ? 0.94 : 1.0,
-      vascularTone: septic ? 0.72 : 1.02,
-      contractility: septic ? 0.86 : 1.0,
-      respiratoryDrive: septic ? 1.42 : 1.0,
+      circulatingVolume: septic ? 0.73 : cardiogenic ? 0.96 : 0.91,
+      venousTone: septic ? 0.94 : cardiogenic ? 1.02 : 1.0,
+      vascularTone: septic ? 0.72 : cardiogenic ? 0.90 : 1.02,
+      contractility: septic ? 0.86 : cardiogenic ? 0.50 : 1.0,
+      respiratoryDrive: septic ? 1.42 : cardiogenic ? 1.36 : 1.0,
       oxygenReserve: clamp(initial.spo2 / 96, 0.7, 1.05),
-      perfusionDebt: clamp((4.0 - initial.lactate) / 10, 0.04, 0.25),
-      strokeVolumeIndex: 0.88,
-      cardiacOutputIndex: 0.88,
+      perfusionDebt: cardiogenic ? 0.36 : clamp((4.0 - initial.lactate) / 10, 0.04, 0.25),
+      strokeVolumeIndex: cardiogenic ? 0.50 : 0.88,
+      cardiacOutputIndex: cardiogenic ? 0.50 : 0.88,
       severeHypoxiaSeconds: 0,
       hypoxiaDose: 0,
       lastSeverity: 0
@@ -50,11 +52,13 @@
     } = args;
 
     const med = medicationDomainTotals(medicationEffects);
-    const septic = caseConfig.physiology?.model === 'sepsis';
-    const diseaseVolumeTarget = septic ? clamp(0.76 - severity * 0.10, 0.48, 0.78) : clamp(0.98 - severity * 0.42, 0.22, 0.98);
-    const diseaseToneTarget = septic ? clamp(0.82 - severity * 0.20, 0.43, 0.84) : clamp(1.08 - Math.max(0, severity - 0.55) * 0.18, 0.72, 1.16);
-    const diseaseContractilityTarget = septic ? clamp(0.91 - severity * 0.11, 0.58, 0.92) : clamp(1.0 - severity * 0.08, 0.68, 1.02);
-    const diseaseRespiratoryTarget = septic ? clamp(1.42 + severity * 0.22, 1.25, 1.90) : clamp(1.0 + severity * 0.32, 0.55, 1.75);
+    const model = caseConfig.physiology?.model;
+    const septic = model === 'sepsis';
+    const cardiogenic = model === 'cardiogenic';
+    const diseaseVolumeTarget = septic ? clamp(0.76 - severity * 0.10, 0.48, 0.78) : cardiogenic ? 0.96 : clamp(0.98 - severity * 0.42, 0.22, 0.98);
+    const diseaseToneTarget = septic ? clamp(0.82 - severity * 0.20, 0.43, 0.84) : cardiogenic ? clamp(0.90 - severity * 0.045, 0.76, 0.92) : clamp(1.08 - Math.max(0, severity - 0.55) * 0.18, 0.72, 1.16);
+    const diseaseContractilityTarget = septic ? clamp(0.91 - severity * 0.11, 0.58, 0.92) : cardiogenic ? clamp(0.55 - severity * 0.24, 0.20, 0.51) : clamp(1.0 - severity * 0.08, 0.68, 1.02);
+    const diseaseRespiratoryTarget = septic ? clamp(1.42 + severity * 0.22, 1.25, 1.90) : cardiogenic ? clamp(1.36 + severity * 0.18, 1.30, 1.86) : clamp(1.0 + severity * 0.32, 0.55, 1.75);
 
     // Schwere Hypoxie wirkt zeitverzögert auf Kontraktilität und Herzfrequenz.
     if (patient.spo2 < 60) {
@@ -66,7 +70,7 @@
     }
     const hypoxicContractilityPenalty = clamp(core.hypoxiaDose / 180, 0, 0.48);
 
-    core.circulatingVolume = approach(core.circulatingVolume, diseaseVolumeTarget, septic&&args.difficulty==='easy'?0.018:0.055);
+    core.circulatingVolume = approach(core.circulatingVolume, diseaseVolumeTarget, septic&&args.difficulty==='easy'?0.018:cardiogenic?0.025:0.055);
     core.venousTone = approach(core.venousTone, 1.0 + severity * 0.025, 0.08);
     core.vascularTone = approach(core.vascularTone, diseaseToneTarget + med.vascularTone, 0.16);
     core.contractility = approach(core.contractility, diseaseContractilityTarget + med.contractility - hypoxicContractilityPenalty, 0.13);
@@ -93,13 +97,18 @@
     // Ab 135/min wird die diastolische Füllung zunehmend ungünstig, besonders bei Hypovolämie.
     const tachyFillingPenalty = currentHr <= 135 ? 1 : clamp(1 - (currentHr - 135) / 150, 0.52, 1);
     const medicationTachyPenalty = med.chronotropy > 0 && currentHr > 140 ? clamp(1 - ((currentHr - 140) / 100) * Math.min(1, med.chronotropy / 25), 0.70, 1) : 1;
-    const excessiveAfterloadPenalty = effectiveTone <= 1.3 ? 1 : clamp(1 - (effectiveTone - 1.3) * 0.18, 0.86, 1);
-    const strokeVolume = clamp(venousReturn * effectiveContractility * tachyFillingPenalty * medicationTachyPenalty * excessiveAfterloadPenalty, 0.12, 1.32);
-    const cardiacOutput = clamp(strokeVolume * (currentHr / 112), 0.12, 1.75);
+    const afterloadThreshold = cardiogenic ? 1.18 : 1.3;
+    const excessiveAfterloadPenalty = effectiveTone <= afterloadThreshold ? 1 : clamp(1 - (effectiveTone - afterloadThreshold) * (cardiogenic ? 0.42 : 0.18), cardiogenic ? 0.72 : 0.86, 1);
+    const preloadCongestionPenalty = cardiogenic && effectiveVolume > 1.08 ? clamp(1 - (effectiveVolume - 1.08) * 0.72, 0.78, 1) : 1;
+    const pulmonaryEdemaPenalty = cardiogenic && therapies.pulmonaryEdema ? 0.78 : 1;
+    const pumpSupport = cardiogenic ? clamp(med.contractility * 3 + norepiRate * 0.12, 0, 0.68) : 0;
+    const terminalPumpPenalty = cardiogenic ? clamp(1 - Math.max(0, severity - 0.55) * 0.62 * (1 - pumpSupport), 0.44, 1) : 1;
+    const strokeVolume = clamp(venousReturn * effectiveContractility * tachyFillingPenalty * medicationTachyPenalty * excessiveAfterloadPenalty * preloadCongestionPenalty * pulmonaryEdemaPenalty * terminalPumpPenalty, 0.12, 1.32);
+    const cardiacOutput = clamp(strokeVolume * (currentHr / (cardiogenic ? 83 : 112)), 0.12, 1.75);
     core.strokeVolumeIndex = approach(core.strokeVolumeIndex, strokeVolume, 0.28);
     core.cardiacOutputIndex = approach(core.cardiacOutputIndex, cardiacOutput, 0.25);
 
-    const targetMap = clamp(73 * core.cardiacOutputIndex * effectiveTone, 18, 135);
+    const targetMap = clamp((cardiogenic ? 112 : 73) * core.cardiacOutputIndex * effectiveTone, 18, 135);
     const pulsePressure = clamp(38 * core.strokeVolumeIndex / Math.max(0.84, effectiveTone), 12, 72);
     const targetSys = clamp(targetMap + pulsePressure * 0.67, 22, 190);
     const targetDia = clamp(targetMap - pulsePressure * 0.33, 10, 115);
@@ -109,11 +118,12 @@
     const currentMap = Math.round((patient.sys + 2 * patient.dia) / 3);
 
     const easySepsis=septic&&args.difficulty==='easy';
-    const lowPressureReflex = Math.max(0, 68 - currentMap) * (easySepsis?0.38:0.92);
-    const volumeReflex = Math.max(0, 0.88 - effectiveVolume) * (easySepsis?20:39);
+    const lowPressureReflex = Math.max(0, 68 - currentMap) * (easySepsis?0.38:cardiogenic?0.36:0.92);
+    const volumeReflex = Math.max(0, 0.88 - effectiveVolume) * (easySepsis?20:cardiogenic?12:39);
     const highPressureReflex = Math.max(0, currentMap - 78) * 0.35;
     const hypoxicBradycardia = core.hypoxiaDose > 65 ? (core.hypoxiaDose - 65) * 0.38 : 0;
-    let targetHr = clamp(106 + severity * 29 + lowPressureReflex + volumeReflex - highPressureReflex + med.chronotropy - hypoxicBradycardia, 20, 175);
+    const cardiogenicBradycardia = cardiogenic ? Math.max(0, severity - 0.92) * 105 * (1 - pumpSupport * 0.65) : 0;
+    let targetHr = clamp((cardiogenic?82:106) + severity * (cardiogenic?18:29) + lowPressureReflex + volumeReflex - highPressureReflex + med.chronotropy - hypoxicBradycardia - cardiogenicBradycardia, 20, 175);
     const easyEarlySepsis = septic && args.difficulty === 'easy' && Number(args.caseConfig?.defaultDurationSeconds || 600) > 0;
     if (easyEarlySepsis && args.severity < 0.55) targetHr = Math.min(targetHr, 120);
     const previousHr = patient.hr;
@@ -122,12 +132,14 @@
     patient.hr = easyEarlySepsis ? clamp(proposedHr, previousHr-0.45, previousHr+0.65) : proposedHr;
 
     let targetRr = clamp(22 * core.respiratoryDrive, 0, 48);
+    if (cardiogenic && therapies.pulmonaryEdema) targetRr = clamp(targetRr + (therapies.upperBodyElevated ? 4 : 7), 0, 48);
     if (paralyzed) targetRr = therapies.ventilation ? 14 : 0;
     patient.rr = clamp(approach(patient.rr, targetRr, paralyzed ? 0.40 : 0.16) + jitter(0.25), 0, 48);
 
     const untreatedSpo2Target = caseConfig.patient.initial.spo2 - severity * profile.spo2Loss;
     let oxygenTarget = untreatedSpo2Target + med.oxygenation * 100;
     if (therapies.oxygen) oxygenTarget = Math.max(oxygenTarget, 98);
+    if (cardiogenic && therapies.pulmonaryEdema) oxygenTarget -= therapies.oxygen ? (therapies.upperBodyElevated ? 4 : 7) : (therapies.upperBodyElevated ? 8 : 12);
     const severeHypoventilation = core.respiratoryDrive < 0.48 || (paralyzed && !therapies.ventilation);
     // Bei Apnoe kein unphysiologisches Plateau: Ziel nähert sich sehr niedrigen Werten.
     if (severeHypoventilation) oxygenTarget = therapies.oxygen ? 24 : 4;
@@ -140,6 +152,11 @@
     patient.spo2 = clamp(approach(patient.spo2, oxygenTarget, oxygenRate) + jitter(0.22), 0, 100);
     core.oxygenReserve = approach(core.oxygenReserve, patient.spo2 / 96, 0.16);
 
+    if (cardiogenic && Number.isFinite(Number(patient.cvp))) {
+      const targetCvp = clamp(8 + Math.max(0, effectiveVolume - 0.72) * 16 + Math.max(0, 0.72 - effectiveContractility) * 13 + (therapies.pulmonaryEdema ? 3 : 0), 8, 24);
+      patient.cvp = approach(patient.cvp, targetCvp, 0.16) + jitter(0.12);
+    }
+
     const perfusionIndex = clamp((currentMap / 70) * (patient.hb / 8.1) * (patient.spo2 / 95), 0.03, 1.45);
     const debtTarget = clamp(1 - perfusionIndex, 0, 1.2);
     core.perfusionDebt = approach(core.perfusionDebt, debtTarget, 0.12);
@@ -150,7 +167,7 @@
       perfusionIndex,
       hypoxiaDose: core.hypoxiaDose,
       severeHypoxiaSeconds: core.severeHypoxiaSeconds,
-      lactateDelta: septic ? (0.012 + core.perfusionDebt*0.034 - fluidCount*0.018 - (norepiRate>0&&currentMap>=60?0.008:0)) : (0.014 + core.perfusionDebt * 0.038),
+      lactateDelta: septic ? (0.012 + core.perfusionDebt*0.034 - fluidCount*0.018 - (norepiRate>0&&currentMap>=60?0.008:0)) : cardiogenic ? (0.013 + core.perfusionDebt*0.044 - (currentMap>=60?0.010:0) - (med.contractility>0?0.006:0)) : (0.014 + core.perfusionDebt * 0.038),
       internal: {
         effectiveVolume, venousReturn, vascularTone: effectiveTone,
         contractility: effectiveContractility, strokeVolumeIndex: core.strokeVolumeIndex,

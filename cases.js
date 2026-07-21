@@ -120,6 +120,167 @@
   };
 
 
+  const cardiogenicShock = {
+    id: 'cardiogenic_shock_stemi_02',
+    title: 'Kardiogener Schock bei inferiorem STEMI',
+    shortTitle: 'Herr Gronen',
+    number: 'Fall 02',
+    setting: 'Notaufnahme',
+    enabled: true,
+    defaultDurationSeconds: 600,
+    availableDurations: [300, 600, 900, 1200],
+    bloodProductsEnabled: false,
+    briefing: {
+      sender: 'Miriam Vogt',
+      text: 'Guten Morgen, wir melden uns aus der Notaufnahme. An der Anmeldung hat sich der 65-jährige Herr Gronen mit retrosternalem Brustschmerz vorgestellt. Bitte übernehmen Sie.'
+    },
+    patient: {
+      age: 65,
+      sex: 'männlich',
+      weightKg: 115,
+      initial: {
+        hr: 83,
+        sys: 70,
+        dia: 43,
+        spo2: 91,
+        rr: 30,
+        temp: 37.0,
+        mental: 'wach, orientiert und unruhig',
+        lactate: 4.5,
+        hb: 15.0,
+        iCa: 1.18,
+        glucose: 73,
+        potassium: 3.3,
+        cvp: 14,
+        bleeding: 0
+      },
+      visible: {
+        skin: 'kühl, blass, marmoriert und kaltschweißig',
+        observationDescription: 'keine äußere Blutung; keine sichtbaren Verletzungen oder peripheren Ödeme',
+        urineMlPerHour: 0
+      }
+    },
+    initialAccess: [],
+    staff: [
+      {id:1,name:'Dr. Lena Hoffmann',role:'doctor',icon:'🩺'},
+      {id:2,name:'Miriam Vogt',role:'nurse',icon:'👩‍⚕️'},
+      {id:3,name:'Jonas Becker',role:'nurse',icon:'👨‍⚕️'}
+    ],
+    labs: {
+      hb:{label:'Hämoglobin',value:'15,0 g/dl',norm:'13,5–17,5 g/dl',dynamic:'hb'},
+      hct:{label:'Hämatokrit',value:'45 %',norm:'40–52 %',dynamic:'hct'},
+      platelets:{label:'Thrombozyten',value:'230.000/µl',norm:'150.000–400.000/µl'},
+      leukocytes:{label:'Leukozyten',value:'11,8 /nl',norm:'4,0–10,0 /nl',abnormal:true},
+      sodium:{label:'Natrium',value:'138 mmol/l',norm:'135–145 mmol/l'},
+      potassium:{label:'Kalium',value:'3,3 mmol/l',norm:'3,5–5,1 mmol/l',abnormal:true,dynamic:'potassium'},
+      calcium:{label:'Calcium gesamt',value:'2,36 mmol/l',norm:'2,15–2,55 mmol/l',dynamic:'calcium'},
+      creatinine:{label:'Kreatinin',value:'1,6 mg/dl',norm:'0,7–1,2 mg/dl',abnormal:true},
+      urea:{label:'Harnstoff',value:'58 mg/dl',norm:'17–43 mg/dl',abnormal:true},
+      ast:{label:'AST (GOT)',value:'96 U/l',norm:'<35 U/l',abnormal:true},
+      alt:{label:'ALT (GPT)',value:'42 U/l',norm:'<50 U/l'},
+      ldh:{label:'LDH',value:'390 U/l',norm:'<250 U/l',abnormal:true},
+      bilirubin:{label:'Bilirubin gesamt',value:'0,9 mg/dl',norm:'<1,2 mg/dl'},
+      crp:{label:'CRP',value:'5 mg/l',norm:'<5 mg/l'},
+      inr:{label:'INR',value:'1,0',norm:'0,9–1,2'},
+      aptt:{label:'aPTT',value:'30 s',norm:'25–35 s'},
+      fibrinogen:{label:'Fibrinogen',value:'390 mg/dl',norm:'200–400 mg/dl'},
+      d_dimer:{label:'D-Dimere',value:'0,7 mg/l FEU',norm:'<0,5 mg/l FEU',abnormal:true},
+      lactate:{label:'Laktat',value:'4,5 mmol/l',norm:'0,5–2,2 mmol/l',abnormal:true,dynamic:'lactate'},
+      troponin:{label:'hs-Troponin T',value:'1.850 ng/l',norm:'<14 ng/l',abnormal:true},
+      ck:{label:'CK',value:'680 U/l',norm:'<190 U/l',abnormal:true},
+      ckmb:{label:'CK-MB',value:'82 µg/l',norm:'<5 µg/l',abnormal:true},
+      crossmatch:{label:'Kreuzblut',value:'Blutgruppe 0 Rh positiv, Kreuzprobe kompatibel',norm:'—'}
+    },
+    bga: {
+      staticRows: [
+        ['Na⁺','138 mmol/l','135–145 mmol/l',false],
+        ['K⁺','3,3 mmol/l','3,5–5,1 mmol/l',true]
+      ],
+      initial:{ph:7.16,pco2:30,po2:60,hco3:14,baseExcess:-13,lactate:4.5}
+    },
+    history: {
+      allergy:'Penicillinallergie.',
+      symptoms:'Seit dem Aufstehen drückender retrosternaler Brustschmerz mit allgemeiner Schwäche, leichter Luftnot und Übelkeit. Kein Erbrechen.',
+      medication:'Dauermedikation: Ramipril 5 mg, Bisoprolol 2,5 mg und Rosuvastatin 5 mg. Im aktuellen Fall wurde noch nichts verabreicht.',
+      previousHistory:'Arterielle Hypertonie und Hyperlipidämie. STEMI im Jahr 2025; Hernienreparation nach Lichtenstein 2023.',
+      lastMeal:'Zuletzt gestern Abend gegessen; heute Morgen wegen der Übelkeit nichts gegessen.',
+      events:'Die Beschwerden begannen morgens nach dem Aufstehen.',
+      riskFactors:'Ehemaliger Raucher, seit zwei Jahren rauchfrei, insgesamt etwa 30 Packungsjahre. Täglich ein bis zwei Bier.'
+    },
+    diagnostics: {
+      sono:'Kein Perikarderguss. Hochgradig reduzierte linksventrikuläre Pumpfunktion mit regionaler Wandbewegungsstörung und Akinesie der inferioren Segmente. Der rechte Ventrikel ist leicht dilatiert. V. cava inferior nicht atemkollaptisch. Keine akute Klappenpathologie.',
+      auscultation:'Lunge beidseits vesikulär belüftet, keine Rasselgeräusche. Der Patient ist tachypnoisch. Herztöne regelmäßig und normofrequent.',
+      pulmonaryEdemaAuscultation:'Neu aufgetretene grobblasige Rasselgeräusche beidseits basal bis mittig; brodelndes Atemgeräusch und deutlich zunehmende Dyspnoe, passend zu einem beginnenden Lungenödem.',
+      ecg:'Sinusrhythmus, Linkstyp, Frequenz etwa 80/min. ST-Strecken-Hebungen in II, III und aVF sowie reziproke ST-Senkungen in V1–V2 – Bild eines akuten inferioren STEMI.'
+    },
+    chatFacts: {
+      access:'Es liegt noch kein Gefäßzugang. Eine arterielle Kanüle, ein ZVK und ein Blasenkatheter sind nicht vorhanden.',
+      airway:'Die Atemwege sind frei.',
+      breathing:'Der Patient atmet spontan und tachypnoisch mit einer Atemfrequenz von 30/min. Initial ist die Lunge beidseits vesikulär belüftet.',
+      consciousness:'Der Patient ist wach, voll orientiert und unruhig. Ausgangs-GCS 15.',
+      pupils:'Die Pupillen sind mittelweit, isokor und beidseits prompt lichtreagibel.',
+      skin:'Die Haut ist kühl, blass, marmoriert und kaltschweißig. Die Rekapillarisierungszeit beträgt etwa 4 Sekunden.',
+      pulse:'Die peripheren Pulse sind schwach und fadenförmig, aber regelmäßig tastbar.',
+      neckVeins:'Die Halsvenen sind nicht gestaut.',
+      edema:'Es bestehen keine peripheren Ödeme.',
+      urine:'Aktuell besteht keine messbare Urinausscheidung. Ein Blasenkatheter liegt nicht.',
+      bleeding:'Es besteht keine kritische äußere Blutung.',
+      abdomen:'Das Abdomen ist weich; es bestehen keine sichtbaren oder tastbaren Auffälligkeiten.',
+      glucose:'Der initiale Blutzucker beträgt 73 mg/dl.',
+      temperature:'Die initiale Temperatur beträgt 37,0 °C.',
+      medication:'Dauermedikation: Ramipril 5 mg, Bisoprolol 2,5 mg und Rosuvastatin 5 mg. Im aktuellen Fall wurde noch nichts verabreicht.',
+      previousHistory:'Bekannt sind arterielle Hypertonie und Hyperlipidämie, ein STEMI 2025 sowie eine Hernienreparation 2023.',
+      allergy:'Es besteht eine Penicillinallergie.',
+      symptoms:'Seit dem Aufstehen drückender retrosternaler Brustschmerz mit allgemeiner Schwäche, leichter Luftnot und Übelkeit. Kein Erbrechen.',
+      lastMeal:'Zuletzt gestern Abend gegessen; heute Morgen wegen der Übelkeit nichts gegessen.',
+      events:'Die Beschwerden begannen morgens nach dem Aufstehen.',
+      riskFactors:'Ehemaliger Raucher, seit zwei Jahren rauchfrei, insgesamt etwa 30 Packungsjahre. Täglich ein bis zwei Bier.'
+    },
+    escalation: {
+      label:'Herzkatheterlabor aktivieren',
+      response:'Das Herzkatheterlabor ist informiert. Das Team benötigt etwa zehn Minuten zur Vorbereitung; Herr Gronen soll bis zur Übernahme stabilisiert werden.',
+      preparationSeconds:600
+    },
+    medicationDefaults: {
+      aspirin:'ASS 250 mg',
+      heparin:'Heparin 5.000 IE i.v.',
+      morphine:'Morphin 4 mg i.v.',
+      ondansetron:'Ondansetron 4 mg i.v.',
+      potassium:'Kalium i.v.'
+    },
+    treatmentModifiers: {
+      medications:{default:1,dobutamine:.75,morphine:1,propofol:1.15,midazolam:1.15},
+      interventions:{default:1,fluid_500:1,norepi_bolus:1,norepi_perfusor:1.2,shock_position:0.15,blood_unit:0.2}
+    },
+    physiology: {
+      model:'cardiogenic',
+      requiredFluidChoice:true,
+      fluidDurationSeconds:420,
+      fluidOverloadThresholdMl:1000,
+      arrestRhythm:'Kammerflimmern',
+      difficulty: {
+        easy:{progression:.58,spo2Loss:3.5,criticalMap:29,arrestSeconds:99999},
+        medium:{progression:.92,spo2Loss:6.5,criticalMap:39,arrestSeconds:75},
+        hard:{progression:1.22,spo2Loss:9.5,criticalMap:42,arrestSeconds:90}
+      },
+      lactateGainPerTick:.018,
+      hbLossPerTick:0,
+      bleedingGainPerTick:0,
+      tempTarget:37.0
+    },
+    scoring: [
+      {id:'abcde',labelDone:'ABCDE strukturiert durchgeführt',labelMissing:'ABCDE nicht vollständig erhoben'},
+      {id:'ecg',labelDone:'12-Kanal-EKG innerhalb von fünf Minuten geschrieben',labelMissing:'12-Kanal-EKG nicht oder verspätet geschrieben',thresholdSeconds:300},
+      {id:'vascular_access',labelDone:'Geeigneten Gefäßzugang angelegt',labelMissing:'Kein geeigneter Gefäßzugang'},
+      {id:'controlled_fluid',labelDone:'Vorsichtige Volumengabe von 250–500 ml',labelMissing:'Keine vorsichtige Volumengabe von 250–500 ml'},
+      {id:'aspirin',labelDone:'ASS verabreicht',labelMissing:'ASS nicht verabreicht',thresholdSeconds:600},
+      {id:'heparin',labelDone:'Heparin verabreicht',labelMissing:'Heparin nicht verabreicht',thresholdSeconds:600},
+      {id:'cath_lab',labelDone:'Herzkatheterlabor aktiviert',labelMissing:'Herzkatheterlabor nicht aktiviert'},
+      {id:'map_target',labelDone:'MAP-Ziel von mindestens 65 mmHg erreicht',labelMissing:'MAP-Ziel nicht erreicht'}
+    ]
+  };
+
+
   const septicShock = {
     id: 'septic_shock_05',
     title: 'Frau Berger bei Urosepsis',
@@ -227,6 +388,7 @@
 
   window.TELECARE_CASES = Object.freeze({
     [postoperativeBleeding.id]: postoperativeBleeding,
+    [cardiogenicShock.id]: cardiogenicShock,
     [septicShock.id]: septicShock
   });
   window.TELECARE_DEFAULT_CASE_ID = postoperativeBleeding.id;

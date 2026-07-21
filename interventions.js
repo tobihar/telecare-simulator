@@ -21,6 +21,8 @@
       effect:{supportPerRateStep:0.58}
     },
     oxygen:{label:'Sauerstoffgabe beginnen',taskSeconds:15,roles:['nurse','doctor']},
+    upper_body_elevated:{label:'Oberkörper hochlagern',taskSeconds:15,roles:['nurse','doctor']},
+    defib_pads:{label:'Defibrillationselektroden präventiv kleben',taskSeconds:20,roles:['nurse','doctor']},
     warming:{label:'Aktiven Wärmeerhalt beginnen',taskSeconds:20,roles:['nurse','doctor']},
     ventilation:{label:'Beatmung beginnen',taskSeconds:20,roles:['nurse','doctor']},
     txa:{label:'Tranexamsäure 1 g i.v. verabreichen',taskSeconds:30,requiresAccess:true,roles:['nurse','doctor']}
