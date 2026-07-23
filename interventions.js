@@ -20,6 +20,10 @@
       label:'Noradrenalin-Perfusor mit 0,05 µg/kg/min starten',taskSeconds:45,requiresAccess:true,roles:['nurse','doctor'],
       effect:{supportPerRateStep:0.58}
     },
+    stop_trigger:{label:'Cefuroximzufuhr stoppen und Leitung diskonnektieren',taskSeconds:10,roles:['nurse','doctor']},
+    adrenaline_im:{label:'Adrenalin 0,5 mg i.m. in den Oberschenkel geben',taskSeconds:20,roles:['nurse','doctor'],effect:{duration:330,support:1}},
+    adrenaline_nebulized:{label:'Adrenalin vernebeln',taskSeconds:25,roles:['nurse','doctor'],effect:{duration:300,support:1}},
+    intubate:{label:'Intubation mit 30 mg Propofol, 30 µg Sufentanil und 100 mg Rocuronium',taskSeconds:30,roles:['doctor','nurse']},
     oxygen:{label:'Sauerstoffgabe beginnen',taskSeconds:15,roles:['nurse','doctor']},
     upper_body_elevated:{label:'Oberkörper hochlagern',taskSeconds:15,roles:['nurse','doctor']},
     defib_pads:{label:'Defibrillationselektroden präventiv kleben',taskSeconds:20,roles:['nurse','doctor']},

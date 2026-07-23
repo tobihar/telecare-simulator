@@ -28,15 +28,15 @@ const ACCESS = {
 };
 
 const initialState = () => ({
-  running:false,paused:false,ended:false,elapsed:0,timer:null,difficulty:'easy',dead:false,deathReason:null,criticalSeconds:0,alarmSilencedUntil:0,runId:(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`),saveAttempted:false,savedResultId:null,pendingResultPayload:null,pendingSummary:null,evaluationSubmitted:false,evaluationSkipped:false,sepsisRecognizedAt:null,diagnosisRecognizedAt:null,ecgAt:null,
+  running:false,paused:false,ended:false,elapsed:0,timer:null,difficulty:'easy',dead:false,deathReason:null,criticalSeconds:0,alarmSilencedUntil:0,runId:(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`),saveAttempted:false,savedResultId:null,pendingResultPayload:null,pendingSummary:null,evaluationSubmitted:false,evaluationSkipped:false,sepsisRecognizedAt:null,diagnosisRecognizedAt:null,anaphylaxisRecognizedAt:null,ecgAt:null,
   caseId:activeCaseId,
   patient:clone(getActiveCase().patient.initial),
   physiologyCore:window.TELECARE_PHYSIOLOGY_ENGINE?window.TELECARE_PHYSIOLOGY_ENGINE.createInitial(getActiveCase()):null,
   lastMeasurements:{nibp:null,rr:null,temp:null,bz:null},
   staff:getActiveCase().staff.map(person=>({...person,busyUntil:0,taskId:null})),
   tasks:[],events:[],chat:[],labsRequested:new Set(),labsAvailable:new Set(),labResults:[],bgaAvailable:false,bgaResults:[],access:new Set(getActiveCase().initialAccess||[]),
-  crossedBloodAvailable:false,bloodInventory:{uncrossed:0,crossed:0},bloodRequested:[],
-  therapies:{oxygen:false,warming:false,ventilation:false,upperBodyElevated:false,defibPads:false,pulmonaryEdema:false,norepiBolusUntil:0,norepiPerfusor:false,norepiStandby:false,norepiRate:1,fluidEffects:[],crystalloidMl:0,bloodUnitsGiven:0,activeInfusions:[],txa:false,medications:[],medicationEffects:[],paralyzedUntil:0,shockPositionUntil:0,antibioticAt:null},
+  crossedBloodAvailable:Number(getActiveCase().initialBloodInventory?.crossed||0)>0,bloodInventory:{uncrossed:Number(getActiveCase().initialBloodInventory?.uncrossed||0),crossed:Number(getActiveCase().initialBloodInventory?.crossed||0)},bloodRequested:[],
+  therapies:{oxygen:false,warming:false,ventilation:false,upperBodyElevated:false,defibPads:false,pulmonaryEdema:false,norepiBolusUntil:0,norepiPerfusor:false,norepiStandby:false,norepiRate:1,fluidEffects:[],crystalloidMl:0,bloodUnitsGiven:0,activeInfusions:[],txa:false,medications:[],medicationEffects:[],paralyzedUntil:0,shockPositionAt:null,shockPositionUntil:0,antibioticAt:null,cefuroximeRunning:Boolean(getActiveCase().initialTherapies?.cefuroximeRunning),triggerStoppedAt:null,adrenalineImAt:null,adrenalineImUntil:0,adrenalineImCount:0,adrenalineNebulizedAt:null,adrenalineNebulizedUntil:0,intubated:false,intubationAt:null,postIntubationHypotensionUntil:0},
   vitalHistory:[{time:0,hr:getActiveCase().patient.initial.hr,map:map(getActiveCase().patient.initial.sys,getActiveCase().patient.initial.dia),spo2:getActiveCase().patient.initial.spo2,sys:getActiveCase().patient.initial.sys,dia:getActiveCase().patient.initial.dia}],chatAutoFollow:true,
   firstTherapyAt:null,lastMentalReport:getActiveCase().patient.initial.mental,escalationAt:null,soundOn:true,alarmOn:true,alarmActive:false,aiAvailable:false,proactiveFlags:new Set(),sonoResult:null,newLabResult:false,newBgaResult:false,newSonoResult:false,assessment:new Set()
 });
@@ -74,6 +74,13 @@ function assignTask(label,duration,onComplete,options={}){
   const task={id:crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`,label,start:state.elapsed,end:state.elapsed+duration,duration,staffId:staff.id,onComplete,type:options.type||'task',phase:options.phase||'vor Ort'};
   staff.busyUntil=task.end;staff.taskId=task.id;state.tasks.push(task);
   logEvent(`${staff.name} übernimmt: ${label}.`);addChat('Team vor Ort',`${staff.name}: Auftrag verstanden – ${label}.`);renderAll();return true;
+}
+function assignTeamTask(label,duration,onComplete){
+  if(!state.running||state.paused||state.ended){notify('Die Simulation muss laufen.');return false;}
+  if(state.staff.some(person=>person.busyUntil>state.elapsed)){flashNoStaff(['doctor','nurse']);addChat('Team vor Ort','Für die Intubation muss das ganze Team verfügbar sein.');return false;}
+  const task={id:crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`,label,start:state.elapsed,end:state.elapsed+duration,duration,staffId:null,staffIds:state.staff.map(person=>person.id),onComplete,type:'team-task',phase:'vor Ort'};
+  state.staff.forEach(person=>{person.busyUntil=task.end;person.taskId=task.id;});state.tasks.push(task);
+  logEvent(`Das gesamte Team übernimmt: ${label}.`);addChat('Team vor Ort',`Das gesamte Team beginnt: ${label}.`);renderAll();return true;
 }
 function addBackgroundTask(label,duration,onComplete){
   state.tasks.push({id:`bg-${Date.now()}-${Math.random()}`,label,start:state.elapsed,end:state.elapsed+duration,duration,staffId:null,onComplete,type:'background',phase:'Labor'});
@@ -122,8 +129,8 @@ function logout(){clearInterval(state.timer);stopPulseLoop();stopAlarmLoop();doc
 function tick(){if(!state.running||state.paused||state.ended)return;state.elapsed+=1;processTasks();if(state.elapsed%TICK_SECONDS===0){updatePhysiology();}if(state.elapsed>=SIM_DURATION)endSimulation();renderAll();}
 function processTasks(){
   state.tasks.filter(t=>!t.done&&!t.cancelled&&t.end<=state.elapsed).forEach(t=>{
-    t.done=true;const staff=state.staff.find(s=>s.id===t.staffId);if(staff){staff.taskId=null;staff.busyUntil=state.elapsed;}t.onComplete?.();
-    logEvent(`${t.label} abgeschlossen.`);addChat(t.phase==='Labor'?'Labor':'Team vor Ort',`${staff?staff.name+': ':''}${t.label} ist abgeschlossen.`);
+    t.done=true;const staffIds=t.staffIds||[t.staffId].filter(Boolean);const involved=state.staff.filter(s=>staffIds.includes(s.id));involved.forEach(person=>{person.taskId=null;person.busyUntil=state.elapsed;});const staff=involved[0];t.onComplete?.();
+    logEvent(`${t.label} abgeschlossen.`);addChat(t.phase==='Labor'?'Labor':'Team vor Ort',`${involved.length>1?'Gesamtes Team: ':staff?staff.name+': ':''}${t.label} ist abgeschlossen.`);
   });
 }
 
@@ -135,6 +142,10 @@ function updatePhysiology(){
   const difficultyFactor=profile.progression;
   const timeScale=Math.max(.38,state.elapsed/540);
   let severity=Math.min(2.15,timeScale*difficultyFactor);
+  // Die Anaphylaxie beginnt bereits klinisch manifest, verschlechtert sich aber
+  // in den ersten 90 Sekunden nur langsam. Danach trennt die Schwierigkeit die
+  // Verläufe deutlich: auf „Leicht“ graduell, auf „Schwer“ bis zur Asystolie.
+  if(physiology.model==='anaphylaxis')severity=Math.min(2.15,Math.max(0,state.elapsed-90)/330*difficultyFactor);
   if(physiology.model==='sepsis'&&state.therapies.antibioticAt!=null){const sinceAbx=state.elapsed-state.therapies.antibioticAt;if(sinceAbx>90)severity*=clamp(1-(sinceAbx-90)/900,0.78,1);}
 
   state.therapies.fluidEffects=state.therapies.fluidEffects.map(x=>typeof x==='number'?{start:x-180,end:x,duration:180}:x).filter(x=>x.end>state.elapsed);
@@ -143,6 +154,9 @@ function updatePhysiology(){
   const bloodUnits=state.therapies.bloodUnitsGiven;
   const norepiBolus=state.therapies.norepiBolusUntil>state.elapsed?1:0;
   const norepiPerf=state.therapies.norepiPerfusor&&!state.therapies.norepiStandby?state.therapies.norepiRate:0;
+  const adrenalineIm=state.therapies.adrenalineImUntil>state.elapsed?1:0;
+  const adrenalineNebulized=state.therapies.adrenalineNebulizedUntil>state.elapsed?1:0;
+  const postIntubationHypotension=state.therapies.postIntubationHypotensionUntil>state.elapsed?1:0;
   const paralyzed=state.therapies.paralyzedUntil>state.elapsed;
   const shockPosition=state.therapies.shockPositionUntil>state.elapsed?1:0;
   const fluidEffect=interventionEffect('fluid_500');
@@ -165,6 +179,10 @@ function updatePhysiology(){
     bloodUnits,
     norepiBolus,
     norepiRate:norepiPerf,
+    adrenalineIm,
+    adrenalineNebulized,
+    triggerStopped:state.therapies.triggerStoppedAt!==null,
+    postIntubationHypotension,
     shockPosition,
     paralyzed,
     jitter
@@ -172,7 +190,8 @@ function updatePhysiology(){
 
   const septic=physiology.model==='sepsis';
   const cardiogenic=physiology.model==='cardiogenic';
-  const tempTarget=septic?(physiology.tempTarget||39.3):cardiogenic?(physiology.tempTarget||37.0):(state.therapies.warming?36.6:35.1);
+  const anaphylaxis=physiology.model==='anaphylaxis';
+  const tempTarget=septic?(physiology.tempTarget||39.3):cardiogenic?(physiology.tempTarget||37.0):anaphylaxis?(physiology.tempTarget||36.0):(state.therapies.warming?36.6:35.1);
   p.temp=clamp(p.temp+(tempTarget-p.temp)*(septic?.012:cardiogenic?.018:.035)+jitter(.02),34.0,septic?40.5:cardiogenic?37.8:37.3);
   const treatmentLactateDelta=bloodUnits*(bloodEffect.lactatePerTick||0)+fluidCount*(fluidEffect.lactatePerTick||0);
   p.lactate=clamp(p.lactate+engineResult.lactateDelta*difficultyFactor+treatmentLactateDelta,1,14);
@@ -193,11 +212,17 @@ function updatePhysiology(){
     else if(p.sys<68)p.mental='somnolent';
     else if(p.sys<82)p.mental='wach, orientiert und unruhig';
     else p.mental='wach und orientiert';
+  } else if(anaphylaxis){
+    if(p.sys<45||p.spo2<70)p.mental='bewusstlos';
+    else if(p.sys<65||p.spo2<83)p.mental='soporös';
+    else if(p.sys<80||p.spo2<89)p.mental='somnolent';
+    else p.mental='wach, orientiert und unruhig';
   } else if(p.sys<60||p.spo2<82)p.mental='somnolent';
   else if(p.sys<76)p.mental='verlangsamt und zeitlich desorientiert';
   else if(p.sys<90)p.mental='unruhig und leicht verwirrt';
   else p.mental='wach und unruhig';
   if(p.mental!==old){state.lastMentalReport=p.mental;logEvent(`Bewusstseinslage verändert: ${p.mental}.`,'warning');}
+  if(anaphylaxis&&!state.therapies.intubated&&p.spo2<85&&!state.proactiveFlags.has('anaphylaxis_airway_worse')){state.proactiveFlags.add('anaphylaxis_airway_worse');addChat('Team vor Ort','Der inspiratorische Stridor wird lauter. Lippen und Zunge wirken zunehmend geschwollen; die Patientin bekommt schlechter Luft.','system');}
 
   const currentMap=engineResult.currentMap;
   const criticalMap=profile.criticalMap;
@@ -207,9 +232,10 @@ function updatePhysiology(){
   state.criticalSeconds=critical?state.criticalSeconds+TICK_SECONDS:Math.max(0,state.criticalSeconds-TICK_SECONDS*2);
   const threshold=profile.arrestSeconds;
   if(!state.dead&&(hypoxicArrest||state.criticalSeconds>=threshold)){
-    state.dead=true;state.deathReason=cardiogenic&&currentMap<45?`${physiology.arrestRhythm||'Kreislaufstillstand'} bei dekompensiertem kardiogenen Schock`:currentMap<38?'prolongierter Kreislaufschock':hypoxicCritical?'prolongierte schwere Hypoxämie':'prolongierte vitale Entgleisung';
+    state.dead=true;state.deathReason=cardiogenic&&currentMap<45?`${physiology.arrestRhythm||'Kreislaufstillstand'} bei dekompensiertem kardiogenen Schock`:anaphylaxis?`${physiology.arrestRhythm||'Asystolie'} bei schwerer anaphylaktischer Reaktion`:currentMap<38?'prolongierter Kreislaufschock':hypoxicCritical?'prolongierte schwere Hypoxämie':'prolongierte vitale Entgleisung';
     p.hr=0;p.sys=0;p.dia=0;p.spo2=Math.max(0,p.spo2);p.rr=0;p.mental='nicht ansprechbar';
-    logEvent(`Kreislaufstillstand: ${state.deathReason}.`,'critical');addChat('Team vor Ort',cardiogenic?'Der Patient ist nicht mehr ansprechbar und pulslos. Am Monitor zeigt sich Kammerflimmern. Kreislaufstillstand – die Simulation wird beendet.':'Der Patient ist nicht mehr ansprechbar, pulslos und apnoisch. Kreislaufstillstand. Die Simulation wird beendet.','system');
+    const subject=getActiveCase().patient.sex==='weiblich'?'Die Patientin':'Der Patient';
+    logEvent(`Kreislaufstillstand: ${state.deathReason}.`,'critical');addChat('Team vor Ort',cardiogenic?'Der Patient ist nicht mehr ansprechbar und pulslos. Am Monitor zeigt sich Kammerflimmern. Kreislaufstillstand – die Simulation wird beendet.':anaphylaxis?'Die Patientin ist nicht mehr ansprechbar, pulslos und apnoisch. Am Monitor zeigt sich eine Asystolie. Kreislaufstillstand – die Simulation wird beendet.':`${subject} ist nicht mehr ansprechbar, pulslos und apnoisch. Kreislaufstillstand – die Simulation wird beendet.`,'system');
     setTimeout(()=>{if(!state.ended)endSimulation();},0);
   }
   const measuredBpAlarm=(state.access.has('artery')&&p.sys<90)||(state.lastMeasurements.nibp&&state.lastMeasurements.nibp.sys<90);
@@ -259,17 +285,22 @@ function renderPatientMap(){
   const labels=[...state.access].map(id=>ACCESS[id]?.label||ACCESS[id.split('_').slice(0,2).join('_')]?.label).filter(Boolean);
   const inf=[];
   if(state.therapies.oxygen)inf.push('O₂ läuft');
+  if(state.therapies.cefuroximeRunning)inf.push('Cefuroxim 1,5 g läuft');
+  if(state.therapies.adrenalineImUntil>state.elapsed)inf.push('Adrenalin i.m. wirksam');
+  if(state.therapies.adrenalineNebulizedUntil>state.elapsed)inf.push('Adrenalin-Verneblung wirksam');
+  if(state.therapies.intubated)inf.push('endotracheal intubiert und beatmet');
   if(state.therapies.norepiPerfusor)inf.push(state.therapies.norepiStandby?'Noradrenalin-Perfusor: Standby':`Noradrenalin ${NOREPI_RATES[state.therapies.norepiRate-1].toFixed(2)} µg/kg/min`);
   if(state.therapies.fluidEffects.length)inf.push(`${Math.round(state.therapies.fluidEffects.reduce((sum,e)=>sum+Number(e.units||1)*500,0))} ml Volumeneffekt aktiv`);
   if(state.therapies.upperBodyElevated)inf.push('Oberkörper hochgelagert');
   if(state.therapies.defibPads)inf.push('Defibrillationselektroden geklebt');
-  if(state.therapies.pulmonaryEdema)inf.push('klinische Zeichen eines Lungenödems');
+  if(state.therapies.pulmonaryEdema)inf.push('zunehmende Dyspnoe mit beidseitigen Rasselgeräuschen');
   if(state.therapies.shockPositionUntil>state.elapsed)inf.push('Schocklage');if(state.therapies.medications.length){state.therapies.medications.slice(-3).forEach(m=>inf.push(`${m.label} gegeben`));}
-  container.innerHTML=`<div class="body-figure"><div class="head"></div><div class="torso"></div><div class="arm left"></div><div class="arm right"></div><div class="leg left"></div><div class="leg right"></div>${state.therapies.defibPads?'<span class="defib-pad pad-left">⚡</span><span class="defib-pad pad-right">⚡</span>':''}${[...state.access].map((id,i)=>`<span class="access-marker marker-${i%5}" title="${escapeHtml(ACCESS[id]?.label||ACCESS[id.split('_').slice(0,2).join('_')]?.label||id)}">${id==='bladder'?'DK':id==='artery'?'A':id==='zvk'?'Z':id.startsWith('pvk')?'P':'K'}</span>`).join('')}</div><div class="patient-lines"><div><strong>Zugänge/Katheter</strong>${labels.length?labels.map(x=>`<span>${escapeHtml(x)}</span>`).join(''):'<span>keine</span>'}</div><div><strong>Laufende Therapie</strong>${inf.length?inf.map(x=>`<span>${escapeHtml(x)}</span>`).join(''):'<span>keine</span>'}</div></div>`;
+  container.innerHTML=`<div class="body-figure"><div class="head"></div><div class="torso"></div><div class="arm left"></div><div class="arm right"></div><div class="leg left"></div><div class="leg right"></div>${state.therapies.defibPads?'<span class="defib-pad pad-left">⚡</span><span class="defib-pad pad-right">⚡</span>':''}${[...state.access].map((id,i)=>`<span class="access-marker marker-${i%5}" title="${escapeHtml(ACCESS[id]?.label||ACCESS[id.split('_').slice(0,2).join('_')]?.label||id)}">${id==='bladder'?'DK':id==='artery'?'A':id==='zvk'?'Z':id.startsWith('pvk')?'P':'K'}</span>`).join('')}</div><div class="patient-lines"><div><strong>Zugänge/Katheter</strong>${labels.length?labels.map(x=>`<span>${escapeHtml(x)}</span>`).join(''):'<span>keine</span>'}</div><div><strong>Laufende Therapie</strong>${inf.length?inf.map(x=>`<span>${escapeHtml(x)}</span>`).join(''):'<span>keine</span>'}${state.therapies.cefuroximeRunning?'<button type="button" id="stopTriggerQuickBtn" class="mini">Cefuroxim stoppen</button>':''}</div></div>`;
+  const stopTriggerButton=el('stopTriggerQuickBtn');if(stopTriggerButton)stopTriggerButton.onclick=()=>doAction({type:'stop_trigger'});
 }
 
-function renderTasks(){const active=state.tasks.filter(t=>!t.done&&!t.cancelled);el('activeOrders').classList.toggle('empty-state',!active.length);el('activeOrders').innerHTML=active.length?active.map(t=>`<div class="order-item"><div><strong>${escapeHtml(t.label)}</strong><small>${t.phase}${t.staffId?' · '+escapeHtml(state.staff.find(s=>s.id===t.staffId)?.name||''):''}</small></div><div class="order-controls"><span>${formatTime(t.end-state.elapsed)}</span><button type="button" class="cancel-task-btn" data-cancel-task="${t.id}">Abbrechen</button></div></div>`).join(''):'Keine aktiven Aufträge.';document.querySelectorAll('[data-cancel-task]').forEach(btn=>btn.onclick=()=>cancelTask(btn.dataset.cancelTask));}
-function cancelTask(taskId){const t=state.tasks.find(x=>x.id===taskId&&!x.done&&!x.cancelled);if(!t)return;t.cancelled=true;t.done=true;const staff=state.staff.find(s=>s.id===t.staffId);if(staff){staff.taskId=null;staff.busyUntil=state.elapsed;}logEvent(`${t.label} abgebrochen.`,'warning');addChat('Team vor Ort',`${t.label} wurde abgebrochen.`);renderAll();}
+function renderTasks(){const active=state.tasks.filter(t=>!t.done&&!t.cancelled);el('activeOrders').classList.toggle('empty-state',!active.length);el('activeOrders').innerHTML=active.length?active.map(t=>`<div class="order-item"><div><strong>${escapeHtml(t.label)}</strong><small>${t.phase}${t.staffIds?.length?' · gesamtes Team':t.staffId?' · '+escapeHtml(state.staff.find(s=>s.id===t.staffId)?.name||''):''}</small></div><div class="order-controls"><span>${formatTime(t.end-state.elapsed)}</span><button type="button" class="cancel-task-btn" data-cancel-task="${t.id}">Abbrechen</button></div></div>`).join(''):'Keine aktiven Aufträge.';document.querySelectorAll('[data-cancel-task]').forEach(btn=>btn.onclick=()=>cancelTask(btn.dataset.cancelTask));}
+function cancelTask(taskId){const t=state.tasks.find(x=>x.id===taskId&&!x.done&&!x.cancelled);if(!t)return;t.cancelled=true;t.done=true;const staffIds=t.staffIds||[t.staffId].filter(Boolean);state.staff.filter(s=>staffIds.includes(s.id)).forEach(person=>{person.taskId=null;person.busyUntil=state.elapsed;});logEvent(`${t.label} abgebrochen.`,'warning');addChat('Team vor Ort',`${t.label} wurde abgebrochen.`);renderAll();}
 function renderChat(){const node=el('chatLog');const oldTop=node.scrollTop;const nearBottom=node.scrollHeight-node.scrollTop-node.clientHeight<60;node.innerHTML=state.chat.map(m=>`<div class="message ${m.cls}"><div class="message-meta">${escapeHtml(m.sender)} · ${formatTime(m.time)}</div><div>${escapeHtml(m.text).replace(/\n/g,'<br>')}</div></div>`).join('');if(state.chatAutoFollow||nearBottom){node.scrollTop=node.scrollHeight;state.chatAutoFollow=false;}else node.scrollTop=oldTop;}
 function renderEvents(){const node=el('eventLog');if(!node)return;node.innerHTML=state.events.slice().reverse().map(e=>`<div class="event-row"><span>${formatTime(e.time)}</span><div>${escapeHtml(e.text)}</div></div>`).join('');}
 function renderButtons(){el('timer').textContent=formatTime(SIM_DURATION-state.elapsed);if(el('participantName'))el('participantName').textContent=participantUsername||'–';const alarmRemaining=Math.max(0,state.alarmSilencedUntil-state.elapsed);el('alarmBtn').textContent=alarmRemaining>0?`⏸ Alarm ${formatTime(alarmRemaining)}`:'⏸ Alarm 2 min';el('alarmBtn').classList.toggle('alarm-paused',alarmRemaining>0);el('crossedBtn').disabled=!state.crossedBloodAvailable;const giveCrossed=el('giveCrossedEkBtn'),giveUncrossed=el('giveUncrossedEkBtn');if(giveCrossed)giveCrossed.disabled=state.bloodInventory.crossed<1;if(giveUncrossed)giveUncrossed.disabled=state.bloodInventory.uncrossed<1;el('openLabResultsBtn').disabled=!state.labsAvailable.size;el('openBgaResultsBtn').disabled=!state.bgaAvailable;el('openSonoResultsBtn').disabled=!state.sonoResult;el('uncrossedCount').textContent=state.bloodInventory.uncrossed;el('crossedCount').textContent=state.bloodInventory.crossed;el('givenCount').textContent=state.therapies.bloodUnitsGiven;const bloodProductsEnabled=getActiveCase().bloodProductsEnabled!==false;document.querySelector('.inventory')?.classList.toggle('hidden',!bloodProductsEnabled);el('bloodBtn')?.classList.toggle('hidden',!bloodProductsEnabled);if(el('gameCaseName'))el('gameCaseName').textContent=`${getActiveCase().number} · ${getActiveCase().shortTitle}`;el('finishBtn').disabled=!state.running||state.ended;const lb=el('openLabResultsBtn'),bb=el('openBgaResultsBtn'),sb=el('openSonoResultsBtn');lb.classList.toggle('new-result',state.newLabResult);bb.classList.toggle('new-result',state.newBgaResult);sb.classList.toggle('new-result',state.newSonoResult);}
@@ -279,7 +310,7 @@ function measureNibp(){addTimedTask('Nichtinvasive Blutdruckmessung',20,()=>{con
 function countRr(){assignTask('Atemfrequenz auszählen',15,()=>{state.lastMeasurements.rr={value:Math.round(state.patient.rr),time:state.elapsed};},{roles:['nurse']});}
 function measureTemp(){assignTask('Temperatur messen',15,()=>{state.lastMeasurements.temp={value:state.patient.temp,time:state.elapsed};},{roles:['nurse']});}
 function currentBga(){
-  const p=state.patient; const oxy=state.therapies.oxygen?18:0; const activeCase=getActiveCase();const septic=activeCase.physiology?.model==='sepsis';const cardiogenic=activeCase.physiology?.model==='cardiogenic';
+  const p=state.patient; const oxy=state.therapies.oxygen?18:0; const activeCase=getActiveCase();const septic=activeCase.physiology?.model==='sepsis';const cardiogenic=activeCase.physiology?.model==='cardiogenic';const anaphylaxis=activeCase.physiology?.model==='anaphylaxis';
   if(cardiogenic){
     const initial=activeCase.bga?.initial||{ph:7.16,pco2:30,po2:60,hco3:14,baseExcess:-13,lactate:4.5};
     const lactateImprovement=Number(initial.lactate||4.5)-p.lactate;
@@ -299,6 +330,28 @@ function currentBga(){
       ['Na⁺','138 mmol/l','135–145 mmol/l',false],
       ['K⁺',Number(p.potassium||3.3).toFixed(1)+' mmol/l','3,5–5,1 mmol/l',Number(p.potassium||3.3)<3.5||Number(p.potassium||3.3)>5.1],
       ['iCa²⁺',p.iCa.toFixed(2)+' mmol/l','1,12–1,32 mmol/l',p.iCa<1.12||p.iCa>1.32],
+      ['Glukose',Math.round(p.glucose)+' mg/dl','70–100 mg/dl',p.glucose<70||p.glucose>100]
+    ];
+  }
+  if(anaphylaxis){
+    const initial=activeCase.bga?.initial||{ph:7.30,pco2:29,po2:57,hco3:24,baseExcess:0,lactate:3};
+    const lactateImprovement=Number(initial.lactate||3)-p.lactate;
+    const ph=clamp(Number(initial.ph)+lactateImprovement*.035,6.90,7.46);
+    const pco2=clamp(Number(initial.pco2)-(p.rr-activeCase.patient.initial.rr)*.22,20,50);
+    const po2=clamp(Number(initial.po2)+(p.spo2-activeCase.patient.initial.spo2)*2.1+oxy*.35,28,140);
+    const hco3=clamp(Number(initial.hco3)+lactateImprovement*.75,10,27);
+    const baseExcess=clamp(Number(initial.baseExcess)+lactateImprovement*1.15,-20,3);
+    return [
+      ['pH',ph.toFixed(2),'7,35–7,45',ph<7.35||ph>7.45],
+      ['pCO₂',Math.round(pco2)+' mmHg','35–45 mmHg',pco2<35||pco2>45],
+      ['pO₂',Math.round(po2)+' mmHg','75–100 mmHg',po2<75||po2>100],
+      ['HCO₃⁻',Math.round(hco3)+' mmol/l','22–26 mmol/l',hco3<22||hco3>26],
+      ['Base Excess',Math.round(baseExcess)+' mmol/l','−2 bis +2 mmol/l',baseExcess<-2||baseExcess>2],
+      ['Laktat',p.lactate.toFixed(1)+' mmol/l','0,5–2,2 mmol/l',p.lactate>2.2],
+      ['Hb',p.hb.toFixed(1)+' g/dl','12,0–16,0 g/dl',p.hb<12||p.hb>16],
+      ['Na⁺','135 mmol/l','135–145 mmol/l',false],
+      ['K⁺',Number(p.potassium||4.5).toFixed(1)+' mmol/l','3,5–5,1 mmol/l',false],
+      ['iCa²⁺',p.iCa.toFixed(2)+' mmol/l','1,15–1,35 mmol/l',p.iCa<1.15||p.iCa>1.35],
       ['Glukose',Math.round(p.glucose)+' mg/dl','70–100 mg/dl',p.glucose<70||p.glucose>100]
     ];
   }
@@ -325,7 +378,8 @@ function getCurrentLabValue(id){
   if(id==='hct'){value=Math.round(state.patient.hb*3)+' %';abnormal=state.patient.hb<36;}
   if(id==='lactate'){value=state.patient.lactate.toFixed(1)+' mmol/l';abnormal=state.patient.lactate>2.2;}
   if(id==='potassium'){value=Number(state.patient.potassium||4.3).toFixed(1)+' mmol/l';abnormal=Number(state.patient.potassium||4.3)<3.5||Number(state.patient.potassium||4.3)>5.1;}
-  if(id==='calcium'){value=(state.patient.iCa*2).toFixed(2)+' mmol/l';abnormal=state.patient.iCa<1.08;}
+  if(id==='calcium'&&l?.dynamic==='iCa'){value=state.patient.iCa.toFixed(2)+' mmol/l';abnormal=state.patient.iCa<1.15||state.patient.iCa>1.35;}
+  else if(id==='calcium'){value=(state.patient.iCa*2).toFixed(2)+' mmol/l';abnormal=state.patient.iCa<1.08;}
   return {id,label:l?.label||id,value,norm:l?.norm||'—',abnormal};
 }
 function renderLabOptions(){
@@ -425,12 +479,12 @@ function doAction(action){
   if(type==='ask_mental'){state.assessment.add('D_mental');addChat(teamMemberName('nurse'),`${getActiveCase().patient.sex==='weiblich'?'Die Patientin':'Der Patient'} ist aktuell ${state.patient.mental}.`);return true;}
   if(type==='ask_skin'){state.assessment.add('C_skin');addChat(teamMemberName('nurse',1),`Die Haut ist ${getActiveCase().patient.visible.skin}. Rekapillarisierungszeit etwa ${state.patient.sys<80?'4':'3'} Sekunden.`);return true;}
   if(type==='ask_drainage'){state.assessment.add('C_bleeding');const visible=getActiveCase().patient.visible;if(visible.drainageDescription)addChat(teamMemberName('nurse'),`Die Drainage fördert weiter ${visible.drainageDescription}, grob ${Math.round(visible.drainageBaseMl+state.elapsed*visible.drainagePerSecondMl)} ml seit Fallbeginn.`);else addChat(teamMemberName('nurse'),'Es besteht keine kritische äußere Blutung und keine blutführende Drainage.');return true;}
-  if(type==='ask_urine'){state.assessment.add('C_urine');addChat(teamMemberName('nurse',1),state.access.has('bladder')?(getActiveCase().patient.visible.observationDescription||'Seit Anlage nur geringe Urinmenge.'):'Ohne DK ist die Diurese nicht quantifiziert.');return true;}
+  if(type==='ask_urine'){state.assessment.add('C_urine');addChat(teamMemberName('nurse',1),getActiveCase().chatFacts?.urine||(state.access.has('bladder')?(getActiveCase().patient.visible.observationDescription||'Seit Anlage nur geringe Urinmenge.'):'Ohne DK ist die Diurese nicht quantifiziert.'));return true;}
   if(type==='ask_allergy'){state.assessment.add('S_allergy');addChat(teamMemberName('nurse'),getActiveCase().history.allergy);return true;}
-  if(type==='ask_auscultation'){state.assessment.add('B_auscultation');logEvent('Auskultationsbefund erhoben.');const d=getActiveCase().diagnostics;addChat('Team vor Ort',`Auskultation: ${state.therapies.pulmonaryEdema&&d.pulmonaryEdemaAuscultation?d.pulmonaryEdemaAuscultation:d.auscultation}`);return true;}
+  if(type==='ask_auscultation'){state.assessment.add('B_auscultation');logEvent('Auskultationsbefund erhoben.');const c=getActiveCase(),d=c.diagnostics;const anaphylaxis=c.physiology?.model==='anaphylaxis';const finding=anaphylaxis&&state.therapies.intubated?'Der Endotrachealtubus liegt; die kontrollierte Beatmung läuft.':anaphylaxis&&state.therapies.adrenalineNebulizedUntil>state.elapsed?'Der inspiratorische Stridor ist nach der Verneblung deutlich leiser.':state.therapies.pulmonaryEdema&&d.pulmonaryEdemaAuscultation?d.pulmonaryEdemaAuscultation:d.auscultation;addChat('Team vor Ort',`Auskultation: ${finding}`);return true;}
   if(type==='measure_bz'){state.assessment.add('D_glucose');return assignTask('Blutzucker messen',15,()=>{state.lastMeasurements.bz={value:Math.round(state.patient.glucose),time:state.elapsed};addChat(getActiveCase().staff.find(x=>x.role==='nurse')?.name||'Pflege',`Blutzucker: ${Math.round(state.patient.glucose)} mg/dl.`);},{roles:['nurse','doctor']});}
   if(type==='alert_surgeon'){const activeCase=getActiveCase();const septic=activeCase.physiology?.model==='sepsis';const label=activeCase.escalation?.label||(septic?'Intensivmedizinisches Schockteam alarmieren':'Operateur und Anästhesie alarmieren');return assignTask(label,15,()=>{state.escalationAt=state.elapsed;addChat(activeCase.staff.find(x=>x.role==='doctor')?.name||'Arzt',activeCase.escalation?.response||(septic?'Das intensivmedizinische Schockteam ist informiert und auf dem Weg.':'Operateur und Anästhesie sind informiert und auf dem Weg.'));const preparationSeconds=Number(activeCase.escalation?.preparationSeconds||0);if(preparationSeconds>0)addTimedTask('Herzkatheterlabor vorbereiten',preparationSeconds,()=>addChat('Herzkatheterlabor','Das Herzkatheterlabor ist vorbereitet und kann den Patienten übernehmen.'),'Organisation');},{roles:['doctor']});}
-  if(type==='shock_position'){if(state.therapies.shockPositionUntil>state.elapsed){addChat(teamMemberName('nurse'),'Der Patient befindet sich bereits in Schocklage.');return true;}const cfg=INTERVENTIONS.shock_position,effect=interventionEffect('shock_position');return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.shockPositionUntil=state.elapsed+(effect.duration||180);markFirstTherapy();addChat(teamMemberName('nurse'),'Schocklage ist hergestellt. Der venöse Rückstrom und der Blutdruck verbessern sich vorübergehend.');},{roles:cfg.roles});}
+  if(type==='shock_position'){const person=getActiveCase().patient.sex==='weiblich'?'Die Patientin':'Der Patient';if(state.therapies.shockPositionUntil>state.elapsed){addChat(teamMemberName('nurse'),`${person} befindet sich bereits in Schocklage.`);return true;}const cfg=INTERVENTIONS.shock_position,effect=interventionEffect('shock_position');return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.shockPositionAt=state.therapies.shockPositionAt??state.elapsed;state.therapies.shockPositionUntil=state.elapsed+(effect.duration||180);markFirstTherapy();addChat(teamMemberName('nurse'),'Schocklage ist hergestellt. Der venöse Rückstrom und der Blutdruck verbessern sich vorübergehend.');},{roles:cfg.roles});}
   if(type==='insert_artery'){const a=ACCESS.artery;if(state.access.has('artery')){addChat(teamMemberName('doctor'),'Eine arterielle Kanüle liegt bereits.');return true;}return assignTask('Arterielle Kanüle legen',a.duration,()=>{state.access.add('artery');addChat(teamMemberName('doctor'),'Die arterielle Kanüle liegt; der Blutdruck wird kontinuierlich angezeigt.');},{roles:['doctor']});}
   if(type==='ventilate'){if(state.therapies.ventilation){addChat('Team vor Ort','Die kontrollierte Beatmung läuft bereits.');return true;}const cfg=INTERVENTIONS.ventilation;return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.ventilation=true;markFirstTherapy();},{roles:cfg.roles});}
   if(type==='sono'){return requestSono();}
@@ -438,8 +492,12 @@ function doAction(action){
   if(type==='oxygen'){if(state.therapies.oxygen){addChat(teamMemberName('nurse'),'Sauerstoff läuft bereits.');return true;}const cfg=INTERVENTIONS.oxygen;return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.oxygen=true;markFirstTherapy();},{roles:cfg.roles});}
   if(type==='upper_body_elevated'){if(state.therapies.upperBodyElevated){addChat('Team vor Ort','Der Oberkörper ist bereits hochgelagert.');return true;}const cfg=INTERVENTIONS.upper_body_elevated;return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.upperBodyElevated=true;addChat('Team vor Ort','Der Oberkörper ist hochgelagert; der Patient empfindet die Atmung als etwas leichter.');},{roles:cfg.roles});}
   if(type==='defib_pads'){if(state.therapies.defibPads){addChat('Team vor Ort','Die Defibrillationselektroden kleben bereits.');return true;}const cfg=INTERVENTIONS.defib_pads;return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.defibPads=true;addChat('Team vor Ort','Die Defibrillationselektroden sind präventiv angebracht und am Patientensymbol sichtbar.');},{roles:cfg.roles});}
+  if(type==='stop_trigger'){if(getActiveCase().physiology?.model!=='anaphylaxis'){addChat('Team vor Ort','In diesem Fall läuft keine Cefuroximzufuhr.');return false;}if(!state.therapies.cefuroximeRunning){addChat('Team vor Ort','Die Cefuroximzufuhr ist bereits gestoppt und diskonnektiert.');return true;}const cfg=INTERVENTIONS.stop_trigger;return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.cefuroximeRunning=false;state.therapies.triggerStoppedAt=state.elapsed;markFirstTherapy();addChat('Team vor Ort','Die Cefuroximzufuhr ist gestoppt und die Leitung diskonnektiert.');},{roles:cfg.roles});}
+  if(type==='adrenaline_im'){if(getActiveCase().physiology?.model!=='anaphylaxis'){addChat('Team vor Ort','Die fallbezogene Standardgabe Adrenalin i.m. ist nur im Anaphylaxie-Fall verfügbar.');return false;}const cfg=INTERVENTIONS.adrenaline_im,effect=interventionEffect('adrenaline_im');return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.adrenalineImAt=state.therapies.adrenalineImAt??state.elapsed;state.therapies.adrenalineImUntil=Math.max(state.therapies.adrenalineImUntil,state.elapsed+(effect.duration||330));state.therapies.adrenalineImCount+=1;state.therapies.medications.push({id:'adrenaline_im',label:'Adrenalin 0,5 mg i.m.',time:state.elapsed});markFirstTherapy();addChat('Team vor Ort','Adrenalin 0,5 mg wurde intramuskulär in den Oberschenkel gegeben. Kreislauf und Atemweg werden engmaschig beobachtet.');},{roles:cfg.roles});}
+  if(type==='adrenaline_nebulized'){if(getActiveCase().physiology?.model!=='anaphylaxis'){addChat('Team vor Ort','Die Adrenalin-Verneblung ist in diesem Fall nicht vorgesehen.');return false;}const cfg=INTERVENTIONS.adrenaline_nebulized,effect=interventionEffect('adrenaline_nebulized');return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.adrenalineNebulizedAt=state.therapies.adrenalineNebulizedAt??state.elapsed;state.therapies.adrenalineNebulizedUntil=Math.max(state.therapies.adrenalineNebulizedUntil,state.elapsed+(effect.duration||300));state.therapies.medications.push({id:'adrenaline_nebulized',label:'Adrenalin vernebelt',time:state.elapsed});markFirstTherapy();addChat('Team vor Ort','Adrenalin wird vernebelt. Der inspiratorische Stridor wird allmählich leiser.');},{roles:cfg.roles});}
+  if(type==='intubate'){if(getActiveCase().physiology?.model!=='anaphylaxis'){addChat('Team vor Ort','Die fallbezogene Intubationssequenz ist hier nicht verfügbar.');return false;}if(state.therapies.intubated){addChat('Team vor Ort','Die Patientin ist bereits endotracheal intubiert.');return true;}const cfg=INTERVENTIONS.intubate;return assignTeamTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.intubated=true;state.therapies.intubationAt=state.elapsed;state.therapies.ventilation=true;state.therapies.paralyzedUntil=Math.max(state.therapies.paralyzedUntil,state.elapsed+420);state.therapies.postIntubationHypotensionUntil=state.elapsed+90;state.therapies.medications.push({id:'propofol',label:'Propofol 30 mg i.v.',time:state.elapsed},{id:'sufentanil',label:'Sufentanil 30 µg i.v.',time:state.elapsed},{id:'rocuronium',label:'Rocuronium 100 mg i.v.',time:state.elapsed});markFirstTherapy();addChat('Team vor Ort','Die Patientin ist intubiert und wird kontrolliert beatmet. Direkt nach der Einleitung fällt der arterielle Blutdruck erneut deutlich ab.');});}
   if(type==='warming'){if(state.therapies.warming){addChat(teamMemberName('nurse',1),'Aktiver Wärmeerhalt läuft bereits.');return true;}const cfg=INTERVENTIONS.warming;return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.warming=true;markFirstTherapy();},{roles:cfg.roles});}
-  if(type==='fluid'){if(!hasUsableAccess()){addChat('Team vor Ort','Volumen ist ohne geeigneten Gefäßzugang nicht möglich.');return false;}const activeCase=getActiveCase(),cfg=INTERVENTIONS.fluid_500,effect=interventionEffect('fluid_500');const allowed=[250,500,1000],volumeMl=allowed.includes(Number(action.volumeMl))?Number(action.volumeMl):500;const duration=Math.max(20,Math.round(cfg.taskSeconds*volumeMl/500));return assignTask(`${volumeMl} ml Kristalloid verabreichen`,duration,()=>{const fluidDuration=Number(activeCase.physiology?.fluidDurationSeconds||effect.duration||180);const units=volumeMl/500;state.therapies.fluidEffects.push({start:state.elapsed,end:state.elapsed+fluidDuration,duration:fluidDuration,units});state.therapies.crystalloidMl+=volumeMl;state.patient.hb=clamp(state.patient.hb+(effect.hbImmediate||0)*units,4.0,17.5);markFirstTherapy();const total=state.therapies.crystalloidMl;const cardiogenic=activeCase.physiology?.model==='cardiogenic';const threshold=Number(activeCase.physiology?.fluidOverloadThresholdMl||Infinity);if(cardiogenic&&total>threshold&&!state.therapies.pulmonaryEdema){state.therapies.pulmonaryEdema=true;logEvent('Zeichen der Volumenüberladung mit beginnendem Lungenödem.','warning');addChat('Team vor Ort','Herr Gronen klagt jetzt über deutlich zunehmende Atemnot. Beim Atmen ist ein brodelndes Geräusch hörbar; auskultatorisch bestehen neu beidseitige Rasselgeräusche – Verdacht auf Lungenödem.','system');}else addChat(activeCase.staff.find(x=>x.role==='nurse')?.name||'Pflege',`${volumeMl} ml Kristalloid sind verabreicht. Gesamtmenge: ${total} ml.${cardiogenic&&total<=500?' Der Blutdruck reagiert moderat.':' Der Volumeneffekt summiert sich.'}`);},{roles:cfg.roles});}
+  if(type==='fluid'){if(!hasUsableAccess()){addChat('Team vor Ort','Volumen ist ohne geeigneten Gefäßzugang nicht möglich.');return false;}const activeCase=getActiveCase(),cfg=INTERVENTIONS.fluid_500,effect=interventionEffect('fluid_500');const allowed=[250,500,1000],volumeMl=allowed.includes(Number(action.volumeMl))?Number(action.volumeMl):500;const duration=cfg.taskSeconds;return assignTask(`${volumeMl} ml Kristalloid verabreichen`,duration,()=>{const fluidDuration=Number(activeCase.physiology?.fluidDurationSeconds||effect.duration||180);const units=volumeMl/500;state.therapies.fluidEffects.push({start:state.elapsed,end:state.elapsed+fluidDuration,duration:fluidDuration,units});state.therapies.crystalloidMl+=volumeMl;state.patient.hb=clamp(state.patient.hb+(effect.hbImmediate||0)*units,4.0,17.5);markFirstTherapy();const total=state.therapies.crystalloidMl;const cardiogenic=activeCase.physiology?.model==='cardiogenic';const threshold=Number(activeCase.physiology?.fluidOverloadThresholdMl||Infinity);if(cardiogenic&&total>threshold&&!state.therapies.pulmonaryEdema){state.therapies.pulmonaryEdema=true;logEvent('Klinische Verschlechterung nach weiterer Volumengabe.','warning');addChat('Team vor Ort','Herr Gronen klagt jetzt über deutlich zunehmende Atemnot. Beim Atmen ist ein brodelndes Geräusch hörbar; auskultatorisch bestehen neu beidseitige Rasselgeräusche.','system');}else addChat(activeCase.staff.find(x=>x.role==='nurse')?.name||'Pflege',`${volumeMl} ml Kristalloid sind verabreicht. Gesamtmenge: ${total} ml.${cardiogenic&&total<=500?' Der Blutdruck reagiert moderat.':' Der Volumeneffekt summiert sich.'}`);},{roles:cfg.roles});}
   if(type==='norepi_bolus'){if(!hasUsableAccess()){addChat(teamMemberName('doctor'),'Für Noradrenalin fehlt ein geeigneter Gefäßzugang.');return false;}const cfg=INTERVENTIONS.norepi_bolus,effect=interventionEffect('norepi_bolus');return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.norepiBolusUntil=state.elapsed+(effect.duration||60);markFirstTherapy();addChat(teamMemberName('doctor'),'Noradrenalin 5 µg i.v. als Bolus gegeben; die simulierte Wirkung hält etwa eine Minute an.');},{roles:cfg.roles});}
   if(type==='norepi_perfusor'){if(!hasUsableAccess()){addChat(teamMemberName('doctor'),'Für den Noradrenalin-Perfusor fehlt ein geeigneter Gefäßzugang.');return false;}if(state.therapies.norepiPerfusor){addChat(teamMemberName('doctor'),'Der Noradrenalin-Perfusor läuft bereits.');return true;}const cfg=INTERVENTIONS.norepi_perfusor;return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.norepiPerfusor=true;state.therapies.norepiStandby=false;state.therapies.norepiRate=2;markFirstTherapy();addChat(teamMemberName('doctor'),'Noradrenalin-Perfusor läuft mit 0,05 µg/kg/min. Die Dosis kann am Monitor angepasst werden.');},{roles:cfg.roles});}
   if(type==='txa'){if(!hasUsableAccess()){addChat(teamMemberName('nurse'),'Für Tranexamsäure fehlt ein geeigneter Gefäßzugang.');return false;}if(state.therapies.txa){addChat(teamMemberName('nurse'),'Tranexamsäure wurde bereits gegeben.');return true;}const cfg=INTERVENTIONS.txa;return assignTask(cfg.label,cfg.taskSeconds,()=>{state.therapies.txa=true;markFirstTherapy();addChat(teamMemberName('nurse'),'Tranexamsäure 1 g i.v. wurde verabreicht.');},{roles:cfg.roles});}
@@ -461,13 +519,13 @@ function normalizeChatText(value){
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/µ/g,'u')
     .replace(/ß/g,'ss')
-    .replace(/[^a-z0-9.,/+\-\s]/g,' ')
+    .replace(/[^a-z0-9.,/+\-\s?]/g,' ')
     .replace(/(\d)\s*(ml|mg|g|ve)\b/g,'$1 $2')
     .replace(/\s+/g,' ')
     .trim();
 }
 function isQuestionLike(q){
-  return /\?$/.test(q)||/^(wie|ist|sind|hat|haben|kann|konnen|braucht|liegt|liegen|gibt|welch|was|wo|warum)\b/.test(q);
+  return /\?$/.test(q)||/^(wie|ist|sind|hat|haben|kann|konnen|soll|sollen|darf|durfen|braucht|liegt|liegen|gibt|welch|was|wo|warum)\b/.test(q);
 }
 function accessDescription(){
   const labels=[];
@@ -483,7 +541,8 @@ function accessDescription(){
 }
 function localInterpret(raw){
   const q=normalizeChatText(raw),a=[],question=isQuestionLike(q);
-  const command=/(bitte|jetzt|legen|leg|legt|anlage|anlegen|platzieren|platzier|kleben|kleb|hochlager|geben|gib|verabreichen|anhangen|starten|starte|lauf|laufen|bolus|perfusor|abnehmen|bestimmen|messen|schreiben|mach|durchfuhren)/.test(q);
+  const anaphylaxis=getActiveCase().physiology?.model==='anaphylaxis';
+  const command=/(bitte|jetzt|legen|leg|legt|anlage|anlegen|platzieren|platzier|kleben|kleb|hochlager|geben|gib|verabreichen|anhangen|starten|starte|lauf|laufen|bolus|perfusor|abnehmen|bestimmen|messen|schreiben|mach|durchfuhren|stoppen|stopp|abdrehen|diskonnekt|entfernen|intubier|sichern)/.test(q);
 
   if(/\b(blutkultur(?:en)?|bk)\b/.test(q)&&(!question||command))a.push({type:'request_lab',labs:['blood_cultures']});
   if(/\b(urinkultur)\b/.test(q)&&(!question||command))a.push({type:'request_lab',labs:['urine_culture']});
@@ -498,8 +557,14 @@ function localInterpret(raw){
   if(/auskult|abhoren|atemgerausch|herztone/.test(q))a.push({type:'ask_auscultation'});
   if(/\bbz\b|blutzucker|glukose.*mess|zucker.*mess/.test(q))a.push({type:'measure_bz'});
 
-  if(!question||command){
-    if(/operateur|chirurg|op team|anasthesie.*alarm|intensiv|schockraum|hilfe.*holen|oberarzt|herzkatheter|katheterlabor|\bhku\b|kardiolog/.test(q))a.push({type:'alert_surgeon'});
+  if(!question){
+    if(anaphylaxis&&/\bcefuroxim\b/.test(q)&&/(stopp|abdrehen|abstopsel|diskonnekt|abhang|entfern|zufuhr aus|infusion aus)/.test(q))a.push({type:'stop_trigger'});
+    if(anaphylaxis&&/(\bintubier|atemweg.*sicher|endotracheal)/.test(q))a.push({type:'intubate'});
+    if(anaphylaxis&&/\b(adrenalin|epinephrin)\b/.test(q)){
+      if(/vernebel|inhalier|inhalativ|nebul/.test(q))a.push({type:'adrenaline_nebulized'});
+      else if(!/(intravenos|\bi\.?\s*v\.?\b)/.test(q))a.push({type:'adrenaline_im'});
+    }
+    if(/operateur|chirurg|op team|anasthesie.*alarm|intensiv|schockraum|hilfe.*holen|oberarzt|herzkatheter|katheterlabor|\bhkl\b|kardiolog/.test(q))a.push({type:'alert_surgeon'});
     if(/\bbga\b|blutgasanalyse/.test(q)){
       if(/arteriell|arterielle|\bart\b/.test(q))a.push({type:'request_bga',mode:'arterial'});
       else if(/venos|venose/.test(q))a.push({type:'request_bga',mode:'venous'});
@@ -516,7 +581,7 @@ function localInterpret(raw){
     if(/(?:12.?kanal.)?ekg/.test(q)&&command)a.push({type:'request_ecg'});
     if(/warm|decke|hypotherm/.test(q))a.push({type:'warming'});
     if(/schocklage|beine.*hoch|beine.*anheb|autotransfusion/.test(q))a.push({type:'shock_position'});
-    if(/\b(kristall|kristalloid|volumen|ringer|nacl|elektrolyt|ve)\b/.test(q)||/\b(250|500|1000)\s*ml\b/.test(q))a.push({type:'fluid',volumeMl:/\b1000\s*ml\b|\b1\s*l(?:iter)?\b/.test(q)?1000:/\b250\s*ml\b/.test(q)?250:500});
+    if(/\b(kristall|kristalloid|volumen|ringer|nacl|elektrolyt|ve)\b/.test(q)||/\b(250|500|1000)\s*(?:ml|ve)\b/.test(q))a.push({type:'fluid',volumeMl:/\b1000\s*(?:ml|ve)\b|\b1\s*l(?:iter)?\b/.test(q)?1000:/\b250\s*(?:ml|ve)\b/.test(q)?250:500});
     if(/tranexam|\btxa\b/.test(q))a.push({type:'txa'});
     if(/(?:antibiose|antibiotikum|antibiotika).*(?:geben|start|verabreich|anhang|anord)|^(?:antibiose|antibiotikum|antibiotika)$/.test(q))a.push({type:'give_medication',medication:'pip_tazo'});
     if(/\b(nor|noradrenalin|norepi|norepinephrin)\b/.test(q)){
@@ -526,6 +591,7 @@ function localInterpret(raw){
     for(const [medId,med] of Object.entries(MEDICATIONS)){
       const aliases=[med.label,...(med.aliases||[])].map(normalizeChatText);
       if(medId==='adrenaline'&&/\b(nor|noradrenalin|norepi)\b/.test(q))continue;
+      if(medId==='adrenaline'&&anaphylaxis&&!/(intravenos|\bi\.?\s*v\.?\b)/.test(q))continue;
       if(aliases.some(alias=>alias&&q.includes(alias))&&!a.some(x=>x.type==='give_medication'&&x.medication===medId)){
         if(medId==='glucose'&&/(mess|bestimm|kontroll)/.test(q))continue;
         a.push({type:'give_medication',medication:medId});
@@ -537,6 +603,7 @@ function localInterpret(raw){
 function trackAssessmentFromText(q){
   if(/sepsis|septisch|septischer schock|urosepsis/.test(q)){state.assessment.add('sepsis_recognized');if(state.sepsisRecognizedAt===null)state.sepsisRecognizedAt=state.elapsed;}
   if(/stemi|myokardinfarkt|herzinfarkt|kardiogen(?:er|en)? schock/.test(q)){state.assessment.add('cardiogenic_recognized');if(state.diagnosisRecognizedAt===null)state.diagnosisRecognizedAt=state.elapsed;}
+  if(/anaphylax|anaphylakt|allergischer schock/.test(q)){state.assessment.add('anaphylaxis_recognized');if(state.anaphylaxisRecognizedAt===null)state.anaphylaxisRecognizedAt=state.elapsed;}
   const checks=[
     [/atemweg|stridor|mund.*frei|airway/, 'A_airway'],
     [/auskult|abhören|atemgeräusch|herztöne/, 'B_auscultation'],
@@ -565,11 +632,15 @@ function trackAssessmentFromText(q){
 function getCaseAnswer(q){
   const c=getActiveCase();
   const f=c.chatFacts||{};
+  const anaphylaxis=c.physiology?.model==='anaphylaxis';
+  const airwayFinding=anaphylaxis&&state.therapies.intubated?'Der Atemweg ist endotracheal gesichert; der Tubus liegt und die kontrollierte Beatmung läuft.':anaphylaxis&&state.therapies.adrenalineNebulizedUntil>state.elapsed?'Der inspiratorische Stridor ist nach der Adrenalinverneblung deutlich leiser.':f.airway;
+  const breathingFinding=anaphylaxis&&state.therapies.intubated?'Die Patientin ist intubiert und wird kontrolliert beatmet.':f.breathing;
   const answer=(text,key)=>text?{text,key}:null;
   const rules=[
     [/(^|\b)(zugang|zugange|gefasszugang|pvk vorhanden|venenzugang vorhanden)(\b|\?)/,()=>answer(accessDescription(),null)],
-    [/(^|\b)(atemweg|atemwege|airway|stridor|mund frei)(\b|\?)/,()=>answer(f.airway,'A_airway')],
-    [/(^|\b)(atmung|breathing|spontanatmung)(\b|\?)/,()=>answer(f.breathing,'B_rr')],
+    [/(cefuroxim).*(lauf|stopp|abgedreht|diskonnekt)/,()=>answer(state.therapies.cefuroximeRunning?'Die Cefuroximzufuhr läuft noch.':'Die Cefuroximzufuhr ist gestoppt und diskonnektiert.',null)],
+    [/(^|\b)(atemweg|atemwege|airway|stridor|mund frei|intubiert|tubus|beatmet)(\b|\?)/,()=>answer(airwayFinding,'A_airway')],
+    [/(^|\b)(atmung|breathing|spontanatmung)(\b|\?)/,()=>answer(breathingFinding,'B_rr')],
     [/(auskult|abhören|atemgeräusch|lunge.*hören|herztöne)/,()=>answer(c.diagnostics?.auscultation,'B_auscultation')],
     [/(vigilanz|bewusst|gcs|ansprech|somnolent|orientiert|wachheit)/,()=>answer(f.consciousness||c.patient.initial.mental,'D_mental')],
     [/(pupill)/,()=>answer(f.pupils,'D_mental')],
@@ -590,6 +661,7 @@ function getCaseAnswer(q){
     [/(letzte.*mahlzeit|zuletzt.*gegessen|nahrung|nüchtern)/,()=>answer(f.lastMeal||c.history.lastMeal,'S_lastmeal')],
     [/(seit wann|beginn|ereignis|was.*passiert|verlauf)/,()=>answer(f.events||c.history.events,'S_events')],
     [/(risikofaktor|risiko)/,()=>answer(f.riskFactors||c.history.riskFactors,'S_risk')],
+    [/(schmerz|schmerzen)/,()=>answer(f.pain,'S_symptoms')],
     [/(symptom|beschwer|schmerz|übel|erbrochen)/,()=>answer(f.symptoms||c.history.symptoms,'S_symptoms')],
     [/(sono|ultraschall|pocus|focus|fast(?:-test)?)/,()=>answer(c.diagnostics?.sono,null)],
     [/(ekg|rhythmus)/,()=>answer(c.diagnostics?.ecg,null)]
@@ -607,10 +679,12 @@ function medicationMentioned(q,medId){const med=MEDICATIONS[medId];if(!med)retur
 function filterSafeActions(q,actions){return (actions||[]).filter(action=>{if(action.type!=='give_medication')return true;if(action.medication==='pip_tazo'&&/(antibiose|antibiotikum|antibiotika)/.test(q))return true;return medicationMentioned(q,action.medication);});}
 function actionMatchesText(raw,action){
   const q=normalizeChatText(raw);
+  if(action.type==='adrenaline_im')return /\b(adrenalin|epinephrin)\b/.test(q)&&!/vernebel|inhalier|inhalativ|nebul|intravenos|\bi\.?\s*v\.?\b/.test(q);
+  if(action.type==='adrenaline_nebulized')return /\b(adrenalin|epinephrin)\b/.test(q)&&/vernebel|inhalier|inhalativ|nebul/.test(q);
   const patterns={
     insert_pvk:/\b(pvk|viggo|venflon|braunule|venenzugang|zugang)\b/,
     insert_artery:/\b(arterie|arterielle kanule|arterieller zugang)\b/,
-    fluid:/\b(kristall|kristalloid|volumen|ringer|nacl|elektrolyt|ve)\b|\b(250|500|1000)\s*ml\b|\b1\s*l(?:iter)?\b/,
+    fluid:/\b(kristall|kristalloid|volumen|ringer|nacl|elektrolyt|ve)\b|\b(250|500|1000)\s*(?:ml|ve)\b|\b1\s*l(?:iter)?\b/,
     norepi_bolus:/\b(nor|noradrenalin|norepi|norepinephrin)\b.*\bbolus\b|\bbolus\b.*\b(nor|noradrenalin|norepi)\b/,
     norepi_perfusor:/\b(nor|noradrenalin|norepi|norepinephrin)\b/,
     oxygen:/\b(sauerstoff|o2)\b/,
@@ -628,6 +702,8 @@ function actionMatchesText(raw,action){
     measure_bz:/\b(blutzucker|bz|glukose)\b/,
     ventilate:/\b(beatm|ambu|beutel maske)\b/,
     shock_position:/\b(schocklage|beine hoch|autotransfusion)\b/,
+    stop_trigger:/\bcefuroxim\b.*(?:stopp|abdrehen|abstopsel|diskonnekt|abhang|entfern|zufuhr aus|infusion aus)/,
+    intubate:/\b(intubier|atemweg|endotracheal)\b/,
     warming:/\b(warm|decke|hypotherm)\b/,
     txa:/\b(tranexam|txa)\b/
   };
@@ -646,7 +722,7 @@ async function handleChat(text){
   if((/\bbga\b|blutgasanalyse/.test(q))&&!/arteriell|arterielle|art\.|venös|venoes|venöse/.test(q)){
     addChat('Team vor Ort','Soll die BGA arteriell oder venös abgenommen werden?');return;
   }
-  if(getActiveCase().physiology?.requiredFluidChoice&&/\b(kristall|kristalloid|volumen|ringer|nacl|elektrolyt|ve)\b/.test(q)&&(!isQuestionLike(q)||/(geben|gib|verabreich|anhang|lauf|bolus|bitte)/.test(q))&&!/\b(250|500|1000)\s*ml\b|\b1\s*l(?:iter)?\b/.test(q)){
+  if(getActiveCase().physiology?.requiredFluidChoice&&/\b(kristall|kristalloid|volumen|ringer|nacl|elektrolyt|ve)\b/.test(q)&&(!isQuestionLike(q)||/(geben|gib|verabreich|anhang|lauf|bolus|bitte)/.test(q))&&!/\b(250|500|1000)\s*(?:ml|ve)\b|\b1\s*l(?:iter)?\b/.test(q)){
     addChat('Team vor Ort','Welche Menge Kristalloid soll gegeben werden: 250 ml, 500 ml oder 1.000 ml?');return;
   }
   // Eindeutige Aufträge werden vor Befundfragen verarbeitet. So wird z. B.
@@ -661,11 +737,11 @@ async function handleChat(text){
     const placeholder={time:state.elapsed,sender:'Team vor Ort',text:'KI wertet die Nachricht aus …',cls:'team ai-thinking'};
     state.chat.push(placeholder);renderChat();
     try{
-      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,state:{elapsed:state.elapsed,visiblePatient:{heartRate:Math.round(state.patient.hr),spo2:Math.round(state.patient.spo2),arterialPressure:state.access.has('artery')?`${Math.round(state.patient.sys)}/${Math.round(state.patient.dia)}`:null,lastNibp:state.lastMeasurements.nibp,lastRespiratoryRate:state.lastMeasurements.rr,lastTemperature:state.access.has('bladder')?state.patient.temp:state.lastMeasurements.temp,consciousness:state.patient.mental,skin:getActiveCase().patient.visible.skin,observation:getActiveCase().patient.visible.drainageDescription?`${getActiveCase().patient.visible.drainageDescription}, etwa ${Math.round(getActiveCase().patient.visible.drainageBaseMl+state.elapsed*getActiveCase().patient.visible.drainagePerSecondMl)} ml seit Fallbeginn`:getActiveCase().patient.visible.observationDescription},knownLabs:latestKnownLabs(),bgaHistory:state.bgaResults.map(b=>({time:b.time,values:Object.fromEntries(b.values.map(v=>[v[0],v[1]]))})),access:[...state.access],bloodInventory:state.bloodInventory,staff:state.staff.map(s=>({name:s.name,role:s.role,available:s.busyUntil<=state.elapsed})),norepiPerfusor:state.therapies.norepiPerfusor,caseFacts:{caseId:getActiveCase().id,title:getActiveCase().title,sex:getActiveCase().patient.sex,age:getActiveCase().patient.age,history:getActiveCase().history,diagnostics:getActiveCase().diagnostics,chatFacts:getActiveCase().chatFacts||{},briefing:getActiveCase().briefing,initial:getActiveCase().patient.initial,simulationRules:{requiredFluidChoice:Boolean(getActiveCase().physiology?.requiredFluidChoice)}}}})});
+      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,state:{elapsed:state.elapsed,visiblePatient:{heartRate:Math.round(state.patient.hr),spo2:Math.round(state.patient.spo2),arterialPressure:state.access.has('artery')?`${Math.round(state.patient.sys)}/${Math.round(state.patient.dia)}`:null,lastNibp:state.lastMeasurements.nibp,lastRespiratoryRate:state.lastMeasurements.rr,lastTemperature:state.access.has('bladder')?state.patient.temp:state.lastMeasurements.temp,consciousness:state.patient.mental,skin:getActiveCase().patient.visible.skin,observation:getActiveCase().patient.visible.drainageDescription?`${getActiveCase().patient.visible.drainageDescription}, etwa ${Math.round(getActiveCase().patient.visible.drainageBaseMl+state.elapsed*getActiveCase().patient.visible.drainagePerSecondMl)} ml seit Fallbeginn`:getActiveCase().patient.visible.observationDescription},knownLabs:latestKnownLabs(),bgaHistory:state.bgaResults.map(b=>({time:b.time,values:Object.fromEntries(b.values.map(v=>[v[0],v[1]]))})),access:[...state.access],bloodInventory:state.bloodInventory,staff:state.staff.map(s=>({name:s.name,role:s.role,available:s.busyUntil<=state.elapsed})),norepiPerfusor:state.therapies.norepiPerfusor,caseFacts:{sex:getActiveCase().patient.sex,age:getActiveCase().patient.age,history:getActiveCase().history,diagnostics:getActiveCase().diagnostics,chatFacts:getActiveCase().chatFacts||{},briefing:getActiveCase().briefing,initial:getActiveCase().patient.initial,simulationRules:{requiredFluidChoice:Boolean(getActiveCase().physiology?.requiredFluidChoice)}}}})});
       const data=await r.json();state.chat=state.chat.filter(x=>x!==placeholder);if(!r.ok)throw new Error(data.error||'KI-Fehler');
       // Gemini übersetzt freie Formulierungen in standardisierte Aktionen. Jede Aktion
       // wird lokal gegen die tatsächlich genannten Begriffe geprüft, bevor sie ausgeführt wird.
-      const safeActions=filterSafeActions(q,data.actions||[]).filter(action=>actionMatchesText(q,action));
+      const safeActions=isQuestionLike(q)?[]:filterSafeActions(q,data.actions||[]).filter(action=>actionMatchesText(q,action));
       if(safeActions.length){safeActions.forEach(doAction);return;}
       if(data.reply)addChat('Team vor Ort',data.reply);
       else addChat('Team vor Ort','Ich habe die Anweisung nicht sicher verstanden. Bitte nennen Sie Maßnahme oder Befund etwas genauer.');
@@ -674,7 +750,7 @@ async function handleChat(text){
       state.chat=state.chat.filter(x=>x!==placeholder);el('aiStatus').textContent='Gemini gestört';el('aiStatus').className='status-pill idle';const reason=String(e?.message||'Unbekannter API-Fehler').replace(/\s+/g,' ').slice(0,220);addChat('System',`Gemini antwortet momentan nicht (${reason}). Der lokale Regel-Chat übernimmt diese Nachricht; bei der nächsten Anfrage wird Gemini erneut versucht.`,'system');
     }
   }
-  addChat(teamMemberName('nurse'),'Bitte formulieren Sie die Frage noch etwas konkreter.');
+  addChat(teamMemberName('nurse'),getActiveCase().physiology?.model==='anaphylaxis'&&isQuestionLike(q)?'Das ist uns aktuell nicht bekannt.':'Bitte formulieren Sie die Frage noch etwas konkreter.');
 }
 async function checkAiStatus(){try{const r=await fetch('/api/status');const d=await r.json();state.aiAvailable=!!d.enabled;el('aiStatus').textContent=state.aiAvailable?'Gemini aktiv':'Regel-Fallback';el('aiStatus').className=`status-pill ${state.aiAvailable?'live':'idle'}`;}catch{state.aiAvailable=false;el('aiStatus').textContent='Regel-Fallback';}}
 
@@ -714,6 +790,7 @@ function buildSavedResult(scorePercent, positives, missing){
     summary:{
       positives,missing,
       escalationAt:state.escalationAt,
+      anaphylaxisRecognizedAt:state.anaphylaxisRecognizedAt,
       firstTherapyAt:state.firstTherapyAt,
       crystalloidMl:state.therapies.crystalloidMl,
       bloodUnitsGiven:state.therapies.bloodUnitsGiven,
@@ -737,7 +814,11 @@ function buildSavedResult(scorePercent, positives, missing){
         oxygen:state.therapies.oxygen,warming:state.therapies.warming,ventilation:state.therapies.ventilation,upperBodyElevated:state.therapies.upperBodyElevated,defibPads:state.therapies.defibPads,pulmonaryEdema:state.therapies.pulmonaryEdema,
         norepiPerfusor:state.therapies.norepiPerfusor,norepiStandby:state.therapies.norepiStandby,norepiRate:state.therapies.norepiRate,
         crystalloidMl:state.therapies.crystalloidMl,bloodUnitsGiven:state.therapies.bloodUnitsGiven,
-        txa:state.therapies.txa,medications:state.therapies.medications
+        txa:state.therapies.txa,medications:state.therapies.medications,
+        cefuroximeRunning:state.therapies.cefuroximeRunning,triggerStoppedAt:state.therapies.triggerStoppedAt,
+        adrenalineImAt:state.therapies.adrenalineImAt,adrenalineImCount:state.therapies.adrenalineImCount,
+        adrenalineNebulizedAt:state.therapies.adrenalineNebulizedAt,shockPositionAt:state.therapies.shockPositionAt,
+        intubated:state.therapies.intubated,intubationAt:state.therapies.intubationAt
       },
       caseMetadata:{id:getActiveCase().id,title:getActiveCase().title,number:getActiveCase().number,setting:getActiveCase().setting},
       finalVitals:{hr:state.patient.hr,sys:state.patient.sys,dia:state.patient.dia,spo2:state.patient.spo2,rr:state.patient.rr,temp:state.patient.temp,cvp:state.patient.cvp,mental:state.patient.mental}
@@ -755,6 +836,7 @@ function calculateSummaryData(){
     const done={
       early_escalation:state.escalationAt!==null&&state.escalationAt<=(threshold||120),
       sepsis_recognized:state.sepsisRecognizedAt!==null&&state.sepsisRecognizedAt<=(threshold||240),
+      anaphylaxis_recognized:state.anaphylaxisRecognizedAt!==null&&state.anaphylaxisRecognizedAt<=(threshold||300),
       abcde:abcdeComplete,
       ecg:state.ecgAt!=null&&(threshold==null||state.ecgAt<=threshold),
       bga:state.bgaAvailable,
@@ -770,6 +852,12 @@ function calculateSummaryData(){
       cath_lab:state.escalationAt!==null,
       norepi:state.therapies.norepiPerfusor,
       defib_pads:state.therapies.defibPads,
+      trigger_stopped:state.therapies.triggerStoppedAt!==null&&(threshold==null||state.therapies.triggerStoppedAt<=threshold),
+      oxygen:state.therapies.oxygen,
+      adrenaline_im:state.therapies.adrenalineImAt!==null&&(threshold==null||state.therapies.adrenalineImAt<=threshold),
+      fluid_therapy:state.therapies.crystalloidMl>0,
+      shock_position:state.therapies.shockPositionAt!==null,
+      adjunct_medication:['prednisolone','clemastine','h2_blocker'].every(id=>state.therapies.medications.some(m=>m.id===id)),
       map_target:maxMap>=65
     }[criterion.id]||false;
     return [done,criterion.labelDone,criterion.labelMissing];
@@ -784,6 +872,7 @@ function caseTreatmentSummaryHtml(){
     return `<li>ASS: ${has('aspirin')?'gegeben':'nicht gegeben'}</li><li>Heparin: ${has('heparin')?'gegeben':'nicht gegeben'}</li><li>Herzkatheterlabor: ${state.escalationAt!=null?'aktiviert':'nicht aktiviert'}</li><li>Letztes Laktat: ${state.patient.lactate.toFixed(1)} mmol/l</li>`;
   }
   if(model==='sepsis')return `<li>Antibiotikum: ${state.therapies.antibioticAt!=null?'gegeben':'nicht gegeben'}</li><li>Letztes Laktat: ${state.patient.lactate.toFixed(1)} mmol/l</li>`;
+  if(model==='anaphylaxis')return `<li>Cefuroximzufuhr: ${state.therapies.cefuroximeRunning?'läuft noch':'gestoppt'}</li><li>Adrenalin i.m.: ${state.therapies.adrenalineImCount?`${state.therapies.adrenalineImCount} Gabe${state.therapies.adrenalineImCount===1?'':'n'}`:'nicht gegeben'}</li><li>Atemweg: ${state.therapies.intubated?'endotracheal gesichert':'nicht intubiert'}</li><li>Letztes Laktat: ${state.patient.lactate.toFixed(1)} mmol/l</li>`;
   return `<li>EK transfundiert: ${state.therapies.bloodUnitsGiven}</li><li>Letzter Hb: ${state.patient.hb.toFixed(1)} g/dl</li>`;
 }
 function buildSummaryHtml(pct,positives,missing){return `<div class="summary-score">${pct} % Prozessadhärenz</div><p class="modal-note"><strong>Benutzer:</strong> ${escapeHtml(participantUsername)} · Didaktische, nicht validierte Auswertung.</p><div id="saveStatus" class="save-status">${state.restoredEvaluation?'Auswertung wurde lokal wiederhergestellt.':state.savedResultId?'✓ Ergebnis wurde gespeichert.':'Ergebnis wird gespeichert …'}</div><div class="summary-simple"><div><h3>Gut umgesetzt</h3><ul>${positives.map(x=>`<li>${x}</li>`).join('')||'<li>—</li>'}</ul></div><div><h3>Besprechen</h3><ul>${missing.map(x=>`<li>${x}</li>`).join('')||'<li>—</li>'}</ul></div><div><h3>Ergebnis</h3><ul><li>Schwierigkeit: ${{easy:'Leicht',medium:'Mittel',hard:'Schwer'}[state.difficulty]}</li><li>Patient: ${state.dead?'Kreislaufstillstand – '+state.deathReason:'am Fallende lebend'}</li><li>Kristalloide: ${state.therapies.crystalloidMl} ml</li>${caseTreatmentSummaryHtml()}</ul></div></div>${assessmentSummaryHtml()}<h2>Wesentliche Maßnahmen</h2><div class="summary-timeline">${state.events.filter(e=>/übernimmt:|abgeschlossen|abgebrochen|alarmiert|transfund|verabreicht|BGA|Labor|Sonografie|Kreislaufstillstand/.test(e.text)).map(e=>`<div><strong>${formatTime(e.time)}</strong><span>${escapeHtml(e.text)}</span></div>`).join('')||'<p>Keine wesentlichen Maßnahmen dokumentiert.</p>'}</div><h2>Vitalparameter im Verlauf</h2><div class="chart-grid">${makeChart('Herzfrequenz','hr','#24e879',50,190,'/min')}${makeChart('MAP','map','#ff4d68',35,110,'mmHg')}${makeChart('SpO₂','spo2','#39a8ff',75,100,'%')}</div>`;}
@@ -792,7 +881,7 @@ function likertQuestionHtml([id,label]){return `<fieldset class="evaluation-ques
 function setupEvaluationQuestions(){const sys=el('systemEvaluationQuestions'),cas=el('caseEvaluationQuestions');if(sys&&!sys.children.length)sys.innerHTML=SYSTEM_EVALUATION_QUESTIONS.map(likertQuestionHtml).join('');if(cas&&!cas.children.length)cas.innerHTML=CASE_EVALUATION_QUESTIONS.map(likertQuestionHtml).join('');}
 function evaluationDraftFromForm(){const form=el('evaluationForm');if(!form)return {};const data=new FormData(form),answers={};for(const [k,v] of data.entries())answers[k]=v;return answers;}
 function applyEvaluationDraft(answers={}){for(const [name,value] of Object.entries(answers||{})){document.querySelectorAll(`[name="${CSS.escape(name)}"]`).forEach(node=>{if(node.type==='radio')node.checked=String(node.value)===String(value);else node.value=value;});}const tech=document.querySelector('[name="technicalProblems"]:checked')?.value;el('technicalProblemTextWrap')?.classList.toggle('hidden',tech!=='yes');}
-function anonymousEvaluationSnapshot(){return {elapsed:state.elapsed,dead:state.dead,deathReason:state.deathReason,patient:clone(state.patient),events:clone(state.events),vitalHistory:clone(state.vitalHistory),assessment:[...state.assessment],therapies:{crystalloidMl:state.therapies.crystalloidMl,bloodUnitsGiven:state.therapies.bloodUnitsGiven,antibioticAt:state.therapies.antibioticAt,medications:clone(state.therapies.medications),defibPads:state.therapies.defibPads,pulmonaryEdema:state.therapies.pulmonaryEdema},escalationAt:state.escalationAt,ecgAt:state.ecgAt};}
+function anonymousEvaluationSnapshot(){return {elapsed:state.elapsed,dead:state.dead,deathReason:state.deathReason,patient:clone(state.patient),events:clone(state.events),vitalHistory:clone(state.vitalHistory),assessment:[...state.assessment],therapies:{crystalloidMl:state.therapies.crystalloidMl,bloodUnitsGiven:state.therapies.bloodUnitsGiven,antibioticAt:state.therapies.antibioticAt,medications:clone(state.therapies.medications),defibPads:state.therapies.defibPads,pulmonaryEdema:state.therapies.pulmonaryEdema,cefuroximeRunning:state.therapies.cefuroximeRunning,triggerStoppedAt:state.therapies.triggerStoppedAt,adrenalineImAt:state.therapies.adrenalineImAt,adrenalineImCount:state.therapies.adrenalineImCount,adrenalineNebulizedAt:state.therapies.adrenalineNebulizedAt,shockPositionAt:state.therapies.shockPositionAt,intubated:state.therapies.intubated,intubationAt:state.therapies.intubationAt,oxygen:state.therapies.oxygen},escalationAt:state.escalationAt,ecgAt:state.ecgAt,anaphylaxisRecognizedAt:state.anaphylaxisRecognizedAt};}
 function pendingEvaluationObject(){return {version:2,caseId:activeCaseId,caseName:getActiveCase().title,difficulty:state.difficulty,summary:state.pendingSummary,snapshot:anonymousEvaluationSnapshot(),answers:evaluationDraftFromForm(),updatedAt:new Date().toISOString()};}
 function updatePendingEvaluationStorage(){if(!state.ended||state.evaluationSubmitted||state.evaluationSkipped)return;try{localStorage.setItem(EVALUATION_STORAGE_KEY,JSON.stringify(pendingEvaluationObject()));}catch(e){console.warn(e);}}
 function clearPendingEvaluationStorage(){try{localStorage.removeItem(EVALUATION_STORAGE_KEY);localStorage.removeItem(LEGACY_EVALUATION_STORAGE_KEY);}catch{}}
@@ -801,7 +890,7 @@ async function beginEvaluationFlow(){setupEvaluationQuestions();state.pendingSum
 function collectEvaluationAnswers(){const form=el('evaluationForm');if(!form?.checkValidity()){form?.reportValidity();return null;}const raw=evaluationDraftFromForm(),system={},caseQuestions={};SYSTEM_EVALUATION_QUESTIONS.forEach(([id])=>system[id]=Number(raw[id]));CASE_EVALUATION_QUESTIONS.forEach(([id])=>caseQuestions[id]=Number(raw[id]));return {system,case:caseQuestions,technicalProblems:raw.technicalProblems==='yes',technicalProblemText:String(raw.technicalProblemText||'').trim().slice(0,1000)};}
 async function submitEvaluation(e){e.preventDefault();const answers=collectEvaluationAnswers();if(!answers)return;const status=el('evaluationSaveStatus');status.textContent='Anonyme Evaluation wird gespeichert …';status.className='save-status';try{const response=await fetch('/api/evaluations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caseId:activeCaseId,caseName:getActiveCase().title,difficulty:state.difficulty,answers})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Speichern fehlgeschlagen');state.evaluationSubmitted=true;clearPendingEvaluationStorage();status.textContent='✓ Anonyme Evaluation gespeichert.';status.className='save-status ok';setTimeout(()=>{el('evaluationDialog')?.close();showSummary();},200);}catch(error){status.textContent=`Evaluation konnte nicht gespeichert werden: ${error.message}`;status.className='save-status error';updatePendingEvaluationStorage();}}
 async function skipEvaluation(e){e.preventDefault();const password=String(el('evaluationSkipPassword')?.value||''),errorEl=el('evaluationSkipError');errorEl.classList.add('hidden');try{const response=await fetch('/api/evaluation/skip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Passwort falsch');state.evaluationSkipped=true;clearPendingEvaluationStorage();el('evaluationDialog')?.close();showSummary();}catch(error){errorEl.textContent=error.message;errorEl.classList.remove('hidden');}}
-async function restorePendingEvaluation(){const pending=readPendingEvaluationStorage();if(pending?.version!==2||!pending?.summary||!window.TELECARE_CASES[pending.caseId])return false;setupEvaluationQuestions();participantUsername='Teilnehmer';activeCaseId=pending.caseId;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);state=initialState();const snapshot=pending.snapshot||{};state.ended=true;state.running=false;state.restoredEvaluation=true;state.pendingResultPayload=null;state.pendingSummary=pending.summary;state.elapsed=Number(snapshot.elapsed)||0;state.difficulty=pending.difficulty||'easy';state.dead=Boolean(snapshot.dead);state.deathReason=snapshot.deathReason||null;state.events=Array.isArray(snapshot.events)?snapshot.events:[];state.vitalHistory=Array.isArray(snapshot.vitalHistory)&&snapshot.vitalHistory.length?snapshot.vitalHistory:state.vitalHistory;state.assessment=new Set(snapshot.assessment||[]);state.therapies={...state.therapies,...(snapshot.therapies||{})};state.patient={...state.patient,...(snapshot.patient||{})};state.escalationAt=snapshot.escalationAt??null;state.ecgAt=snapshot.ecgAt??null;el('startScreen')?.classList.add('hidden');el('simulationApp')?.classList.remove('hidden');renderAll();applyEvaluationDraft(pending.answers||{});el('evaluationDialog')?.showModal();return true;}
+async function restorePendingEvaluation(){const pending=readPendingEvaluationStorage();if(pending?.version!==2||!pending?.summary||!window.TELECARE_CASES[pending.caseId])return false;setupEvaluationQuestions();participantUsername='Teilnehmer';activeCaseId=pending.caseId;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);state=initialState();const snapshot=pending.snapshot||{};state.ended=true;state.running=false;state.restoredEvaluation=true;state.pendingResultPayload=null;state.pendingSummary=pending.summary;state.elapsed=Number(snapshot.elapsed)||0;state.difficulty=pending.difficulty||'easy';state.dead=Boolean(snapshot.dead);state.deathReason=snapshot.deathReason||null;state.events=Array.isArray(snapshot.events)?snapshot.events:[];state.vitalHistory=Array.isArray(snapshot.vitalHistory)&&snapshot.vitalHistory.length?snapshot.vitalHistory:state.vitalHistory;state.assessment=new Set(snapshot.assessment||[]);state.therapies={...state.therapies,...(snapshot.therapies||{})};state.patient={...state.patient,...(snapshot.patient||{})};state.escalationAt=snapshot.escalationAt??null;state.ecgAt=snapshot.ecgAt??null;state.anaphylaxisRecognizedAt=snapshot.anaphylaxisRecognizedAt??null;el('startScreen')?.classList.add('hidden');el('simulationApp')?.classList.remove('hidden');renderAll();applyEvaluationDraft(pending.answers||{});el('evaluationDialog')?.showModal();return true;}
 
 function onClick(id,handler){const node=el(id);if(!node){console.warn(`UI-Element fehlt: #${id}`);return;}node.onclick=handler;}
 function bind(){

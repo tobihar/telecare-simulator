@@ -210,8 +210,8 @@
     diagnostics: {
       sono:'Kein Perikarderguss. Hochgradig reduzierte linksventrikuläre Pumpfunktion mit regionaler Wandbewegungsstörung und Akinesie der inferioren Segmente. Der rechte Ventrikel ist leicht dilatiert. V. cava inferior nicht atemkollaptisch. Keine akute Klappenpathologie.',
       auscultation:'Lunge beidseits vesikulär belüftet, keine Rasselgeräusche. Der Patient ist tachypnoisch. Herztöne regelmäßig und normofrequent.',
-      pulmonaryEdemaAuscultation:'Neu aufgetretene grobblasige Rasselgeräusche beidseits basal bis mittig; brodelndes Atemgeräusch und deutlich zunehmende Dyspnoe, passend zu einem beginnenden Lungenödem.',
-      ecg:'Sinusrhythmus, Linkstyp, Frequenz etwa 80/min. ST-Strecken-Hebungen in II, III und aVF sowie reziproke ST-Senkungen in V1–V2 – Bild eines akuten inferioren STEMI.'
+      pulmonaryEdemaAuscultation:'Neu aufgetretene grobblasige Rasselgeräusche beidseits basal bis mittig, brodelndes Atemgeräusch und deutlich zunehmende Dyspnoe.',
+      ecg:'Sinusrhythmus, Linkstyp, Frequenz etwa 80/min. ST-Strecken-Hebungen in II, III und aVF sowie reziproke ST-Senkungen in V1–V2.'
     },
     chatFacts: {
       access:'Es liegt noch kein Gefäßzugang. Eine arterielle Kanüle, ein ZVK und ein Blasenkatheter sind nicht vorhanden.',
@@ -250,7 +250,7 @@
     },
     treatmentModifiers: {
       medications:{default:1,dobutamine:.75,morphine:1,propofol:1.15,midazolam:1.15},
-      interventions:{default:1,fluid_500:1,norepi_bolus:1,norepi_perfusor:1.2,shock_position:0.15,blood_unit:0.2}
+      interventions:{default:1,fluid_500:1,norepi_bolus:1,norepi_perfusor:1.8,shock_position:0.15,blood_unit:0.2}
     },
     physiology: {
       model:'cardiogenic',
@@ -276,6 +276,157 @@
       {id:'aspirin',labelDone:'ASS verabreicht',labelMissing:'ASS nicht verabreicht',thresholdSeconds:600},
       {id:'heparin',labelDone:'Heparin verabreicht',labelMissing:'Heparin nicht verabreicht',thresholdSeconds:600},
       {id:'cath_lab',labelDone:'Herzkatheterlabor aktiviert',labelMissing:'Herzkatheterlabor nicht aktiviert'},
+      {id:'map_target',labelDone:'MAP-Ziel von mindestens 65 mmHg erreicht',labelMissing:'MAP-Ziel nicht erreicht'}
+    ]
+  };
+
+
+  const anaphylacticShock = {
+    id: 'perioperative_anaphylaxis_03',
+    title: 'Perioperative Anaphylaxie nach Cefuroximgabe',
+    shortTitle: 'Frau Chen',
+    number: 'Fall 03',
+    setting: 'Unfallchirurgischer OP',
+    enabled: true,
+    defaultDurationSeconds: 600,
+    availableDurations: [300, 600, 900, 1200],
+    briefing: {
+      sender: 'Lea Wagner',
+      text: 'Guten Tag, ich melde mich aus dem unfallchirurgischen OP. Die 65-jährige Frau Chen soll nach Oberschenkelhalsfraktur elektiv operiert werden. Wir haben eine Spinalanästhesie durchgeführt und gerade 1,5 g Cefuroxim zur Antibiotikaprophylaxe angehängt. Jetzt fällt der Blutdruck plötzlich ab und die Patientin klagt über beginnende Luftnot. Bitte übernehmen Sie.'
+    },
+    patient: {
+      age: 65,
+      sex: 'weiblich',
+      weightKg: 60,
+      initial: {
+        hr: 120,
+        sys: 80,
+        dia: 40,
+        spo2: 89,
+        rr: 40,
+        temp: 36.0,
+        mental: 'wach, orientiert und unruhig',
+        lactate: 3.0,
+        hb: 10.3,
+        iCa: 1.15,
+        glucose: 130,
+        potassium: 4.5,
+        cvp: 2,
+        bleeding: 0
+      },
+      visible: {
+        skin: 'feucht und kaltschweißig',
+        observationDescription: 'geschwollene Lippen und Zunge; keine kritische äußere Blutung',
+        urineMlPerHour: null
+      }
+    },
+    initialAccess: ['pvk_green','pvk_orange','artery','bladder'],
+    initialBloodInventory: {uncrossed:0,crossed:2},
+    initialTherapies: {cefuroximeRunning:true},
+    bloodProductsEnabled: true,
+    staff: [
+      {id:1,name:'Dr. Neumann',role:'doctor',icon:'🩺'},
+      {id:2,name:'Lea Wagner',role:'nurse',icon:'👩‍⚕️'},
+      {id:3,name:'Murat Demir',role:'nurse',icon:'👨‍⚕️'}
+    ],
+    labs: {
+      hb:{label:'Hämoglobin',value:'10,3 g/dl',norm:'12,0–16,0 g/dl',abnormal:true,dynamic:'hb'},
+      hct:{label:'Hämatokrit',value:'31 %',norm:'36–46 %',abnormal:true,dynamic:'hct'},
+      platelets:{label:'Thrombozyten',value:'Das ist uns aktuell nicht bekannt.',norm:'150.000–400.000/µl'},
+      leukocytes:{label:'Leukozyten',value:'Das ist uns aktuell nicht bekannt.',norm:'4,0–10,0 /nl'},
+      sodium:{label:'Natrium',value:'135 mmol/l',norm:'135–145 mmol/l'},
+      potassium:{label:'Kalium',value:'4,5 mmol/l',norm:'3,5–5,1 mmol/l',dynamic:'potassium'},
+      calcium:{label:'Ionisiertes Calcium',value:'1,15 mmol/l',norm:'1,15–1,35 mmol/l',dynamic:'iCa'},
+      creatinine:{label:'Kreatinin',value:'Das ist uns aktuell nicht bekannt.',norm:'0,6–1,1 mg/dl'},
+      urea:{label:'Harnstoff',value:'Das ist uns aktuell nicht bekannt.',norm:'17–43 mg/dl'},
+      ast:{label:'AST (GOT)',value:'Das ist uns aktuell nicht bekannt.',norm:'<35 U/l'},
+      alt:{label:'ALT (GPT)',value:'Das ist uns aktuell nicht bekannt.',norm:'<35 U/l'},
+      bilirubin:{label:'Bilirubin gesamt',value:'Das ist uns aktuell nicht bekannt.',norm:'<1,2 mg/dl'},
+      crp:{label:'CRP',value:'Das ist uns aktuell nicht bekannt.',norm:'<5 mg/l'},
+      inr:{label:'INR',value:'Das ist uns aktuell nicht bekannt.',norm:'0,9–1,2'},
+      aptt:{label:'aPTT',value:'Das ist uns aktuell nicht bekannt.',norm:'25–35 s'},
+      lactate:{label:'Laktat',value:'3,0 mmol/l',norm:'0,5–2,2 mmol/l',abnormal:true,dynamic:'lactate'},
+      crossmatch:{label:'Kreuzblut',value:'Zwei gekreuzte EK stehen bereit; die Blutgruppe ist nicht hinterlegt.',norm:'—'}
+    },
+    bga: {
+      staticRows: [
+        ['Na⁺','135 mmol/l','135–145 mmol/l',false],
+        ['K⁺','4,5 mmol/l','3,5–5,1 mmol/l',false]
+      ],
+      initial:{ph:7.30,pco2:29,po2:57,hco3:24,baseExcess:0,lactate:3.0}
+    },
+    history: {
+      allergy:'Keine Allergien bekannt.',
+      symptoms:'Akute Schwäche mit Schwindel und Übelkeit. In den letzten Minuten ist Luftnot hinzugekommen; beim Einatmen ist ein leichtes Pfeifen hörbar.',
+      medication:'Dauermedikation: Apixaban, vor der Operation pausiert; Valsartan 80 mg und Metformin 500 mg, ebenfalls präoperativ pausiert. Aktuell läuft Cefuroxim 1,5 g als Antibiotikaprophylaxe.',
+      previousHistory:'Arterielle Hypertonie, paroxysmales Vorhofflimmern und Diabetes mellitus Typ 2. Keine relevanten früheren Eingriffe; als Kind an den Weisheitszähnen operiert.',
+      lastMeal:'Nüchtern zur elektiven Operation; zuletzt am Vorabend gegessen.',
+      events:'Die Beschwerden begannen unmittelbar nach Beginn der Cefuroximgabe.',
+      riskFactors:'Das ist uns aktuell nicht bekannt.'
+    },
+    diagnostics: {
+      sono:'V. cava inferior deutlich atemkollaptisch und kaliberschmal. Der linke Ventrikel zeigt ein geringes Füllungsvolumen, eine hohe Ejektionsfraktion und „kissing walls“. eFAST ohne pathologischen Befund.',
+      auscultation:'Inspiratorischer Stridor.',
+      ecg:'Sinustachykardie, keine Erregungsrückbildungsstörungen.'
+    },
+    chatFacts: {
+      access:'Es liegen ein grüner und ein orangefarbener peripherer Venenzugang, eine arterielle Kanüle und ein Blasenkatheter. Ein ZVK liegt nicht.',
+      airway:'Lippen und Zunge wirken geschwollen. Es besteht ein inspiratorischer Stridor; der Atemweg ist bedroht.',
+      breathing:'Die Patientin atmet spontan und tachypnoisch mit einer Atemfrequenz von 40/min. Beim Einatmen ist ein Stridor hörbar.',
+      consciousness:'Die Patientin ist wach, voll orientiert und deutlich unruhig. Ausgangs-GCS 15.',
+      pupils:'Die Pupillen sind eng, isokor und beidseits prompt lichtreagibel.',
+      skin:'Die Haut ist feucht und kaltschweißig. Die Rekapillarisierungszeit beträgt etwa 3 Sekunden.',
+      pulse:'Die peripheren Pulse sind schwach tastbar und tachykard.',
+      neckVeins:'Die Halsvenen sind kollabiert.',
+      edema:'Das ist uns aktuell nicht bekannt.',
+      urine:'Das ist uns aktuell nicht bekannt.',
+      bleeding:'Es besteht keine kritische äußere Blutung.',
+      glucose:'Der initiale Blutzucker beträgt 130 mg/dl.',
+      temperature:'Die Temperatur beträgt 36,0 °C.',
+      medication:'Dauermedikation: Apixaban, Valsartan 80 mg und Metformin 500 mg; Apixaban und Metformin wurden präoperativ pausiert. Aktuell läuft Cefuroxim 1,5 g.',
+      previousHistory:'Bekannt sind arterielle Hypertonie, paroxysmales Vorhofflimmern und Diabetes mellitus Typ 2.',
+      allergy:'Es sind keine Allergien bekannt.',
+      pain:'Die Patientin gibt keine Schmerzen an.',
+      symptoms:'Akute Schwäche mit Schwindel und Übelkeit. In den letzten Minuten ist Luftnot hinzugekommen; beim Einatmen ist ein leichtes Pfeifen hörbar.',
+      lastMeal:'Nüchtern zur elektiven Operation; zuletzt am Vorabend gegessen.',
+      events:'Die Symptomatik begann unmittelbar nach Beginn der Cefuroximgabe.',
+      riskFactors:'Das ist uns aktuell nicht bekannt.'
+    },
+    medicationDefaults: {
+      prednisolone:'Prednisolon 250 mg i.v.',
+      clemastine:'Clemastin (Tavegil) 2 mg i.v.',
+      h2_blocker:'H2-Blocker i.v.',
+      propofol:'Propofol 30 mg i.v.',
+      sufentanil:'Sufentanil 30 µg i.v.',
+      rocuronium:'Rocuronium 100 mg i.v.'
+    },
+    treatmentModifiers: {
+      medications:{default:1,prednisolone:0,clemastine:0,h2_blocker:0,propofol:1,sufentanil:1,rocuronium:1},
+      interventions:{default:1,fluid_500:.20,norepi_bolus:.10,norepi_perfusor:.08,shock_position:1,blood_unit:.05,adrenaline_im:1,adrenaline_nebulized:1}
+    },
+    physiology: {
+      model:'anaphylaxis',
+      fluidDurationSeconds:480,
+      arrestRhythm:'Asystolie',
+      difficulty: {
+        easy:{progression:.62,spo2Loss:15,criticalMap:24,arrestSeconds:99999},
+        medium:{progression:.98,spo2Loss:22,criticalMap:31,arrestSeconds:180},
+        hard:{progression:1.35,spo2Loss:31,criticalMap:39,arrestSeconds:120}
+      },
+      lactateGainPerTick:.05,
+      hbLossPerTick:0,
+      bleedingGainPerTick:0,
+      tempTarget:36.0
+    },
+    scoring: [
+      {id:'abcde',labelDone:'ABCDE strukturiert durchgeführt',labelMissing:'ABCDE nicht vollständig erhoben'},
+      {id:'anaphylaxis_recognized',labelDone:'Anaphylaxie erkannt',labelMissing:'Anaphylaxie nicht ausdrücklich erkannt',thresholdSeconds:300},
+      {id:'trigger_stopped',labelDone:'Cefuroximzufuhr innerhalb von fünf Minuten gestoppt',labelMissing:'Cefuroximzufuhr nicht oder verspätet gestoppt',thresholdSeconds:300},
+      {id:'oxygen',labelDone:'Sauerstoffgabe begonnen',labelMissing:'Keine Sauerstoffgabe'},
+      {id:'adrenaline_im',labelDone:'Adrenalin 0,5 mg i.m. verabreicht',labelMissing:'Keine leitliniengerechte Adrenalingabe i.m.',thresholdSeconds:300},
+      {id:'fluid_therapy',labelDone:'Kristalloidgabe begonnen',labelMissing:'Keine Kristalloidgabe'},
+      {id:'shock_position',labelDone:'Schocklage hergestellt',labelMissing:'Keine Schocklage'},
+      {id:'adjunct_medication',labelDone:'Prednisolon und Antihistaminika ergänzt',labelMissing:'Begleitmedikation unvollständig'},
       {id:'map_target',labelDone:'MAP-Ziel von mindestens 65 mmHg erreicht',labelMissing:'MAP-Ziel nicht erreicht'}
     ]
   };
@@ -389,6 +540,7 @@
   window.TELECARE_CASES = Object.freeze({
     [postoperativeBleeding.id]: postoperativeBleeding,
     [cardiogenicShock.id]: cardiogenicShock,
+    [anaphylacticShock.id]: anaphylacticShock,
     [septicShock.id]: septicShock
   });
   window.TELECARE_DEFAULT_CASE_ID = postoperativeBleeding.id;

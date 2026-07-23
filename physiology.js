@@ -12,16 +12,17 @@
     const model = caseConfig.physiology?.model;
     const septic = model === 'sepsis';
     const cardiogenic = model === 'cardiogenic';
+    const anaphylactic = model === 'anaphylaxis';
     return {
-      circulatingVolume: septic ? 0.73 : cardiogenic ? 0.96 : 0.91,
-      venousTone: septic ? 0.94 : cardiogenic ? 1.02 : 1.0,
-      vascularTone: septic ? 0.72 : cardiogenic ? 0.90 : 1.02,
-      contractility: septic ? 0.86 : cardiogenic ? 0.50 : 1.0,
-      respiratoryDrive: septic ? 1.42 : cardiogenic ? 1.36 : 1.0,
+      circulatingVolume: septic ? 0.73 : cardiogenic ? 0.96 : anaphylactic ? 0.86 : 0.91,
+      venousTone: septic ? 0.94 : cardiogenic ? 1.02 : anaphylactic ? 0.86 : 1.0,
+      vascularTone: septic ? 0.72 : cardiogenic ? 0.90 : anaphylactic ? 0.68 : 1.02,
+      contractility: septic ? 0.86 : cardiogenic ? 0.50 : anaphylactic ? 0.96 : 1.0,
+      respiratoryDrive: septic ? 1.42 : cardiogenic ? 1.36 : anaphylactic ? 1.70 : 1.0,
       oxygenReserve: clamp(initial.spo2 / 96, 0.7, 1.05),
-      perfusionDebt: cardiogenic ? 0.36 : clamp((4.0 - initial.lactate) / 10, 0.04, 0.25),
-      strokeVolumeIndex: cardiogenic ? 0.50 : 0.88,
-      cardiacOutputIndex: cardiogenic ? 0.50 : 0.88,
+      perfusionDebt: cardiogenic ? 0.36 : anaphylactic ? 0.30 : clamp((4.0 - initial.lactate) / 10, 0.04, 0.25),
+      strokeVolumeIndex: cardiogenic ? 0.50 : anaphylactic ? 0.78 : 0.88,
+      cardiacOutputIndex: cardiogenic ? 0.50 : anaphylactic ? 0.78 : 0.88,
       severeHypoxiaSeconds: 0,
       hypoxiaDose: 0,
       lastSeverity: 0
@@ -48,6 +49,7 @@
     const {
       core, patient, caseConfig, profile, severity, therapies, medicationEffects,
       fluidCount, bloodUnits, norepiBolus, norepiRate, shockPosition, paralyzed,
+      adrenalineIm = 0, adrenalineNebulized = 0, triggerStopped = false, postIntubationHypotension = 0,
       jitter = () => 0
     } = args;
 
@@ -55,10 +57,12 @@
     const model = caseConfig.physiology?.model;
     const septic = model === 'sepsis';
     const cardiogenic = model === 'cardiogenic';
-    const diseaseVolumeTarget = septic ? clamp(0.76 - severity * 0.10, 0.48, 0.78) : cardiogenic ? 0.96 : clamp(0.98 - severity * 0.42, 0.22, 0.98);
-    const diseaseToneTarget = septic ? clamp(0.82 - severity * 0.20, 0.43, 0.84) : cardiogenic ? clamp(0.90 - severity * 0.045, 0.76, 0.92) : clamp(1.08 - Math.max(0, severity - 0.55) * 0.18, 0.72, 1.16);
-    const diseaseContractilityTarget = septic ? clamp(0.91 - severity * 0.11, 0.58, 0.92) : cardiogenic ? clamp(0.55 - severity * 0.24, 0.20, 0.51) : clamp(1.0 - severity * 0.08, 0.68, 1.02);
-    const diseaseRespiratoryTarget = septic ? clamp(1.42 + severity * 0.22, 1.25, 1.90) : cardiogenic ? clamp(1.36 + severity * 0.18, 1.30, 1.86) : clamp(1.0 + severity * 0.32, 0.55, 1.75);
+    const anaphylactic = model === 'anaphylaxis';
+    const activeSeverity = anaphylactic ? severity * (triggerStopped ? 0.78 : 1.06) : severity;
+    const diseaseVolumeTarget = septic ? clamp(0.76 - activeSeverity * 0.10, 0.48, 0.78) : cardiogenic ? 0.96 : anaphylactic ? clamp(0.86 - activeSeverity * 0.13, 0.56, 0.86) : clamp(0.98 - activeSeverity * 0.42, 0.22, 0.98);
+    const diseaseToneTarget = septic ? clamp(0.82 - activeSeverity * 0.20, 0.43, 0.84) : cardiogenic ? clamp(0.90 - activeSeverity * 0.045, 0.76, 0.92) : anaphylactic ? clamp(0.70 - activeSeverity * 0.24, 0.28, 0.70) : clamp(1.08 - Math.max(0, activeSeverity - 0.55) * 0.18, 0.72, 1.16);
+    const diseaseContractilityTarget = septic ? clamp(0.91 - activeSeverity * 0.11, 0.58, 0.92) : cardiogenic ? clamp(0.55 - activeSeverity * 0.24, 0.20, 0.51) : anaphylactic ? clamp(0.98 - activeSeverity * 0.08, 0.78, 0.98) : clamp(1.0 - activeSeverity * 0.08, 0.68, 1.02);
+    const diseaseRespiratoryTarget = septic ? clamp(1.42 + activeSeverity * 0.22, 1.25, 1.90) : cardiogenic ? clamp(1.36 + activeSeverity * 0.18, 1.30, 1.86) : anaphylactic ? clamp(1.70 + activeSeverity * 0.18, 1.60, 2.05) : clamp(1.0 + activeSeverity * 0.32, 0.55, 1.75);
 
     // Schwere Hypoxie wirkt zeitverzögert auf Kontraktilität und Herzfrequenz.
     if (patient.spo2 < 60) {
@@ -70,8 +74,8 @@
     }
     const hypoxicContractilityPenalty = clamp(core.hypoxiaDose / 180, 0, 0.48);
 
-    core.circulatingVolume = approach(core.circulatingVolume, diseaseVolumeTarget, septic&&args.difficulty==='easy'?0.018:cardiogenic?0.025:0.055);
-    core.venousTone = approach(core.venousTone, 1.0 + severity * 0.025, 0.08);
+    core.circulatingVolume = approach(core.circulatingVolume, diseaseVolumeTarget, septic&&args.difficulty==='easy'?0.018:cardiogenic?0.025:anaphylactic?0.10:0.055);
+    core.venousTone = approach(core.venousTone, anaphylactic?clamp(0.88-activeSeverity*.06,0.70,0.88):1.0 + activeSeverity * 0.025, 0.08);
     core.vascularTone = approach(core.vascularTone, diseaseToneTarget + med.vascularTone, 0.16);
     core.contractility = approach(core.contractility, diseaseContractilityTarget + med.contractility - hypoxicContractilityPenalty, 0.13);
     core.respiratoryDrive = approach(core.respiratoryDrive, diseaseRespiratoryTarget + med.respiratoryDrive, 0.18);
@@ -88,27 +92,28 @@
     // Noradrenalin wirkt bei ausreichender Vorlast deutlich stärker. Bei schwerer
     // Hypovolämie bleibt der vasopressorische Effekt bewusst begrenzt.
     const volumeResponse = clamp(0.18 + Math.pow(effectiveVolume, 1.35) * 0.86, 0.20, 1.08);
-    const norepiDoseTone = norepiRate * (septic ? 0.38 : 0.092) * mod('norepi_perfusor');
-    const norepiTone = (norepiBolus * 0.22 * mod('norepi_bolus') + norepiDoseTone) * volumeResponse;
+    const norepiDoseTone = norepiRate * (septic ? 0.38 : anaphylactic ? (therapies.intubated ? 1.30 : 0.030) : 0.092) * mod('norepi_perfusor');
+    const adrenalineTone = anaphylactic && adrenalineIm ? 0.26 * mod('adrenaline_im') : 0;
+    const norepiTone = (norepiBolus * 0.22 * mod('norepi_bolus') + norepiDoseTone + adrenalineTone) * volumeResponse;
     const effectiveTone = clamp(core.vascularTone + norepiTone, 0.55, septic ? 1.58 : 1.82);
-    const effectiveContractility = clamp(core.contractility + (norepiBolus * 0.050 + norepiRate * 0.015) * volumeResponse, 0.38, 1.48);
+    const effectiveContractility = clamp(core.contractility + (norepiBolus * 0.050 + norepiRate * (anaphylactic?0.004:0.015) + (anaphylactic&&adrenalineIm?0.10:0)) * volumeResponse, 0.38, 1.48);
 
     const currentHr = clamp(patient.hr, 20, 190);
     // Ab 135/min wird die diastolische Füllung zunehmend ungünstig, besonders bei Hypovolämie.
     const tachyFillingPenalty = currentHr <= 135 ? 1 : clamp(1 - (currentHr - 135) / 150, 0.52, 1);
     const medicationTachyPenalty = med.chronotropy > 0 && currentHr > 140 ? clamp(1 - ((currentHr - 140) / 100) * Math.min(1, med.chronotropy / 25), 0.70, 1) : 1;
-    const afterloadThreshold = cardiogenic ? 1.18 : 1.3;
+    const afterloadThreshold = cardiogenic ? 1.18 : anaphylactic ? 1.48 : 1.3;
     const excessiveAfterloadPenalty = effectiveTone <= afterloadThreshold ? 1 : clamp(1 - (effectiveTone - afterloadThreshold) * (cardiogenic ? 0.42 : 0.18), cardiogenic ? 0.72 : 0.86, 1);
     const preloadCongestionPenalty = cardiogenic && effectiveVolume > 1.08 ? clamp(1 - (effectiveVolume - 1.08) * 0.72, 0.78, 1) : 1;
     const pulmonaryEdemaPenalty = cardiogenic && therapies.pulmonaryEdema ? 0.78 : 1;
     const pumpSupport = cardiogenic ? clamp(med.contractility * 3 + norepiRate * 0.12, 0, 0.68) : 0;
     const terminalPumpPenalty = cardiogenic ? clamp(1 - Math.max(0, severity - 0.55) * 0.62 * (1 - pumpSupport), 0.44, 1) : 1;
     const strokeVolume = clamp(venousReturn * effectiveContractility * tachyFillingPenalty * medicationTachyPenalty * excessiveAfterloadPenalty * preloadCongestionPenalty * pulmonaryEdemaPenalty * terminalPumpPenalty, 0.12, 1.32);
-    const cardiacOutput = clamp(strokeVolume * (currentHr / (cardiogenic ? 83 : 112)), 0.12, 1.75);
+    const cardiacOutput = clamp(strokeVolume * (currentHr / (cardiogenic ? 83 : anaphylactic ? 108 : 112)), 0.12, 1.75);
     core.strokeVolumeIndex = approach(core.strokeVolumeIndex, strokeVolume, 0.28);
     core.cardiacOutputIndex = approach(core.cardiacOutputIndex, cardiacOutput, 0.25);
 
-    const targetMap = clamp((cardiogenic ? 112 : 73) * core.cardiacOutputIndex * effectiveTone, 18, 135);
+    const targetMap = clamp((cardiogenic ? 112 : anaphylactic ? 90 : 73) * core.cardiacOutputIndex * effectiveTone - (anaphylactic&&postIntubationHypotension?18:0), 18, 135);
     const pulsePressure = clamp(38 * core.strokeVolumeIndex / Math.max(0.84, effectiveTone), 12, 72);
     const targetSys = clamp(targetMap + pulsePressure * 0.67, 22, 190);
     const targetDia = clamp(targetMap - pulsePressure * 0.33, 10, 115);
@@ -118,12 +123,13 @@
     const currentMap = Math.round((patient.sys + 2 * patient.dia) / 3);
 
     const easySepsis=septic&&args.difficulty==='easy';
-    const lowPressureReflex = Math.max(0, 68 - currentMap) * (easySepsis?0.38:cardiogenic?0.36:0.92);
-    const volumeReflex = Math.max(0, 0.88 - effectiveVolume) * (easySepsis?20:cardiogenic?12:39);
+    const lowPressureReflex = Math.max(0, 68 - currentMap) * (easySepsis?0.38:cardiogenic?0.36:anaphylactic?0.72:0.92);
+    const volumeReflex = Math.max(0, 0.88 - effectiveVolume) * (easySepsis?20:cardiogenic?12:anaphylactic?30:39);
     const highPressureReflex = Math.max(0, currentMap - 78) * 0.35;
     const hypoxicBradycardia = core.hypoxiaDose > 65 ? (core.hypoxiaDose - 65) * 0.38 : 0;
     const cardiogenicBradycardia = cardiogenic ? Math.max(0, severity - 0.92) * 105 * (1 - pumpSupport * 0.65) : 0;
-    let targetHr = clamp((cardiogenic?82:106) + severity * (cardiogenic?18:29) + lowPressureReflex + volumeReflex - highPressureReflex + med.chronotropy - hypoxicBradycardia - cardiogenicBradycardia, 20, 175);
+    const anaphylaxisBradycardia = anaphylactic&&!adrenalineIm ? Math.max(0,activeSeverity-.95)*95 : 0;
+    let targetHr = clamp((cardiogenic?82:anaphylactic?112:106) + activeSeverity * (cardiogenic?18:anaphylactic?34:29) + lowPressureReflex + volumeReflex - highPressureReflex + med.chronotropy + (anaphylactic&&adrenalineIm?10:0) - hypoxicBradycardia - cardiogenicBradycardia - anaphylaxisBradycardia, 20, 185);
     const easyEarlySepsis = septic && args.difficulty === 'easy' && Number(args.caseConfig?.defaultDurationSeconds || 600) > 0;
     if (easyEarlySepsis && args.severity < 0.55) targetHr = Math.min(targetHr, 120);
     const previousHr = patient.hr;
@@ -136,9 +142,10 @@
     if (paralyzed) targetRr = therapies.ventilation ? 14 : 0;
     patient.rr = clamp(approach(patient.rr, targetRr, paralyzed ? 0.40 : 0.16) + jitter(0.25), 0, 48);
 
-    const untreatedSpo2Target = caseConfig.patient.initial.spo2 - severity * profile.spo2Loss;
+    const untreatedSpo2Target = caseConfig.patient.initial.spo2 - activeSeverity * profile.spo2Loss;
     let oxygenTarget = untreatedSpo2Target + med.oxygenation * 100;
-    if (therapies.oxygen) oxygenTarget = Math.max(oxygenTarget, 98);
+    if (therapies.oxygen) oxygenTarget = Math.max(oxygenTarget, anaphylactic?(adrenalineNebulized||adrenalineIm?96:clamp(94-activeSeverity*8,82,92)):98);
+    if (anaphylactic && adrenalineNebulized) oxygenTarget = Math.max(oxygenTarget, 96);
     if (cardiogenic && therapies.pulmonaryEdema) oxygenTarget -= therapies.oxygen ? (therapies.upperBodyElevated ? 4 : 7) : (therapies.upperBodyElevated ? 8 : 12);
     const severeHypoventilation = core.respiratoryDrive < 0.48 || (paralyzed && !therapies.ventilation);
     // Bei Apnoe kein unphysiologisches Plateau: Ziel nähert sich sehr niedrigen Werten.
@@ -155,6 +162,9 @@
     if (cardiogenic && Number.isFinite(Number(patient.cvp))) {
       const targetCvp = clamp(8 + Math.max(0, effectiveVolume - 0.72) * 16 + Math.max(0, 0.72 - effectiveContractility) * 13 + (therapies.pulmonaryEdema ? 3 : 0), 8, 24);
       patient.cvp = approach(patient.cvp, targetCvp, 0.16) + jitter(0.12);
+    } else if (anaphylactic && Number.isFinite(Number(patient.cvp))) {
+      const targetCvp = clamp(1 + Math.max(0,effectiveVolume-.68)*6,1,6);
+      patient.cvp = approach(patient.cvp,targetCvp,0.16)+jitter(0.08);
     }
 
     const perfusionIndex = clamp((currentMap / 70) * (patient.hb / 8.1) * (patient.spo2 / 95), 0.03, 1.45);
@@ -167,7 +177,7 @@
       perfusionIndex,
       hypoxiaDose: core.hypoxiaDose,
       severeHypoxiaSeconds: core.severeHypoxiaSeconds,
-      lactateDelta: septic ? (0.012 + core.perfusionDebt*0.034 - fluidCount*0.018 - (norepiRate>0&&currentMap>=60?0.008:0)) : cardiogenic ? (0.013 + core.perfusionDebt*0.044 - (currentMap>=60?0.010:0) - (med.contractility>0?0.006:0)) : (0.014 + core.perfusionDebt * 0.038),
+      lactateDelta: septic ? (0.012 + core.perfusionDebt*0.034 - fluidCount*0.018 - (norepiRate>0&&currentMap>=60?0.008:0)) : cardiogenic ? (0.013 + core.perfusionDebt*0.044 - (currentMap>=60?0.010:0) - (med.contractility>0?0.006:0)) : anaphylactic ? (adrenalineIm?-0.018:0.060+core.perfusionDebt*0.016-fluidCount*0.026) : (0.014 + core.perfusionDebt * 0.038),
       internal: {
         effectiveVolume, venousReturn, vascularTone: effectiveTone,
         contractility: effectiveContractility, strokeVolumeIndex: core.strokeVolumeIndex,
