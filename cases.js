@@ -420,7 +420,6 @@
     },
     scoring: [
       {id:'abcde',labelDone:'ABCDE strukturiert durchgeführt',labelMissing:'ABCDE nicht vollständig erhoben'},
-      {id:'anaphylaxis_recognized',labelDone:'Anaphylaxie erkannt',labelMissing:'Anaphylaxie nicht ausdrücklich erkannt',thresholdSeconds:300},
       {id:'trigger_stopped',labelDone:'Cefuroximzufuhr innerhalb von fünf Minuten gestoppt',labelMissing:'Cefuroximzufuhr nicht oder verspätet gestoppt',thresholdSeconds:300},
       {id:'oxygen',labelDone:'Sauerstoffgabe begonnen',labelMissing:'Keine Sauerstoffgabe'},
       {id:'adrenaline_im',labelDone:'Adrenalin 0,5 mg i.m. verabreicht',labelMissing:'Keine leitliniengerechte Adrenalingabe i.m.',thresholdSeconds:300},
@@ -447,7 +446,7 @@
       blood: false,
       ecg: true,
       sono: true,
-      sonoRoles: ['doctor', 'nurse'],
+      sonoRoles: ['doctor'],
       allowedAccess: ['pvk_pink', 'pvk_green', 'pvk_orange'],
       actionDescriptions: {
         lab: 'Im RTW nicht verfügbar',
@@ -491,7 +490,7 @@
     },
     initialAccess: [],
     staff: [
-      {id:1,name:'Jana Wolff',role:'doctor',displayRole:'Notfallsanitäterin',icon:'🚑'},
+      {id:1,name:'Jana Wolff',role:'doctor',capabilities:['doctor','nurse'],displayRole:'Notfallsanitäterin',icon:'🚑'},
       {id:2,name:'Lukas Brandt',role:'nurse',displayRole:'Rettungssanitäter',icon:'🧰'}
     ],
     labs: {},
@@ -582,7 +581,6 @@
     },
     scoring: [
       {id:'abcde',labelDone:'ABCDE strukturiert durchgeführt',labelMissing:'ABCDE nicht vollständig erhoben'},
-      {id:'hemorrhage_recognized',labelDone:'Hämorrhagischen Schock erkannt',labelMissing:'Hämorrhagischer Schock nicht ausdrücklich erkannt',thresholdSeconds:120},
       {id:'bleeding_assessed',labelDone:'Kritische Blutung und Wunde beurteilt',labelMissing:'Kritische Blutung nicht gezielt beurteilt'},
       {id:'tourniquet',labelDone:'Tourniquet innerhalb von zwei Minuten angelegt',labelMissing:'Tourniquet nicht oder verspätet angelegt',thresholdSeconds:120},
       {id:'vascular_access',labelDone:'Geeigneten peripheren Gefäßzugang angelegt',labelMissing:'Kein geeigneter peripherer Gefäßzugang'},
@@ -700,12 +698,118 @@
     ]
   };
 
+  const dehydrationShock = {
+    id: 'prehospital_dehydration_06',
+    title: 'Frau Brömmelkamp mit Exikose',
+    shortTitle: 'Frau Brömmelkamp',
+    number: 'Fall 06',
+    setting: 'Rettungsdienst',
+    enabled: true,
+    defaultDurationSeconds: 600,
+    availableDurations: [300, 600, 900, 1200],
+    briefing: {
+      sender: 'Leitstelle',
+      text: 'Sie werden im Juni 2026 in das Altenheim „Zur heiligen Klima“ alarmiert. Außentemperatur 40 °C, fünftes Obergeschoss. Gemeldet ist eine Synkope. Frau Brömmelkamp ist wieder ansprechbar, wirkt aber verwirrt. Das Pflegepersonal bittet Sie um Unterstützung.'
+    },
+    patient: {
+      age: 80, sex: 'weiblich', weightKg: 65,
+      initial: {hr:150,sys:65,dia:30,spo2:93,rr:27,temp:40.5,mental:'somnolent und verwirrt',lactate:4.0,hb:12.0,iCa:1.15,glucose:140,potassium:5.8,sodium:123,cvp:1,bleeding:0},
+      visible: {skin:'kühl und blass, mit deutlich vermindertem Hautturgor',observationDescription:'Der Beutel des bereits liegenden Dauerkatheters ist leer; es besteht keine erkennbare äußere Blutung.',urineMlPerHour:0}
+    },
+    initialAccess: ['bladder'],
+    monitoring: {continuousTemperatureViaBladder:false,requireTemperatureMeasurement:true,requireGlucoseMeasurement:true},
+    staff: [
+      {id:1,name:'Mara Klein',role:'doctor',capabilities:['doctor','nurse'],displayRole:'Notfallsanitäterin',icon:'👩‍⚕️'},
+      {id:2,name:'Ben Scholz',role:'nurse',displayRole:'Rettungssanitäter',icon:'👨‍⚕️'}
+    ],
+    resources: {
+      lab:false,bga:false,blood:false,ecg:false,sono:true,
+      sonoRoles:['doctor'],
+      allowedAccess:['pvk_pink','pvk_green','pvk_orange'],
+      actionDescriptions:{
+        lab:'Im RTW nicht verfügbar',
+        bga:'Im RTW nicht verfügbar',
+        access:'Nur periphere Venenzugänge',
+        ecg:'Im RTW nicht verfügbar',
+        sono:'Notfallsanitäterin · 60 s'
+      }
+    },
+    bloodProductsEnabled: false,
+    labs: {},
+    bga: {staticRows:[]},
+    history: {
+      allergy:'Pollen- und Gräserallergie.',
+      symptoms:'Ausgeprägte Schwäche, Schwindel, Übelkeit und Erbrechen. Frau Brömmelkamp ist schläfrig, verwirrt und antwortet nicht immer adäquat.',
+      medication:'Ramipril 10 mg, Bisoprolol 5 mg, HCT 25 mg, Torasemid 10 mg, Metformin 1000 mg, Spironolacton 50 mg, Empagliflozin 10 mg, Pregabalin 50 mg, Apixaban 2,5 mg, Novalgin 500 mg bei Bedarf und täglich Macrogol.',
+      previousHistory:'Arterielle Hypertonie, Diabetes mellitus Typ 2, Herzinsuffizienz NYHA II, Polyneuropathie, Arthrose, chronische Niereninsuffizienz Stadium III und permanentes Vorhofflimmern.',
+      lastMeal:'Zum Frühstück zwei Scheiben Brot. Über den Tag hat sie bei großer Hitze nur sehr wenig getrunken.',
+      events:'Beim Umsetzen auf den Toilettenstuhl wurde Frau Brömmelkamp plötzlich bewusstlos. Die Extremitäten zuckten kurz; nach ungefähr fünf Sekunden war sie wieder ansprechbar, blieb aber verwirrt.',
+      riskFactors:'Hohes Alter und Gebrechlichkeit, 40 °C Außentemperatur, geringe Flüssigkeitsaufnahme sowie eine ausgeprägte diuretische Medikation.'
+    },
+    diagnostics: {
+      sono:'Vena cava inferior sehr schmal und deutlich atemkollaptisch. Der linke Ventrikel ist stark unterfüllt und hyperdynam; die Wände berühren sich nahezu in der Systole. Kein Perikarderguss, eFAST unauffällig.',
+      auscultation:'Beidseits vesikuläres Atemgeräusch ohne Rasselgeräusche. Herztöne tachykard und absolut arrhythmisch.',
+      ecg:'Tachykardes Vorhofflimmern ohne akute ST-Strecken-Veränderungen.'
+    },
+    chatFacts: {
+      access:'Es liegt kein Gefäßzugang. Ein Dauerkatheter ist bereits vorhanden; der Urinbeutel ist leer.',
+      airway:'Der Atemweg ist frei. Die Schutzreflexe erscheinen aufgrund der Somnolenz eingeschränkt.',
+      breathing:'Die Patientin atmet spontan und tachypnoisch. Die Lunge ist beidseits vesikulär belüftet, ohne Rasselgeräusche.',
+      consciousness:'Die Patientin ist somnolent und verwirrt, GCS etwa 12 bis 13.',
+      pupils:'Die Pupillen sind mittelweit, isokor und beidseits prompt lichtreagibel.',
+      skin:'Die Haut ist kühl und blass, der Hautturgor deutlich vermindert. Die Rekapillarisierungszeit beträgt etwa 5 Sekunden.',
+      pulse:'Die peripheren Pulse sind sehr schwach und fadenförmig tastbar.',
+      neckVeins:'Die Halsvenen sind deutlich kollabiert.',
+      edema:'Es bestehen keine peripheren Ödeme.',
+      urine:'Seit Stunden besteht praktisch keine Urinausscheidung. Der Beutel des liegenden Dauerkatheters ist leer.',
+      bleeding:'Es besteht keine kritische äußere Blutung.',
+      abdomen:'Das Abdomen ist weich, ohne Abwehrspannung und ohne fokalen Druckschmerz.',
+      glucose:'Der initiale Blutzucker beträgt 140 mg/dl.',
+      temperature:'Die initiale Körpertemperatur beträgt 40,5 °C.',
+      medication:'Ramipril 10 mg, Bisoprolol 5 mg, HCT 25 mg, Torasemid 10 mg, Metformin 1000 mg, Spironolacton 50 mg, Empagliflozin 10 mg, Pregabalin 50 mg, Apixaban 2,5 mg, Novalgin 500 mg bei Bedarf und täglich Macrogol.',
+      previousHistory:'Arterielle Hypertonie, Diabetes mellitus Typ 2, Herzinsuffizienz NYHA II, Polyneuropathie, Arthrose, chronische Niereninsuffizienz Stadium III und permanentes Vorhofflimmern.',
+      allergy:'Pollen- und Gräserallergie.',
+      symptoms:'Ausgeprägte Schwäche, Schwindel, Übelkeit und Erbrechen. Die Patientin ist schläfrig und verwirrt.',
+      lastMeal:'Zum Frühstück zwei Scheiben Brot. Über den Tag hat die Patientin bei großer Hitze nur sehr wenig getrunken.',
+      events:'Beim Umsetzen auf den Toilettenstuhl war die Patientin ungefähr fünf Sekunden bewusstlos. Dabei wurden kurze Zuckungen der Extremitäten beobachtet. Danach war sie wieder ansprechbar, blieb aber verwirrt.',
+      riskFactors:'Hohes Alter und Gebrechlichkeit, große Hitze, geringe Flüssigkeitsaufnahme sowie mehrere Diuretika und Empagliflozin.'
+    },
+    treatmentModifiers: {
+      medications:{default:1},
+      interventions:{default:1,fluid_500:1.55,norepi_bolus:.45,norepi_perfusor:.35,shock_position:.75,blood_unit:0}
+    },
+    physiology: {
+      model:'dehydration',
+      fluidDurationSeconds:900,
+      arrestRhythm:'PEA',
+      difficulty:{
+        easy:{progression:.24,progressionSeconds:600,initialSys:65,spo2Loss:2.0,criticalMap:23,arrestSeconds:99999},
+        medium:{progression:.52,progressionSeconds:600,initialSys:65,spo2Loss:3.0,criticalMap:23,arrestSeconds:99999},
+        hard:{progression:1.10,progressionSeconds:540,initialSys:65,spo2Loss:4.0,criticalMap:28,arrestSeconds:90}
+      },
+      lactateGainPerTick:.012,hbLossPerTick:0,bleedingGainPerTick:0,tempTarget:40.3
+    },
+    scoring: [
+      {id:'abcde',labelDone:'Strukturierte ABCDE-Beurteilung durchgeführt',labelMissing:'ABCDE-Beurteilung nicht vollständig'},
+      {id:'nibp',labelDone:'Nichtinvasiven Blutdruck erhoben',labelMissing:'Keinen nichtinvasiven Blutdruck erhoben'},
+      {id:'respiratory_rate',labelDone:'Atemfrequenz ausgezählt',labelMissing:'Atemfrequenz nicht ausgezählt'},
+      {id:'temperature_measured',labelDone:'Körpertemperatur gemessen',labelMissing:'Körpertemperatur nicht gemessen'},
+      {id:'glucose_measured',labelDone:'Blutzucker bestimmt',labelMissing:'Blutzucker nicht bestimmt'},
+      {id:'urine_assessed',labelDone:'Ausscheidung und leeren Urinbeutel beurteilt',labelMissing:'Ausscheidung nicht beurteilt'},
+      {id:'vascular_access',labelDone:'Peripheren Venenzugang geschaffen',labelMissing:'Keinen geeigneten Venenzugang geschaffen'},
+      {id:'fluid_therapy',labelDone:'Kristalloide Volumentherapie begonnen',labelMissing:'Keine kristalloide Volumentherapie begonnen'},
+      {id:'adequate_fluid',labelDone:'Mindestens 1.500 ml Kristalloid verabreicht',labelMissing:'Bei ausgeprägter Hypovolämie weniger als 1.500 ml Kristalloid verabreicht'},
+      {id:'map_target',labelDone:'MAP-Ziel von mindestens 65 mmHg erreicht',labelMissing:'MAP-Ziel nicht erreicht'}
+    ]
+  };
+
   window.TELECARE_CASES = Object.freeze({
     [postoperativeBleeding.id]: postoperativeBleeding,
     [cardiogenicShock.id]: cardiogenicShock,
     [anaphylacticShock.id]: anaphylacticShock,
     [traumaticAmputation.id]: traumaticAmputation,
-    [septicShock.id]: septicShock
+    [septicShock.id]: septicShock,
+    [dehydrationShock.id]: dehydrationShock
   });
   window.TELECARE_DEFAULT_CASE_ID = postoperativeBleeding.id;
 })();
