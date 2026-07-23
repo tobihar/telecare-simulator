@@ -411,7 +411,7 @@
       difficulty: {
         easy:{progression:.62,spo2Loss:15,criticalMap:24,arrestSeconds:99999},
         medium:{progression:.98,spo2Loss:22,criticalMap:31,arrestSeconds:180},
-        hard:{progression:1.35,spo2Loss:31,criticalMap:39,arrestSeconds:120}
+        hard:{progression:1.35,spo2Loss:31,criticalMap:39,arrestSeconds:75,onsetDelaySeconds:0,progressionSeconds:210}
       },
       lactateGainPerTick:.05,
       hbLossPerTick:0,

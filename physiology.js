@@ -58,7 +58,9 @@
     const septic = model === 'sepsis';
     const cardiogenic = model === 'cardiogenic';
     const anaphylactic = model === 'anaphylaxis';
-    const activeSeverity = anaphylactic ? severity * (triggerStopped ? 0.78 : 1.06) : severity;
+    const hardAnaphylaxis = anaphylactic && args.difficulty === 'hard';
+    const controlledSeverityFactor = hardAnaphylaxis ? (adrenalineIm ? 0.24 : 0.62) : 0.78;
+    const activeSeverity = anaphylactic ? severity * (triggerStopped ? controlledSeverityFactor : 1.06) : severity;
     const diseaseVolumeTarget = septic ? clamp(0.76 - activeSeverity * 0.10, 0.48, 0.78) : cardiogenic ? 0.96 : anaphylactic ? clamp(0.86 - activeSeverity * 0.13, 0.56, 0.86) : clamp(0.98 - activeSeverity * 0.42, 0.22, 0.98);
     const diseaseToneTarget = septic ? clamp(0.82 - activeSeverity * 0.20, 0.43, 0.84) : cardiogenic ? clamp(0.90 - activeSeverity * 0.045, 0.76, 0.92) : anaphylactic ? clamp(0.70 - activeSeverity * 0.24, 0.28, 0.70) : clamp(1.08 - Math.max(0, activeSeverity - 0.55) * 0.18, 0.72, 1.16);
     const diseaseContractilityTarget = septic ? clamp(0.91 - activeSeverity * 0.11, 0.58, 0.92) : cardiogenic ? clamp(0.55 - activeSeverity * 0.24, 0.20, 0.51) : anaphylactic ? clamp(0.98 - activeSeverity * 0.08, 0.78, 0.98) : clamp(1.0 - activeSeverity * 0.08, 0.68, 1.02);

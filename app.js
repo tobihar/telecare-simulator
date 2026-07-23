@@ -142,10 +142,13 @@ function updatePhysiology(){
   const difficultyFactor=profile.progression;
   const timeScale=Math.max(.38,state.elapsed/540);
   let severity=Math.min(2.15,timeScale*difficultyFactor);
-  // Die Anaphylaxie beginnt bereits klinisch manifest, verschlechtert sich aber
-  // in den ersten 90 Sekunden nur langsam. Danach trennt die Schwierigkeit die
-  // Verläufe deutlich: auf „Leicht“ graduell, auf „Schwer“ bis zur Asystolie.
-  if(physiology.model==='anaphylaxis')severity=Math.min(2.15,Math.max(0,state.elapsed-90)/330*difficultyFactor);
+  // Leicht und Mittel verschlechtern sich zunächst verzögert. Der schwere
+  // Verlauf kann fallbezogen ohne Plateau kontinuierlich und rascher abfallen.
+  if(physiology.model==='anaphylaxis'){
+    const onsetDelay=Number(profile.onsetDelaySeconds??90);
+    const progressionSeconds=Math.max(30,Number(profile.progressionSeconds??330));
+    severity=Math.min(2.15,Math.max(0,state.elapsed-onsetDelay)/progressionSeconds*difficultyFactor);
+  }
   if(physiology.model==='sepsis'&&state.therapies.antibioticAt!=null){const sinceAbx=state.elapsed-state.therapies.antibioticAt;if(sinceAbx>90)severity*=clamp(1-(sinceAbx-90)/900,0.78,1);}
 
   state.therapies.fluidEffects=state.therapies.fluidEffects.map(x=>typeof x==='number'?{start:x-180,end:x,duration:180}:x).filter(x=>x.end>state.elapsed);
@@ -244,7 +247,14 @@ function updatePhysiology(){
 }
 
 let audioCtx=null,pulseTimer=null,alarmTimer=null;
-function beep(){if(!state.soundOn||!state.running||state.paused||state.ended)return;try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=760;g.gain.value=.035;o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.045);}catch{} }
+function pulseToneFrequency(spo2){
+  const saturation=clamp(Number(spo2)||0,50,100);
+  if(saturation>=90)return 650+(saturation-90)*18;
+  if(saturation>=80)return 500+(saturation-80)*15;
+  if(saturation>=70)return 380+(saturation-70)*12;
+  return 280+(saturation-50)*5;
+}
+function beep(){if(!state.soundOn||!state.running||state.paused||state.ended)return;try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=pulseToneFrequency(state.patient.spo2);g.gain.value=.035;o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.045);}catch{} }
 function startPulseLoop(){stopPulseLoop();const schedule=()=>{if(state.running&&!state.ended){beep();pulseTimer=setTimeout(schedule,Math.max(330,60000/state.patient.hr));}};schedule();}
 function stopPulseLoop(){if(pulseTimer)clearTimeout(pulseTimer);pulseTimer=null;}
 function toggleSound(){state.soundOn=!state.soundOn;el('soundBtn').textContent=state.soundOn?'🔊 Pulston':'🔇 Pulston aus';el('soundBtn').classList.toggle('off',!state.soundOn);if(state.soundOn)startPulseLoop();else stopPulseLoop();}
