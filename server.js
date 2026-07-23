@@ -42,7 +42,7 @@ const MIME = {
   '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
 };
-const ACTIONS = ['ask_mental','ask_skin','ask_drainage','ask_urine','ask_allergy','ask_auscultation','measure_bz','measure_nibp','count_rr','measure_temp','alert_surgeon','insert_pvk','insert_artery','oxygen','upper_body_elevated','defib_pads','warming','fluid','norepi_bolus','norepi_perfusor','stop_trigger','adrenaline_im','adrenaline_nebulized','intubate','txa','give_ek','give_medication','request_lab','request_bga','request_ecg','sono','ventilate','shock_position'];
+const ACTIONS = ['ask_mental','ask_skin','ask_drainage','ask_urine','ask_allergy','ask_auscultation','measure_bz','measure_nibp','count_rr','measure_temp','alert_surgeon','insert_pvk','insert_artery','oxygen','upper_body_elevated','defib_pads','warming','fluid','norepi_bolus','norepi_perfusor','stop_trigger','adrenaline_im','adrenaline_nebulized','intubate','txa','give_ek','give_medication','request_lab','request_bga','request_ecg','sono','ventilate','shock_position','limb_elevation','wound_compression','tourniquet'];
 const LAB_IDS = ['blood_cultures','urine_culture','pct','crp','leukocytes','creatinine','lactate','platelets','inr','fibrinogen','electrolytes','troponin','ck','ckmb','ldh','ast','alt','potassium','sodium'];
 const MEDS = ['adrenaline','amiodarone','atropine','adenosine','aspirin','heparin','nitroglycerin','urapidil','metoprolol','furosemide','salbutamol','ipratropium','prednisolone','dimetindene','clemastine','h2_blocker','ketamine','midazolam','propofol','etomidate','fentanyl','sufentanil','morphine','piritramide','naloxone','flumazenil','rocuronium','succinylcholine','calcium','magnesium','bicarbonate','glucose','insulin','glucagon','vasopressin','dobutamine','ondansetron','potassium','paracetamol','ceftriaxone','pip_tazo','meropenem','fibrinogen'];
 const GEMINI_RESPONSE_SCHEMA = {type:'OBJECT',properties:{reply:{type:'STRING'},actions:{type:'ARRAY',items:{type:'OBJECT',properties:{type:{type:'STRING',enum:ACTIONS},quantity:{type:'INTEGER',minimum:1,maximum:2},size:{type:'STRING',enum:['pink','green','orange']},volumeMl:{type:'INTEGER',enum:[250,500,1000]},medication:{type:'STRING',enum:MEDS},mode:{type:'STRING',enum:['arterial','venous']},labs:{type:'ARRAY',items:{type:'STRING',enum:LAB_IDS}}},required:['type']}}},required:['reply','actions']};
@@ -112,9 +112,11 @@ HARTE REGELN:
 - "HKL informieren", "Herzkatheterlabor informieren" oder gleichbedeutende Aufträge erzeugen ausschließlich alert_surgeon und keinen Antworttext.
 - Im Anaphylaxie-Fall bedeutet "Adrenalin" oder "Adrenalin geben" ohne ausdrücklich genannten anderen Applikationsweg immer adrenaline_im (0,5 mg i.m.). Bei "Adrenalin vernebeln/inhalieren" ausschließlich adrenaline_nebulized.
 - "Cefuroxim stoppen/abdrehen/diskonnektieren" erzeugt ausschließlich stop_trigger. "Intubieren/Atemweg sichern" erzeugt ausschließlich intubate.
+- "Tourniquet anlegen" oder "Extremität abbinden" erzeugt ausschließlich tourniquet. Hochlagern von Hand/Arm/Extremität erzeugt limb_elevation; Wundkompression oder Druckverband erzeugt wound_compression.
 - BGA ohne arteriell/venös: "Arteriell oder venös?" und actions leer.
 - Interpretiere kurze klinische Aufträge und übliche Abkürzungen: z. B. '500 VE' = 500 ml kristalloide Vollelektrolytlösung, 'Viggo' = PVK, 'Nor Bolus' = Noradrenalin-Bolus.
 - Für fluid darf volumeMl nur 250, 500 oder 1000 sein. Wenn der Fall eine explizite Mengenauswahl verlangt und keine Menge genannt ist, frage knapp nach 250, 500 oder 1000 ml und erzeuge keine Aktion.
+- Beachte caseFacts.simulationRules.resources. Für dort mit false markierte Diagnostik oder Blutprodukte sowie nicht in allowedAccess enthaltene Zugänge darfst du keine Aktion erzeugen; antworte knapp, dass dies im Setting nicht verfügbar ist.
 - Bei unklarer Anweisung lieber knapp nachfragen, statt eine andere Maßnahme zu wählen.
 - Keine therapeutischen Vorschläge und keine Differentialdiagnosen, sofern nicht ausdrücklich danach gefragt wird.
 

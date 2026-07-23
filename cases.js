@@ -431,6 +431,169 @@
     ]
   };
 
+  const traumaticAmputation = {
+    id: 'prehospital_amputation_04',
+    title: 'Hämorrhagischer Schock bei subtotaler Handamputation',
+    shortTitle: 'Herr Reß',
+    number: 'Fall 04',
+    setting: 'Rettungswagen',
+    enabled: true,
+    defaultDurationSeconds: 600,
+    availableDurations: [300, 600, 900, 1200],
+    bloodProductsEnabled: false,
+    resources: {
+      lab: false,
+      bga: false,
+      blood: false,
+      ecg: true,
+      sono: true,
+      sonoRoles: ['doctor', 'nurse'],
+      allowedAccess: ['pvk_pink', 'pvk_green', 'pvk_orange'],
+      actionDescriptions: {
+        lab: 'Im RTW nicht verfügbar',
+        bga: 'Im RTW nicht verfügbar',
+        access: 'Nur periphere Venenzugänge',
+        ecg: 'Rettungsdienst · 45 s',
+        sono: 'Notfallsanitäterin · 60 s'
+      }
+    },
+    briefing: {
+      sender: 'Team RTW',
+      text: 'Hi, wir sind mit dem RTW beim 19-jährigen Tim Reß. Er ist mit der linken Hand in eine Kreissäge geraten; die Hand ist subtotal amputiert. Aus dem Stumpf blutet es spritzend und der Patient hat starke Schmerzen. Was sollen wir tun?'
+    },
+    patient: {
+      age: 19,
+      sex: 'männlich',
+      weightKg: 90,
+      initial: {
+        hr: 130,
+        sys: 90,
+        dia: 60,
+        spo2: 95,
+        rr: 30,
+        temp: 36.5,
+        mental: 'wach, orientiert und unruhig',
+        lactate: 4.0,
+        hb: 7.0,
+        iCa: 1.20,
+        glucose: 100,
+        potassium: 5.0,
+        bleeding: 1
+      },
+      visible: {
+        skin: 'kühl und blass',
+        observationDescription: 'subtotale Amputation der linken Hand mit stark spritzender Blutung; auf dem Boden bildet sich eine zunehmend große Blutlache',
+        bleedingDescription: 'spritzende arterielle Blutung aus dem subtotal amputierten linken Handstumpf',
+        bloodLossBaseMl: 650,
+        bloodLossPerSecondMl: 7.0,
+        urineMlPerHour: null
+      }
+    },
+    initialAccess: [],
+    staff: [
+      {id:1,name:'Jana Wolff',role:'doctor',displayRole:'Notfallsanitäterin',icon:'🚑'},
+      {id:2,name:'Lukas Brandt',role:'nurse',displayRole:'Rettungssanitäter',icon:'🧰'}
+    ],
+    labs: {},
+    bga: {
+      staticRows: [],
+      initial:{ph:7.30,pco2:40,po2:90,hco3:20,baseExcess:-6,lactate:4.0}
+    },
+    history: {
+      allergy:'Es besteht eine Penicillinallergie.',
+      symptoms:'Aus dem linken Handstumpf blutet es stark und spritzend. Der Patient gibt stärkste Schmerzen an, fühlt sich schwach und berichtet über Schwindel.',
+      medication:'Keine Dauermedikation. Im aktuellen Einsatz wurden noch keine Medikamente verabreicht.',
+      previousHistory:'Keine Vorerkrankungen und keine früheren Operationen oder Krankenhausaufenthalte bekannt.',
+      lastMeal:'Mittagessen vor ungefähr zwei Stunden.',
+      events:'Der Patient ist unmittelbar vor dem Notruf mit der linken Hand in eine laufende Kreissäge geraten.',
+      riskFactors:'Alkohol ungefähr einmal im Monat, kein Nikotinkonsum.'
+    },
+    diagnostics: {
+      sono:'V. cava inferior deutlich atemkollaptisch und kaliberschmal. Der linke Ventrikel ist gering gefüllt, hyperdynam und zeigt „kissing walls“. eFAST ohne pathologischen Befund.',
+      auscultation:'Beidseits vesikuläres Atemgeräusch ohne Rasselgeräusche. Herztöne tachykard und regelmäßig.',
+      ecg:'Sinustachykardie, Indifferenztyp, keine akuten ST-Strecken-Veränderungen.'
+    },
+    chatFacts: {
+      access:'Aktuell liegt kein Gefäßzugang.',
+      airway:'Die Atemwege sind frei.',
+      breathing:'Der Patient atmet spontan und tachypnoisch. Die Lunge ist beidseits vesikulär belüftet.',
+      consciousness:'Der Patient ist wach, voll orientiert und unruhig. Ausgangs-GCS 15.',
+      pupils:'Die Pupillen sind mittelweit, isokor und beidseits prompt lichtreagibel.',
+      skin:'Die Haut ist kühl und blass. Die Rekapillarisierungszeit beträgt etwa 4 Sekunden.',
+      pulse:'Die peripheren Pulse sind schwach und tachykard tastbar.',
+      neckVeins:'Die Halsvenen sind kollabiert.',
+      edema:'Es bestehen keine Ödeme.',
+      urine:'Die Urinausscheidung ist im Rettungsdienst nicht quantifiziert.',
+      bleeding:'Aus dem subtotal amputierten linken Handstumpf blutet es stark und spritzend. Auf dem Boden bildet sich eine immer größere Blutlache.',
+      wound:'Die linke Hand ist durch die Kreissäge subtotal amputiert. Aus dem Stumpf besteht eine spritzende arterielle Blutung.',
+      glucose:'Der Blutzucker beträgt 100 mg/dl.',
+      temperature:'Die initiale Körpertemperatur beträgt 36,5 °C.',
+      medication:'Der Patient nimmt keine Dauermedikamente. Im aktuellen Einsatz wurde noch nichts verabreicht.',
+      previousHistory:'Es sind keine Vorerkrankungen, früheren Operationen oder Krankenhausaufenthalte bekannt.',
+      allergy:'Es besteht eine Penicillinallergie.',
+      pain:'Der Patient gibt stärkste Schmerzen an.',
+      symptoms:'Stärkste Schmerzen an der linken Hand, Schwäche und Schwindel bei anhaltender starker Blutung.',
+      lastMeal:'Mittagessen vor ungefähr zwei Stunden.',
+      events:'Der Unfall ereignete sich unmittelbar vor dem Notruf: Die linke Hand geriet in eine laufende Kreissäge.',
+      riskFactors:'Alkohol ungefähr einmal im Monat, kein Nikotinkonsum.'
+    },
+    escalation: {
+      label:'Traumazentrum voranmelden und Transport vorbereiten',
+      response:'Das geeignete Traumazentrum ist vorangemeldet. Die sofortige Blutungskontrolle und Kreislaufstabilisierung haben bis zum zügigen Transport Priorität.'
+    },
+    medicationDefaults: {
+      fentanyl:'Fentanyl 100 µg i.v. als Bolus',
+      ketamine:'Ketamin 25 mg i.v.',
+      midazolam:'Midazolam 2 mg i.v.',
+      morphine:'Morphin 5 mg i.v.',
+      piritramide:'Piritramid 7,5 mg i.v.',
+      paracetamol:'Paracetamol 1 g i.v.'
+    },
+    medicationEffectOverrides: {
+      fentanyl:{sys:-4,dia:-2,rr:-4,spo2:0}
+    },
+    treatmentModifiers: {
+      medications:{default:1,propofol:1.25,midazolam:1.05},
+      interventions:{
+        default:1,
+        fluid_500:0.55,
+        blood_unit:0,
+        norepi_bolus:0.45,
+        norepi_perfusor:0.30,
+        shock_position:0.45,
+        limb_elevation:1,
+        wound_compression:1,
+        tourniquet:1
+      }
+    },
+    physiology: {
+      model:'traumatic_hemorrhage',
+      fluidDurationSeconds:600,
+      arrestRhythm:'Kammerflimmern',
+      difficulty: {
+        easy:{progression:1.00,progressionSeconds:360,spo2Loss:6,criticalMap:24,arrestSeconds:99999},
+        medium:{progression:1.12,progressionSeconds:300,spo2Loss:7,criticalMap:34,arrestSeconds:315},
+        hard:{progression:1.30,progressionSeconds:240,spo2Loss:8,criticalMap:41,arrestSeconds:87}
+      },
+      lactateGainPerTick:.040,
+      hbLossPerTick:.025,
+      bleedingGainPerTick:.030,
+      tempTarget:35.3
+    },
+    scoring: [
+      {id:'abcde',labelDone:'ABCDE strukturiert durchgeführt',labelMissing:'ABCDE nicht vollständig erhoben'},
+      {id:'hemorrhage_recognized',labelDone:'Hämorrhagischen Schock erkannt',labelMissing:'Hämorrhagischer Schock nicht ausdrücklich erkannt',thresholdSeconds:120},
+      {id:'bleeding_assessed',labelDone:'Kritische Blutung und Wunde beurteilt',labelMissing:'Kritische Blutung nicht gezielt beurteilt'},
+      {id:'tourniquet',labelDone:'Tourniquet innerhalb von zwei Minuten angelegt',labelMissing:'Tourniquet nicht oder verspätet angelegt',thresholdSeconds:120},
+      {id:'vascular_access',labelDone:'Geeigneten peripheren Gefäßzugang angelegt',labelMissing:'Kein geeigneter peripherer Gefäßzugang'},
+      {id:'fluid_therapy',labelDone:'Kristalloidgabe zur Kreislaufstabilisierung begonnen',labelMissing:'Keine Kristalloidgabe begonnen'},
+      {id:'txa',labelDone:'Tranexamsäure verabreicht',labelMissing:'Keine Tranexamsäure verabreicht',thresholdSeconds:300},
+      {id:'analgesia',labelDone:'Angemessene Schmerztherapie durchgeführt',labelMissing:'Keine wirksame Schmerztherapie durchgeführt',thresholdSeconds:300},
+      {id:'trauma_center',labelDone:'Traumazentrum vorangemeldet',labelMissing:'Traumazentrum nicht vorangemeldet'},
+      {id:'permissive_target',labelDone:'Blutung kontrolliert und permissives Blutdruckziel erreicht',labelMissing:'Blutung nicht kontrolliert oder Kreislaufziel nicht erreicht'}
+    ]
+  };
+
 
   const septicShock = {
     id: 'septic_shock_05',
@@ -541,6 +704,7 @@
     [postoperativeBleeding.id]: postoperativeBleeding,
     [cardiogenicShock.id]: cardiogenicShock,
     [anaphylacticShock.id]: anaphylacticShock,
+    [traumaticAmputation.id]: traumaticAmputation,
     [septicShock.id]: septicShock
   });
   window.TELECARE_DEFAULT_CASE_ID = postoperativeBleeding.id;

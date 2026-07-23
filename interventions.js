@@ -29,7 +29,10 @@
     defib_pads:{label:'Defibrillationselektroden präventiv kleben',taskSeconds:20,roles:['nurse','doctor']},
     warming:{label:'Aktiven Wärmeerhalt beginnen',taskSeconds:20,roles:['nurse','doctor']},
     ventilation:{label:'Beatmung beginnen',taskSeconds:20,roles:['nurse','doctor']},
-    txa:{label:'Tranexamsäure 1 g i.v. verabreichen',taskSeconds:30,requiresAccess:true,roles:['nurse','doctor']}
+    txa:{label:'Tranexamsäure 1 g i.v. verabreichen',taskSeconds:30,requiresAccess:true,roles:['nurse','doctor']},
+    limb_elevation:{label:'Verletzte linke Hand hochlagern',taskSeconds:10,roles:['nurse','doctor']},
+    wound_compression:{label:'Manuelle Kompression am Handstumpf durchführen',taskSeconds:10,roles:['nurse','doctor']},
+    tourniquet:{label:'Tourniquet am linken Unterarm anlegen',taskSeconds:15,roles:['nurse','doctor']}
   };
   window.TELECARE_INTERVENTIONS = Object.freeze(interventions);
 })();
