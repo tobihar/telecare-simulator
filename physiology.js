@@ -52,6 +52,7 @@
     const {
       core, patient, caseConfig, profile, severity, therapies, medicationEffects,
       fluidCount, bloodUnits, norepiBolus, norepiRate, shockPosition, paralyzed,
+      flatPosition = false,
       adrenalineIm = 0, adrenalineNebulized = 0, triggerStopped = false, postIntubationHypotension = 0,
       jitter = () => 0
     } = args;
@@ -95,10 +96,11 @@
 
     const interventionMods = caseConfig.treatmentModifiers?.interventions || {};
     const mod = id => Number(interventionMods[id] ?? interventionMods.default ?? 1);
+    const norepiBolusTargetMapGain = Math.max(0,Number(caseConfig.physiology?.norepiBolusTargetMapGain||0));
     // fluidCount ist ein gewichteter Wert: neue Gabe = 1, danach graduelles Auslaufen.
     const transientVolume = fluidCount * 0.105 * mod('fluid_500');
     const transfusedVolume = bloodUnits * 0.080 * mod('blood_unit');
-    const venousReturnBoost = shockPosition ? 0.11 * mod('shock_position') : 0;
+    const venousReturnBoost = shockPosition ? 0.11 * mod('shock_position') : flatPosition ? 0.055 * mod('flat_position') : 0;
     const effectiveVolume = clamp(core.circulatingVolume + transientVolume + transfusedVolume, 0.20, 1.25);
     const venousReturn = clamp(Math.pow(effectiveVolume, 1.42) * core.venousTone + venousReturnBoost, 0.12, 1.35);
 
@@ -107,7 +109,7 @@
     const volumeResponse = clamp(0.18 + Math.pow(effectiveVolume, 1.35) * 0.86, 0.20, 1.08);
     const norepiDoseTone = norepiRate * (septic ? 0.38 : anaphylactic ? (therapies.intubated ? 1.30 : 0.030) : 0.092) * mod('norepi_perfusor');
     const adrenalineTone = anaphylactic && adrenalineIm ? 0.26 * mod('adrenaline_im') : 0;
-    const norepiTone = (norepiBolus * 0.22 * mod('norepi_bolus') + norepiDoseTone + adrenalineTone) * volumeResponse;
+    const norepiTone = ((norepiBolusTargetMapGain>0?0:norepiBolus * 0.22 * mod('norepi_bolus')) + norepiDoseTone + adrenalineTone) * volumeResponse;
     const effectiveTone = clamp(core.vascularTone + norepiTone, 0.55, septic ? 1.58 : 1.82);
     const effectiveContractility = clamp(core.contractility + (norepiBolus * 0.050 + norepiRate * (anaphylactic?0.004:0.015) + (anaphylactic&&adrenalineIm?0.10:0)) * volumeResponse, 0.38, 1.48);
 
@@ -126,7 +128,7 @@
     core.strokeVolumeIndex = approach(core.strokeVolumeIndex, strokeVolume, 0.28);
     core.cardiacOutputIndex = approach(core.cardiacOutputIndex, cardiacOutput, 0.25);
 
-    const targetMap = clamp((cardiogenic ? 112 : anaphylactic ? 90 : traumatic ? 76 : dehydrated ? 84 : 73) * core.cardiacOutputIndex * effectiveTone - (anaphylactic&&postIntubationHypotension?18:0), 18, dehydrated ? 85 : 135);
+    const targetMap = clamp((cardiogenic ? 112 : anaphylactic ? 90 : traumatic ? 76 : dehydrated ? 84 : 73) * core.cardiacOutputIndex * effectiveTone + norepiBolus*norepiBolusTargetMapGain - (anaphylactic&&postIntubationHypotension?18:0), 18, dehydrated ? 105 : 135);
     const pulsePressure = clamp((dehydrated?80:38) * core.strokeVolumeIndex / Math.max(0.84, effectiveTone), 12, 72);
     const targetSys = clamp(targetMap + pulsePressure * 0.67, 22, 190);
     const targetDia = clamp(targetMap - pulsePressure * 0.33, 10, 115);

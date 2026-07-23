@@ -94,6 +94,7 @@
       }
     },
     physiology: {
+      norepiBolusTargetMapGain:20,
       difficulty: {
         easy:   { progression: 1.0, spo2Loss: 10.5, criticalMap: 30, arrestSeconds: 99999 },
         medium: { progression: 1.28, spo2Loss: 12.5, criticalMap: 38, arrestSeconds: 75 },
@@ -402,7 +403,7 @@
     },
     treatmentModifiers: {
       medications:{default:1,prednisolone:0,clemastine:0,h2_blocker:0,propofol:1,sufentanil:1,rocuronium:1},
-      interventions:{default:1,fluid_500:.20,norepi_bolus:.10,norepi_perfusor:.08,shock_position:1,blood_unit:.05,adrenaline_im:1,adrenaline_nebulized:1}
+      interventions:{default:1,fluid_500:.20,norepi_bolus:.25,norepi_perfusor:.08,shock_position:1,blood_unit:.05,adrenaline_im:1,adrenaline_nebulized:1}
     },
     physiology: {
       model:'anaphylaxis',
@@ -557,7 +558,7 @@
         default:1,
         fluid_500:0.55,
         blood_unit:0,
-        norepi_bolus:0.45,
+        norepi_bolus:1,
         norepi_perfusor:0.30,
         shock_position:0.45,
         limb_elevation:1,
@@ -567,6 +568,7 @@
     },
     physiology: {
       model:'traumatic_hemorrhage',
+      norepiBolusTargetMapGain:20,
       fluidDurationSeconds:600,
       arrestRhythm:'Kammerflimmern',
       difficulty: {
@@ -684,7 +686,7 @@
     },
     treatmentModifiers:{medications:{default:1,pip_tazo:1,ceftriaxone:1,meropenem:1},interventions:{default:1,fluid_500:1,norepi_bolus:1,norepi_perfusor:1,shock_position:1,blood_unit:.25}},
     physiology:{
-      model:'sepsis', fluidDurationSeconds:900,
+      model:'sepsis', fluidDurationSeconds:900, norepiBolusTargetMapGain:20,
       difficulty:{easy:{progression:.42,initialSys:60,spo2Loss:5.0,criticalMap:28,arrestSeconds:99999},medium:{progression:.90,initialSys:65,spo2Loss:7.0,criticalMap:25,arrestSeconds:120},hard:{progression:1.10,initialSys:65,spo2Loss:9.0,criticalMap:28,arrestSeconds:75}},
       lactateGainPerTick:.018,hbLossPerTick:0,bleedingGainPerTick:0,tempTarget:39.3
     },
@@ -723,14 +725,14 @@
       {id:2,name:'Ben Scholz',role:'nurse',displayRole:'Rettungssanitäter',icon:'👨‍⚕️'}
     ],
     resources: {
-      lab:false,bga:false,blood:false,ecg:false,sono:true,
+      lab:false,bga:false,blood:false,ecg:true,sono:true,
       sonoRoles:['doctor'],
       allowedAccess:['pvk_pink','pvk_green','pvk_orange'],
       actionDescriptions:{
         lab:'Im RTW nicht verfügbar',
         bga:'Im RTW nicht verfügbar',
         access:'Nur periphere Venenzugänge',
-        ecg:'Im RTW nicht verfügbar',
+        ecg:'Notfallsanitäterin · 45 s',
         sono:'Notfallsanitäterin · 60 s'
       }
     },
@@ -762,6 +764,7 @@
       neckVeins:'Die Halsvenen sind deutlich kollabiert.',
       edema:'Es bestehen keine peripheren Ödeme.',
       urine:'Seit Stunden besteht praktisch keine Urinausscheidung. Der Beutel des liegenden Dauerkatheters ist leer.',
+      catheter:'Ein Dauerkatheter aus dem Pflegeheim liegt bereits. Der Katheterbeutel ist leer; im Rettungswagen muss kein neuer Blasenkatheter angelegt werden.',
       bleeding:'Es besteht keine kritische äußere Blutung.',
       abdomen:'Das Abdomen ist weich, ohne Abwehrspannung und ohne fokalen Druckschmerz.',
       glucose:'Der initiale Blutzucker beträgt 140 mg/dl.',
@@ -776,10 +779,11 @@
     },
     treatmentModifiers: {
       medications:{default:1},
-      interventions:{default:1,fluid_500:1.55,norepi_bolus:.45,norepi_perfusor:.35,shock_position:.75,blood_unit:0}
+      interventions:{default:1,fluid_500:1.55,norepi_bolus:1,norepi_perfusor:.35,shock_position:.75,blood_unit:0}
     },
     physiology: {
       model:'dehydration',
+      norepiBolusTargetMapGain:20,
       fluidDurationSeconds:900,
       arrestRhythm:'PEA',
       difficulty:{

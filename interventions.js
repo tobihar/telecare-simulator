@@ -12,6 +12,7 @@
       label:'Schocklage herstellen',taskSeconds:15,roles:['nurse','doctor'],
       effect:{duration:180,support:0.55}
     },
+    flat_position:{label:'Patient flach lagern',taskSeconds:15,roles:['nurse','doctor'],effect:{support:0.3}},
     norepi_bolus:{
       label:'Noradrenalin 5 µg i.v. als Bolus geben',taskSeconds:15,requiresAccess:true,roles:['nurse','doctor'],
       effect:{duration:60,support:0.9}
