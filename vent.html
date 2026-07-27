@@ -7,257 +7,241 @@
   <link rel="stylesheet" href="vent.css" />
 </head>
 <body>
-  <div class="experimental-ribbon">Experimenteller Bereich · nicht für die Behandlung realer Patientinnen und Patienten</div>
-
   <main class="vent-app">
-    <header class="vent-header">
-      <div class="vent-brand">
-        <span class="eyebrow">telecare · Sandbox</span>
-        <h1>PCV-Beatmungssimulator</h1>
+    <header class="game-topbar">
+      <div class="game-brand">
+        <strong>telecare</strong>
+        <span>von Tobias Harig</span>
       </div>
-      <div class="patient-chip">
-        <span>Patientin</span>
-        <strong>40 J. · 170 cm · 85 kg</strong>
-        <small>PBW <span id="pbwHeader">61,5</span> kg · pulmonal gesund</small>
+      <div class="game-meta">
+        <div><span>Fall</span><strong>Beatmung bei elektiver OP</strong></div>
+        <div class="game-timer"><span>Simulationszeit</span><strong id="simTime">00:00</strong></div>
       </div>
-      <div class="runtime-card">
-        <span>Simulationszeit</span>
-        <strong id="simTime">00:00</strong>
-        <div class="runtime-bottom"><small id="runState">läuft in Echtzeit</small><label>Tempo <select id="speedSelect"><option value="1" selected>1×</option><option value="5">5×</option><option value="10">10×</option></select></label></div>
-      </div>
-      <div class="header-actions">
-        <button id="soundBtn" type="button" aria-pressed="false">🔇 Ton aus</button>
+      <div class="top-actions">
+        <button id="soundBtn" type="button" aria-pressed="true" title="Pulston ein/aus">🔊 Pulston</button>
+        <button id="alarmBtn" type="button" title="Akustischen und optischen Alarm für 2 Minuten pausieren">⏸ Alarm 2 min</button>
         <button id="pauseBtn" type="button">Pause</button>
-        <button id="resetBtn" type="button">Zurücksetzen</button>
-        <a class="button-link" href="/">Zur Schock-Simulation</a>
+        <details class="game-menu">
+          <summary>Menü</summary>
+          <div class="game-menu-panel">
+            <label for="speedSelect">Tempo</label>
+            <select id="speedSelect">
+              <option value="1" selected>1×</option>
+              <option value="5">5×</option>
+              <option value="10">10×</option>
+            </select>
+            <small id="runState">läuft in Echtzeit</small>
+            <button id="resetBtn" type="button">Fall neu starten</button>
+            <a class="button-link" href="/">Zur Schock-Simulation</a>
+          </div>
+        </details>
       </div>
     </header>
 
-    <section class="briefing panel">
-      <div>
-        <span class="eyebrow">Übergabe aus der Einleitung</span>
-        <p>Patientin zur elektiven Gallenblasenentfernung. Gerade intubiert, bitte übernehmen. Lass einen Propofol- und einen Remifentanil-Perfusor laufen, Remifentanil in µg/kg/min und Propofol in mg/kg/h.</p>
-      </div>
-      <div id="overallStatus" class="overall-status stable">
-        <span>Patientenzustand</span>
-        <strong>stabil</strong>
-      </div>
-    </section>
-
     <section class="monitor-strip panel" aria-label="Patientenmonitor">
-      <div class="monitor-vital ecg">
+      <div class="monitor-vital ecg" data-monitor-alarm="hr">
         <span>HF · EKG</span>
         <strong id="monitorHr">65</strong>
         <small>/min · Sinusrhythmus</small>
       </div>
-      <div class="monitor-vital nibp">
+      <div class="monitor-vital nibp" data-monitor-alarm="map">
         <span>NIBP</span>
         <strong id="monitorNibp">105/63</strong>
         <small id="monitorMap">MAP 77 mmHg</small>
+        <div class="nibp-inline-controls">
+          <select id="nibpInterval" aria-label="NIBP-Intervall">
+            <option value="60">1 min</option>
+            <option value="120">2 min</option>
+            <option value="180" selected>3 min</option>
+            <option value="300">5 min</option>
+            <option value="0">aus</option>
+          </select>
+          <button id="measureNibpBtn" type="button">Start · 20 s</button>
+          <small id="nibpCountdown">Nächste Messung 03:00</small>
+        </div>
       </div>
-      <div class="monitor-vital art">
+      <div class="monitor-vital art hidden" data-monitor-alarm="map">
         <span>ART</span>
         <strong id="monitorArt">kein Signal</strong>
         <small id="monitorArtMap">Arterie erforderlich</small>
       </div>
-      <div class="monitor-vital spo2">
+      <div class="monitor-vital spo2" data-monitor-alarm="spo2">
         <span>SpO₂</span>
         <strong id="monitorSpo2">100</strong>
         <small>%</small>
       </div>
-      <div class="monitor-vital co2">
+      <div class="monitor-vital co2" data-monitor-alarm="co2">
         <span>etCO₂</span>
         <strong id="monitorEtco2">37</strong>
         <small>mmHg</small>
       </div>
-      <div class="monitor-vital temp">
+      <div class="monitor-vital temp hidden">
         <span>Temperatur</span>
         <strong id="monitorTemp">36,5</strong>
-        <small>°C</small>
-      </div>
-      <div class="nibp-controls">
-        <label for="nibpInterval">NIBP-Intervall</label>
-        <select id="nibpInterval">
-          <option value="60">1 min</option>
-          <option value="120">2 min</option>
-          <option value="180" selected>3 min</option>
-          <option value="300">5 min</option>
-          <option value="0">aus</option>
-        </select>
-        <button id="measureNibpBtn" type="button">Jetzt messen · 20 s</button>
-        <small id="nibpCountdown">Nächste Messung 03:00</small>
+        <small>°C · über DK</small>
       </div>
     </section>
 
-    <div class="workspace">
-      <section class="ventilator panel">
-        <div class="panel-head">
-          <div>
-            <span class="eyebrow">Beatmungsgerät</span>
-            <h2>PCV · druckkontrollierte Beatmung</h2>
-          </div>
-          <div class="vent-mode"><span>Modus</span><strong>PCV</strong></div>
-        </div>
-
-        <div class="waveforms" aria-label="Beatmungskurven">
-          <div class="wave-label pressure-label"><strong>Paw</strong><span>mbar</span></div>
-          <div class="wave-label flow-label"><strong>Flow</strong><span>l/min</span></div>
-          <div class="wave-label volume-label"><strong>Volumen</strong><span>ml</span></div>
-          <canvas id="waveCanvas" aria-label="Druck-, Flow- und Volumenkurven"></canvas>
-        </div>
-
-        <div class="vent-values">
-          <div><span>VTe</span><strong id="vteValue">–</strong><small>ml</small></div>
-          <div><span>VTe/PBW</span><strong id="vtPbwValue">–</strong><small>ml/kg</small></div>
-          <div><span>MVe</span><strong id="mveValue">–</strong><small>l/min</small></div>
-          <div><span>Ppeak</span><strong id="ppeakValue">–</strong><small>mbar</small></div>
-          <div><span>Pmean</span><strong id="pmeanValue">–</strong><small>mbar</small></div>
-          <div><span>Cdyn</span><strong id="complianceValue">–</strong><small>ml/mbar</small></div>
-          <div><span>PEEPi</span><strong id="autoPeepValue">–</strong><small>mbar</small></div>
-          <div><span>Ti / Te</span><strong id="timesValue">–</strong><small>s</small></div>
-        </div>
-
-        <section class="alarm-console" aria-live="polite">
-          <div class="alarm-head">
-            <div><span class="eyebrow">Alarmzentrale</span><strong id="alarmSummary">Keine aktiven Alarme</strong></div>
-            <button id="silenceAlarmBtn" type="button">Alarm 2 min pausieren</button>
-          </div>
-          <div id="alarmList" class="alarm-list empty">Beatmung und Patientenzustand innerhalb der Alarmgrenzen.</div>
+    <div class="main-layout">
+      <aside class="left-column">
+        <section id="staffPanel" class="staff panel">
+          <div class="panel-title-row"><div><span class="kicker">Team vor Ort</span><h2>Personal</h2></div></div>
+          <div id="staffGrid" class="staff-grid" aria-label="Personal"></div>
         </section>
+
+        <section class="patient panel">
+          <div class="panel-title-row"><div><span class="kicker">Patient</span><h2>Zugänge &amp; Therapie</h2></div></div>
+          <div id="patientMap" class="patient-map"></div>
+        </section>
+
+        <section class="inventory panel">
+          <div class="panel-title-row"><div><span class="kicker">Bestand</span><h2>Blutprodukte</h2></div></div>
+          <div class="inventory-grid">
+            <div><span>Ungekreuzt</span><strong>0</strong></div>
+            <div><span>Gekreuzt</span><strong>0</strong></div>
+            <div><span>Gegeben</span><strong>0</strong></div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="center-column">
+        <div class="center-workspace">
+          <section class="chat panel main-chat">
+            <div class="panel-title-row">
+              <div><span class="kicker">Telekonsultation</span><h2>Chat mit dem Team vor Ort</h2></div>
+              <span id="aiStatus" class="status-pill idle">KI wird geprüft</span>
+            </div>
+            <div id="chatLog" class="chat-log"></div>
+            <form id="chatForm" class="chat-form">
+              <input id="chatInput" autocomplete="off" placeholder="Frage oder Auftrag eingeben …" />
+              <button class="primary" type="submit">Senden</button>
+            </form>
+          </section>
+
+          <section class="ventilator panel">
+            <div class="panel-title-row">
+              <div><span class="kicker">Beatmungsgerät</span><h2>PCV</h2></div>
+            </div>
+
+            <div class="device-display">
+              <div class="waveforms" aria-label="Beatmungskurven">
+                <div class="wave-label pressure-label"><strong>Paw</strong><span>mbar</span></div>
+                <div class="wave-label flow-label"><strong>Flow</strong><span>l/min</span></div>
+                <div class="wave-label volume-label"><strong>Volumen</strong><span>ml</span></div>
+                <canvas id="waveCanvas" aria-label="Druck-, Flow- und Volumenkurven"></canvas>
+              </div>
+              <div class="vent-values" aria-label="Gemessene Beatmungswerte">
+                <div class="vent-values-page active" data-vent-values-page="0">
+                  <div data-vent-alarm="pressure"><span>Pmean</span><strong id="pmeanValue">–</strong><small>mbar</small></div>
+                  <div data-vent-alarm="vt"><span>VT</span><strong id="vteValue">–</strong><small>ml</small></div>
+                  <div data-vent-alarm="mv"><span>MV</span><strong id="mveValue">–</strong><small>l/min</small></div>
+                  <div data-vent-alarm="pressure"><span>Pinsp</span><strong id="absolutePinsp">15 mbar</strong><small>absolut</small></div>
+                  <div class="vent-value-wide" data-vent-alarm="pressure"><span>Ppeak</span><strong id="ppeakValue">–</strong><small>mbar</small></div>
+                </div>
+                <div class="vent-values-page" data-vent-values-page="1" hidden>
+                  <div data-vent-alarm="vt"><span>VT/PBW</span><strong id="vtPbwValue">–</strong><small>ml/kg</small></div>
+                  <div><span>Cdyn</span><strong id="complianceValue">–</strong><small>ml/mbar</small></div>
+                  <div data-vent-alarm="autoPeep"><span>PEEPi</span><strong id="autoPeepValue">–</strong><small>mbar</small></div>
+                  <div><span>Ti / Te</span><strong id="timesValue">–</strong><small>s</small></div>
+                </div>
+                <div class="vent-values-nav">
+                  <button id="ventValuesPrev" type="button" aria-label="Vorherige Beatmungswerte">←</button>
+                  <span id="ventValuesPageIndicator" aria-live="polite">1 / 2</span>
+                  <button id="ventValuesNext" type="button" aria-label="Weitere Beatmungswerte">→</button>
+                </div>
+              </div>
+            </div>
+
+            <section class="settings-console" aria-label="PCV-Einstellungen">
+              <div class="setting-keys">
+                <div class="setting-control active" data-setting-control="deltaP">
+                  <div class="setting-inline-adjuster"><button type="button" data-setting-step="-1" aria-label="ΔP verringern">−</button><button type="button" data-setting-step="1" aria-label="ΔP erhöhen">+</button></div>
+                  <button class="setting-key active" type="button" data-setting="deltaP" aria-pressed="true"><span>ΔP</span><output id="deltaPOutput">10 mbar</output></button>
+                </div>
+                <div class="setting-control" data-setting-control="peep">
+                  <div class="setting-inline-adjuster"><button type="button" data-setting-step="-1" aria-label="PEEP verringern">−</button><button type="button" data-setting-step="1" aria-label="PEEP erhöhen">+</button></div>
+                  <button class="setting-key" type="button" data-setting="peep" aria-pressed="false"><span>PEEP</span><output id="peepOutput">5 mbar</output></button>
+                </div>
+                <div class="setting-control" data-setting-control="rr">
+                  <div class="setting-inline-adjuster"><button type="button" data-setting-step="-1" aria-label="AF verringern">−</button><button type="button" data-setting-step="1" aria-label="AF erhöhen">+</button></div>
+                  <button class="setting-key" type="button" data-setting="rr" aria-pressed="false"><span>AF</span><output id="rrOutput">12 /min</output></button>
+                </div>
+                <div class="setting-control" data-setting-control="fio2">
+                  <div class="setting-inline-adjuster"><button type="button" data-setting-step="-1" aria-label="FiO₂ verringern">−</button><button type="button" data-setting-step="1" aria-label="FiO₂ erhöhen">+</button></div>
+                  <button class="setting-key" type="button" data-setting="fio2" aria-pressed="false"><span>FiO₂</span><output id="fio2Output">1,00</output></button>
+                </div>
+                <div class="setting-control" data-setting-control="ie">
+                  <div class="setting-inline-adjuster"><button type="button" data-setting-step="-1" aria-label="I:E verringern">−</button><button type="button" data-setting-step="1" aria-label="I:E erhöhen">+</button></div>
+                  <button class="setting-key" type="button" data-setting="ie" aria-pressed="false">
+                    <span>I:E</span>
+                    <output id="ieOutput">1:1</output>
+                    <small class="setting-calculated">Ti <strong id="calculatedTi">2,50 s</strong></small>
+                  </button>
+                </div>
+                <div class="setting-control" data-setting-control="riseTime">
+                  <div class="setting-inline-adjuster"><button type="button" data-setting-step="-1" aria-label="Anstieg verringern">−</button><button type="button" data-setting-step="1" aria-label="Anstieg erhöhen">+</button></div>
+                  <button class="setting-key" type="button" data-setting="riseTime" aria-pressed="false"><span>Anstieg</span><output id="riseTimeOutput">0,20 s</output></button>
+                </div>
+              </div>
+              <input id="deltaPInput" type="hidden" value="10" />
+              <input id="peepInput" type="hidden" value="5" />
+              <input id="rrInput" type="hidden" value="12" />
+              <input id="fio2Input" type="hidden" value="100" />
+              <input id="ieInput" type="hidden" value="1:1" />
+              <input id="riseTimeInput" type="hidden" value="0.2" />
+            </section>
+          </section>
+
+          <section class="pump-rack panel">
+            <div class="panel-title-row">
+              <div><span class="kicker">TIVA</span><h2>Perfusoren</h2></div>
+            </div>
+            <div class="pump-grid">
+              <article id="propofolPump" class="strip-perfusor propofol-label running">
+                <span>Propofol</span>
+                <button id="propofolDown" type="button" aria-label="Propofol verringern">−</button>
+                <button class="pump-dose" type="button" data-pump-dose="propofol" aria-label="Propofol-Dosis" aria-pressed="false"><output id="propofolOutput">6,00 mg/kg/h</output></button>
+                <button id="propofolUp" type="button" aria-label="Propofol erhöhen">+</button>
+                <button id="propofolToggle" type="button">Stop</button>
+                <small id="propofolTotal">510 mg/h bei 85 kg</small>
+                <input id="propofolInput" type="hidden" value="6" />
+              </article>
+              <article id="remifentanilPump" class="strip-perfusor opioid-label running">
+                <span>Remifentanil</span>
+                <button id="remifentanilDown" type="button" aria-label="Remifentanil verringern">−</button>
+                <button class="pump-dose" type="button" data-pump-dose="remifentanil" aria-label="Remifentanil-Dosis" aria-pressed="false"><output id="remifentanilOutput">0,15 µg/kg/min</output></button>
+                <button id="remifentanilUp" type="button" aria-label="Remifentanil erhöhen">+</button>
+                <button id="remifentanilToggle" type="button">Stop</button>
+                <small id="remifentanilTotal">12,75 µg/min bei 85 kg</small>
+                <input id="remifentanilInput" type="hidden" value="0.15" />
+              </article>
+            </div>
+          </section>
+        </div>
       </section>
 
-      <aside class="device-dock">
-        <nav class="dock-tabs panel" aria-label="Gerätebereiche">
-          <button class="dock-tab active" type="button" data-dock-target="settingsPanel">Beatmung</button>
-          <button class="dock-tab" type="button" data-dock-target="pumpPanel">TIVA</button>
-          <button class="dock-tab" type="button" data-dock-target="clinicalPanel">Klinik</button>
-          <button class="dock-tab" type="button" data-dock-target="diagnosticsPanel">Diagnostik</button>
-          <button class="dock-tab" type="button" data-dock-target="eventPanel">Verlauf</button>
-        </nav>
-
-        <section id="settingsPanel" class="settings-panel panel dock-view active">
-          <div class="panel-head">
-            <div><span class="eyebrow">Sollwerte</span><h2>PCV-Einstellungen</h2></div>
-            <button id="restoreVentBtn" class="compact" type="button">Startwerte</button>
+      <aside class="right-column">
+        <section class="actions panel">
+          <div class="panel-title-row"><div><span class="kicker">Diagnostik &amp; Organisation</span><h2>Aufträge</h2></div></div>
+          <div class="action-grid">
+            <button id="labBtn" class="action-btn" type="button"><strong>Labor</strong><small>ATA oder Arzt · 20 s + 2 min Labor</small></button>
+            <button id="bgaBtn" class="action-btn" type="button"><strong>BGA</strong><small>Arteriell oder venös</small></button>
+            <button id="accessBtn" class="action-btn" type="button"><strong>Katheter / Zugänge</strong><small>Personal und Zeit im Menü</small></button>
+            <button id="ecgBtn" class="action-btn" type="button"><strong>12-Kanal-EKG</strong><small>ATA oder Arzt · 45 s</small></button>
+            <button id="sonoBtn" class="action-btn" type="button"><strong>POCUS / Sono</strong><small>Anästhesist · 60 s</small></button>
           </div>
-
-          <div class="setting-control">
-            <label for="deltaPInput"><span>ΔP über PEEP</span><output id="deltaPOutput">10 mbar</output></label>
-            <input id="deltaPInput" type="range" min="0" max="40" step="1" value="10" />
+          <div class="result-buttons">
+            <button id="labHistoryBtn" type="button" disabled>Labor</button>
+            <button id="bgaHistoryBtn" type="button" disabled>BGA</button>
+            <button id="ecgResultBtn" type="button" disabled>EKG</button>
+            <button id="sonoResultBtn" type="button" disabled>Sono</button>
           </div>
-          <div class="setting-control">
-            <label for="peepInput"><span>PEEP</span><output id="peepOutput">5 mbar</output></label>
-            <input id="peepInput" type="range" min="0" max="25" step="1" value="5" />
-          </div>
-          <div class="setting-control">
-            <label for="rrInput"><span>Beatmungsfrequenz</span><output id="rrOutput">12 /min</output></label>
-            <input id="rrInput" type="range" min="2" max="40" step="1" value="12" />
-          </div>
-          <div class="setting-control">
-            <label for="fio2Input"><span>FiO₂</span><output id="fio2Output">1,00</output></label>
-            <input id="fio2Input" type="range" min="21" max="100" step="1" value="100" />
-          </div>
-          <div class="setting-selects">
-            <label>I:E
-              <select id="ieInput">
-                <option>1:4</option><option>1:3</option><option>1:2</option><option>1:1.5</option>
-                <option selected>1:1</option><option>1.5:1</option><option>2:1</option><option>3:1</option><option>4:1</option>
-              </select>
-            </label>
-            <label>Anstiegszeit
-              <select id="riseTimeInput">
-                <option value="0.05">0,05 s</option>
-                <option value="0.1">0,10 s</option>
-                <option value="0.2" selected>0,20 s</option>
-                <option value="0.4">0,40 s</option>
-                <option value="0.6">0,60 s</option>
-                <option value="0.8">0,80 s</option>
-              </select>
-            </label>
-          </div>
-          <div class="calculated-settings">
-            <span>Pinsp absolut <strong id="absolutePinsp">15 mbar</strong></span>
-            <span>Ti berechnet <strong id="calculatedTi">2,50 s</strong></span>
-          </div>
-        </section>
-
-        <section id="pumpPanel" class="pump-panel panel dock-view">
-          <div class="panel-head"><div><span class="eyebrow">TIVA</span><h2>Perfusoren</h2></div><span id="anesthesiaBadge" class="status-badge stable">Narkose ausreichend</span></div>
-
-          <article id="propofolPump" class="pump running">
-            <div class="pump-title"><div><span>01</span><strong>Propofol</strong></div><button id="propofolToggle" type="button">Stop</button></div>
-            <label for="propofolInput"><span>Dosis</span><output id="propofolOutput">6,00 mg/kg/h</output></label>
-            <input id="propofolInput" type="range" min="0" max="12" step="0.25" value="6" />
-            <small id="propofolTotal">510 mg/h bei 85 kg</small>
-          </article>
-
-          <article id="remifentanilPump" class="pump running">
-            <div class="pump-title"><div><span>02</span><strong>Remifentanil</strong></div><button id="remifentanilToggle" type="button">Stop</button></div>
-            <label for="remifentanilInput"><span>Dosis</span><output id="remifentanilOutput">0,15 µg/kg/min</output></label>
-            <input id="remifentanilInput" type="range" min="0" max="0.5" step="0.01" value="0.15" />
-            <small id="remifentanilTotal">12,75 µg/min bei 85 kg</small>
-          </article>
-        </section>
-
-        <section id="clinicalPanel" class="clinical-panel panel dock-view">
-          <div class="panel-head"><div><span class="eyebrow">OP-Team</span><h2>Personal & Therapie</h2></div></div>
-          <div id="staffGrid" class="staff-grid" aria-label="Personal"></div>
-
-          <div class="clinical-section">
-            <div class="section-head"><strong>Zugänge</strong><button id="openAccessBtn" class="compact" type="button">Katheter / Zugänge</button></div>
-            <div id="accessList" class="access-list"></div>
-            <div id="lineMonitoring" class="line-monitoring"></div>
-          </div>
-
-          <div class="clinical-section">
-            <strong>Medikamente</strong>
-            <div class="medication-order">
-              <select id="medicationSelect" aria-label="Medikament auswählen"></select>
-              <button id="giveMedicationBtn" type="button">Verabreichen</button>
-            </div>
-            <small>Die Definitionen und Wirkprofile werden aus dem bestehenden TeleCare-Medikamentenmodul gelesen.</small>
-          </div>
-
-          <div class="clinical-section">
-            <strong>Volumen & Kreislauf</strong>
-            <div class="therapy-actions">
-              <button id="giveFluidBtn" type="button">500 ml Kristalloid</button>
-              <button id="giveNorepiBtn" type="button">Noradrenalin 5 µg Bolus</button>
-            </div>
-            <small id="therapySummary">Kristalloide: 0 ml</small>
-          </div>
-
-          <div class="clinical-section">
-            <strong>Aktive Maßnahmen</strong>
-            <div id="activeTasks" class="active-tasks empty">Keine aktiven Maßnahmen.</div>
-          </div>
-        </section>
-
-        <section id="diagnosticsPanel" class="diagnostics-panel panel dock-view">
-          <div class="panel-head"><div><span class="eyebrow">Diagnostik</span><h2>Labor & BGA</h2></div></div>
-
-          <div class="diagnostic-block">
-            <div class="section-head"><strong>Blutgasanalyse</strong><button id="bgaHistoryBtn" class="compact" type="button" disabled>BGA-Verlauf</button></div>
-            <p>Die Probe bildet den Zustand am Ende der Abnahme ab. Es besteht keine zusätzliche Laborlatenz.</p>
-            <div class="diagnostic-actions">
-              <button id="requestArterialBgaBtn" class="primary" type="button">Arteriell · 45 s</button>
-              <button id="requestVenousBgaBtn" type="button">Venös · 30 s</button>
-            </div>
-          </div>
-
-          <div class="diagnostic-block">
-            <div class="section-head"><strong>Zentrallabor</strong><button id="labHistoryBtn" class="compact" type="button" disabled>Labor-Verlauf</button></div>
-            <p>Entnahme bindet Personal 20 Sekunden, anschließend 2 Minuten Laborlaufzeit.</p>
-            <button id="openLabBtn" class="wide-button" type="button">Labor anfordern</button>
-          </div>
-
-          <div id="diagnosticTasks" class="task-status hidden"></div>
           <div id="latestBga" class="latest-bga empty">Noch keine BGA abgenommen.</div>
         </section>
 
-        <section id="eventPanel" class="event-panel panel dock-view">
-          <div class="panel-head"><div><span class="eyebrow">Sandbox</span><h2>Verlauf</h2></div><button id="clearLogBtn" class="compact" type="button">Leeren</button></div>
-          <div id="eventLog" class="event-log"></div>
+        <section class="orders panel">
+          <div class="panel-title-row"><div><span class="kicker">Laufende Prozesse</span><h2>Aktive Maßnahmen</h2></div></div>
+          <div id="activeOrders" class="active-tasks empty">Keine aktiven Maßnahmen.</div>
         </section>
       </aside>
     </div>
@@ -265,7 +249,7 @@
 
   <dialog id="accessDialog">
     <div class="dialog-card compact-dialog">
-      <header><div><span class="eyebrow">Invasive Maßnahmen</span><h2>Katheter / Zugänge</h2></div><button class="dialog-close" data-close-dialog="accessDialog" type="button" aria-label="Dialog schließen">×</button></header>
+      <header><div><span class="kicker">Invasive Maßnahmen</span><h2>Katheter / Zugänge</h2></div><button data-close-dialog="accessDialog" type="button" aria-label="Dialog schließen">×</button></header>
       <div class="choice-grid">
         <button type="button" data-access-type="pvk_pink"><strong>PVK rosa</strong><small>Anästhesist oder ATA · 45 s</small></button>
         <button type="button" data-access-type="pvk_green"><strong>PVK grün</strong><small>Anästhesist oder ATA · 55 s</small></button>
@@ -279,24 +263,34 @@
 
   <dialog id="labDialog">
     <div class="dialog-card compact-dialog">
-      <header><div><span class="eyebrow">Zentrallabor</span><h2>Laboranforderung</h2></div><button class="dialog-close" data-close-dialog="labDialog" type="button" aria-label="Dialog schließen">×</button></header>
+      <header><div><span class="kicker">Zentrallabor</span><h2>Laboranforderung</h2></div><button data-close-dialog="labDialog" type="button" aria-label="Dialog schließen">×</button></header>
       <p class="dialog-note">Mehrere Parameter können gemeinsam abgenommen werden.</p>
       <div id="labCheckboxes" class="check-grid"></div>
-      <div class="dialog-actions"><button class="dialog-close" data-close-dialog="labDialog" type="button">Abbrechen</button><button id="submitLabBtn" class="primary" type="button">Anfordern</button></div>
+      <div class="dialog-actions"><button data-close-dialog="labDialog" type="button">Abbrechen</button><button id="submitLabBtn" class="primary" type="button">Anfordern</button></div>
     </div>
   </dialog>
 
-  <dialog id="labResultsDialog">
-    <div class="dialog-card">
-      <header><div><span class="eyebrow">Zentrallabor</span><h2>Labor-Verlauf</h2></div><button class="dialog-close" data-close-dialog="labResultsDialog" type="button" aria-label="Dialog schließen">×</button></header>
-      <div id="labResultsContent"></div>
+  <dialog id="bgaRequestDialog">
+    <div class="dialog-card compact-dialog">
+      <header><div><span class="kicker">Blutgasanalyse</span><h2>BGA anfordern</h2></div><button data-close-dialog="bgaRequestDialog" type="button" aria-label="Dialog schließen">×</button></header>
+      <div class="choice-grid">
+        <button id="requestArterialBgaBtn" type="button"><strong>Arterielle BGA</strong><small>Mit Arterie 15 s · sonst Punktion 45 s</small></button>
+        <button id="requestVenousBgaBtn" type="button"><strong>Venöse BGA</strong><small>Arzt oder ATA · 30 s</small></button>
+      </div>
     </div>
   </dialog>
 
-  <dialog id="bgaDialog">
+  <dialog id="resultsDialog">
     <div class="dialog-card">
-      <header><div><span class="eyebrow">Arterielle Blutgasanalyse</span><h2>BGA-Verlauf</h2></div><button id="closeBgaDialog" type="button" aria-label="Dialog schließen">×</button></header>
-      <div id="bgaDialogContent"></div>
+      <header><h2 id="resultsTitle">Ergebnisse</h2><button id="closeResultsBtn" type="button" aria-label="Dialog schließen">×</button></header>
+      <div id="resultsContent"></div>
+    </div>
+  </dialog>
+
+  <dialog id="simpleResultsDialog">
+    <div class="dialog-card compact-dialog">
+      <header><h2 id="simpleResultsTitle">Befund</h2><button data-close-dialog="simpleResultsDialog" type="button" aria-label="Dialog schließen">×</button></header>
+      <div id="simpleResultsContent"></div>
     </div>
   </dialog>
 

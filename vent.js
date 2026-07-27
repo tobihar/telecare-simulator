@@ -1,6 +1,9 @@
 (function () {
   'use strict';
 
+  if (window.__TELECARE_VENT_APP_ACTIVE__) return;
+  window.__TELECARE_VENT_APP_ACTIVE__ = true;
+
   const E = window.TELECARE_VENT_ENGINE;
   if (!E) throw new Error('Beatmungs-Engine konnte nicht geladen werden.');
 
@@ -22,6 +25,7 @@
     zvk: { label: 'ZVK', duration: 120, roles: ['doctor'], vascular: true },
     bladder: { label: 'Blasenkatheter', duration: 60, roles: ['ata'], vascular: false }
   });
+  const FIO2_OPTIONS = Object.freeze([.21, .25, .3, .35, .4, .45, .5, .55, .6, .65, .7, .75, .8, .85, .9, .95, 1]);
   const LAB_DEFINITIONS = Object.freeze({
     hemoglobin: { label: 'Hämoglobin', value: '13,4 g/dl', norm: '12,0–16,0 g/dl' },
     hematocrit: { label: 'Hämatokrit', value: '40 %', norm: '36–46 %' },
@@ -58,6 +62,7 @@
   let soundEnabled;
   let nextPulseAt;
   let nextAlarmToneAt;
+  let lastPulseAudioAt = Number.NEGATIVE_INFINITY;
   let lastRenderAt;
   let staff;
   let access;
@@ -67,6 +72,18 @@
   let labHistory;
   let medicationsGiven;
   let timeScale;
+  let selectedSetting;
+  let lastSettingWheelAt;
+  let chatMessages;
+  let chatAutoFollow;
+  let aiAvailable;
+  let ecgResult;
+  let sonoResult;
+  let noStaffFlashUntil;
+  let noStaffRoles;
+  let selectedPumpDose;
+  let lastPumpWheelAt;
+  let ventValuesPage;
 
   function freshSession() {
     settings = { ...E.DEFAULT_SETTINGS };
@@ -83,6 +100,18 @@
     labHistory = [];
     medicationsGiven = [];
     timeScale = 1;
+    selectedSetting = 'deltaP';
+    lastSettingWheelAt = Number.NEGATIVE_INFINITY;
+    chatMessages = [];
+    chatAutoFollow = true;
+    aiAvailable = false;
+    ecgResult = null;
+    sonoResult = null;
+    noStaffFlashUntil = 0;
+    noStaffRoles = [];
+    selectedPumpDose = null;
+    lastPumpWheelAt = Number.NEGATIVE_INFINITY;
+    ventValuesPage = 0;
     staff = STAFF_TEMPLATE.map(person => ({ ...person, busyUntil: 0, taskLabel: '' }));
     access = new Set(['pvk_green_initial']);
     assignedTasks = [];
@@ -100,7 +129,9 @@
     nextPulseAt = 0;
     nextAlarmToneAt = 0;
     lastRenderAt = 0;
+    setVentValuesPage(0);
     addEvent('Sandbox gestartet: PCV und beide Perfusoren laufen mit den Startwerten.');
+    addChat('Jonas Richter', 'Patientin zur elektiven Gallenblasenentfernung. Gerade intubiert, bitte übernehmen. Lass einen Propofol- und einen Remifentanil-Perfusor laufen, Remifentanil in µg/kg/min und Propofol in mg/kg/h.');
   }
 
   function addEvent(text) {
@@ -121,6 +152,153 @@
     return String(value ?? '').replace(/[&<>'"]/g, char => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
     })[char]);
+  }
+
+  function addChat(sender, text, className = 'team') {
+    chatMessages.push({ time: state?.elapsed || 0, sender: String(sender), text: String(text), className });
+    if (chatMessages.length > 120) chatMessages.shift();
+    renderChat();
+  }
+
+  function renderChat() {
+    const log = $('chatLog');
+    if (!log) return;
+    const wasNearBottom = chatAutoFollow || log.scrollHeight - log.scrollTop - log.clientHeight < 50;
+    log.innerHTML = chatMessages.map(message => `<div class="message ${escapeHtml(message.className)}"><div class="message-meta">${escapeHtml(message.sender)} · ${formatTime(message.time)}</div><div>${escapeHtml(message.text)}</div></div>`).join('');
+    if (wasNearBottom) log.scrollTop = log.scrollHeight;
+  }
+
+  function normalizeText(value) {
+    return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ß/g, 'ss').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  }
+
+  function medicationFromText(text) {
+    const q = normalizeText(text);
+    const definitions = window.TELECARE_MEDICATIONS || {};
+    return Object.entries(definitions).find(([id, definition]) => {
+      const aliases = [id, definition.label, ...(definition.aliases || [])].map(normalizeText).filter(Boolean);
+      return aliases.some(alias => new RegExp(`(?:^|\\s)${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|\\s)`).test(q));
+    })?.[0] || null;
+  }
+
+  function isOrder(text) {
+    return /\b(gib|geben|gebe|verabreich|verabreichen|spritze|spritz|starte|starten|anlegen|lege|hang|anhaengen|bolus)\b/.test(normalizeText(text));
+  }
+
+  function visibleVentState() {
+    return {
+      heartRate: Math.round(state.hr),
+      spo2: Math.round(state.spo2),
+      etCO2: Math.round(state.etCO2),
+      arterialPressure: hasAccess('artery') ? `${Math.round(state.sys)}/${Math.round(state.dia)}` : null,
+      lastNibp: nibp.last,
+      temperature: hasAccess('bladder') ? Number(state.temp.toFixed(1)) : null,
+      access: [...access].map(accessType),
+      settings: { ...settings },
+      pumps: structuredClone(pumps),
+      patient: { ...E.PATIENT }
+    };
+  }
+
+  async function checkAiStatus() {
+    try {
+      const response = await fetch('/api/status');
+      const data = await response.json();
+      aiAvailable = Boolean(data.enabled);
+    } catch {
+      aiAvailable = false;
+    }
+    $('aiStatus').textContent = aiAvailable ? 'Gemini aktiv' : 'Regel-Fallback';
+    $('aiStatus').className = `status-pill ${aiAvailable ? 'live' : 'idle'}`;
+  }
+
+  async function handleChat(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return;
+    addChat('Telekonsultation', raw, 'user');
+    const q = normalizeText(raw);
+
+    const medicationId = medicationFromText(raw);
+    if (medicationId && (isOrder(raw) || /\b\d+(?:[.,]\d+)?\s*(?:mg|g|µg|ug|ml)\b/i.test(raw))) {
+      giveMedicationById(medicationId);
+      return;
+    }
+    if (isOrder(raw) && /\b(kristalloid|ringer|vollelektrolyt|500 ml|500 ve|volumen)\b/.test(q)) {
+      giveFluid();
+      return;
+    }
+    if (isOrder(raw) && /\b(noradrenalin|norepi|nor bolus)\b/.test(q)) {
+      giveNorepiBolus();
+      return;
+    }
+    if (isOrder(raw) && /\b(arterie|arterielle kanule)\b/.test(q)) {
+      insertAccess('artery');
+      return;
+    }
+    if (isOrder(raw) && /\b(zvk|zentralven)\b/.test(q)) {
+      insertAccess('zvk');
+      return;
+    }
+    if (isOrder(raw) && /\b(blasenkatheter|dauerkatheter|\bdk\b)\b/.test(q)) {
+      insertAccess('bladder');
+      return;
+    }
+    if (/\b(wer|patientin|alter|gross|gewicht|anamnese|vorgeschichte)\b/.test(q)) {
+      addChat('Dr. Lea Hartmann', `40-jährige Patientin, 170 cm groß und 85 kg schwer, ohne bekannte Vorerkrankungen. Sie ist für eine elektive Gallenblasenentfernung intubiert worden.`);
+      return;
+    }
+    if (/\b(welche|was fur).{0,20}\b(zugang|katheter)\b|\bzugange\b/.test(q)) {
+      const labels = [...access].map(item => ACCESS_DEFINITIONS[accessType(item)]?.label).filter(Boolean);
+      addChat('Jonas Richter', `Es liegen ein Tubus 7,0 sowie ${labels.length ? labels.join(', ') : 'keine Gefäßzugänge'}.`);
+      return;
+    }
+    if (/\b(beatmung|einstellung|pcv)\b/.test(q) && /\b(wie|welche|aktuell|steht|lauft)\b/.test(q)) {
+      addChat('Jonas Richter', `PCV mit ΔP ${settings.deltaP} mbar, PEEP ${settings.peep} mbar, AF ${settings.rr}/min, FiO₂ ${number(settings.fio2, 2)}, I:E ${settings.ie} und Anstiegszeit ${number(settings.riseTime, 2)} s.`);
+      return;
+    }
+    if (/\b(vital|blutdruck|sattigung|spo2|etco2|herzfrequenz)\b/.test(q)) {
+      addChat('Jonas Richter', `HF ${Math.round(state.hr)}/min, SpO₂ ${number(state.spo2, 0)} %, etCO₂ ${number(state.etCO2, 0)} mmHg und letzter NIBP ${nibp.last.sys}/${nibp.last.dia} mmHg (MAP ${nibp.last.map}).`);
+      return;
+    }
+
+    if (aiAvailable) {
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: raw,
+            state: {
+              elapsed: state.elapsed,
+              visiblePatient: visibleVentState(),
+              knownLabs: labHistory.at(-1)?.values || [],
+              bgaHistory,
+              access: [...access],
+              staff: staff.map(person => ({ name: person.name, role: person.roleLabel, available: person.busyUntil <= state.elapsed })),
+              caseFacts: {
+                sex: 'weiblich',
+                age: E.PATIENT.age,
+                history: 'Keine bekannten Vorerkrankungen.',
+                briefing: { text: 'Elektive Gallenblasenentfernung, Patientin gerade intubiert und zur weiteren Narkoseführung übernommen.' },
+                initial: visibleVentState(),
+                chatFacts: { airway: 'Endotrachealtubus 7,0, 21 cm ab Zahnreihe', auscultation: 'beidseits vesikuläres Atemgeräusch' }
+              }
+            }
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'KI nicht erreichbar');
+        if (data.reply) {
+          addChat('Team vor Ort', data.reply);
+          return;
+        }
+      } catch {
+        aiAvailable = false;
+        $('aiStatus').textContent = 'Regel-Fallback';
+        $('aiStatus').className = 'status-pill idle';
+      }
+    }
+    addChat('Team vor Ort', 'Bitte formulieren Sie die Frage oder den Auftrag etwas konkreter. Medikamente können mit Name und dem Auftrag „geben“ angeordnet werden.');
   }
 
   function readSettings() {
@@ -151,8 +329,49 @@
     $('peepOutput').textContent = `${number(settings.peep)} mbar`;
     $('rrOutput').textContent = `${number(settings.rr)} /min`;
     $('fio2Output').textContent = number(settings.fio2, 2);
+    $('ieOutput').textContent = settings.ie;
+    $('riseTimeOutput').textContent = `${number(settings.riseTime, 2)} s`;
     $('absolutePinsp').textContent = `${number(settings.peep + settings.deltaP)} mbar`;
     $('calculatedTi').textContent = `${number(d.ti, 2)} s`;
+  }
+
+  function selectSetting(id) {
+    if (!['deltaP', 'peep', 'rr', 'fio2', 'ie', 'riseTime'].includes(id)) return;
+    selectedSetting = id;
+    document.querySelectorAll('.setting-key').forEach(button => {
+      const active = button.dataset.setting === id;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    document.querySelectorAll('[data-setting-control]').forEach(control => control.classList.toggle('active', control.dataset.settingControl === id));
+    updateSettingOutputs();
+  }
+
+  function adjustSelectedSetting(direction) {
+    const before = JSON.stringify(settings);
+    if (selectedSetting === 'deltaP') settings.deltaP = E.clamp(settings.deltaP + direction, ...E.LIMITS.deltaP);
+    if (selectedSetting === 'peep') settings.peep = E.clamp(settings.peep + direction, ...E.LIMITS.peep);
+    if (selectedSetting === 'rr') settings.rr = E.clamp(settings.rr + direction, ...E.LIMITS.rr);
+    if (selectedSetting === 'fio2') {
+      let index = FIO2_OPTIONS.findIndex(value => Math.abs(value - settings.fio2) < .001);
+      if (index < 0) index = FIO2_OPTIONS.reduce((best, value, candidate) => Math.abs(value - settings.fio2) < Math.abs(FIO2_OPTIONS[best] - settings.fio2) ? candidate : best, 0);
+      settings.fio2 = FIO2_OPTIONS[E.clamp(index + direction, 0, FIO2_OPTIONS.length - 1)];
+    }
+    if (selectedSetting === 'ie') {
+      const index = E.IE_OPTIONS.indexOf(settings.ie);
+      settings.ie = E.IE_OPTIONS[E.clamp(index + direction, 0, E.IE_OPTIONS.length - 1)];
+    }
+    if (selectedSetting === 'riseTime') {
+      const values = [.05, .1, .2, .4, .6, .8];
+      const index = values.findIndex(value => Math.abs(value - settings.riseTime) < .001);
+      settings.riseTime = values[E.clamp(index + direction, 0, values.length - 1)];
+    }
+    settings = E.normalizeSettings(settings);
+    writeSettings();
+    if (before !== JSON.stringify(settings)) {
+      const d = E.lungMechanics(state, settings);
+      addEvent(`PCV geändert: ΔP ${settings.deltaP} mbar, PEEP ${settings.peep} mbar, AF ${settings.rr}/min, FiO₂ ${number(settings.fio2, 2)}, I:E ${settings.ie}; erwartetes VTe ${Math.round(d.tidalVolumeMl)} ml.`);
+    }
   }
 
   function updatePumpOutputs() {
@@ -164,6 +383,23 @@
     $('remifentanilTotal').textContent = `${number(pumps.remifentanil.rate * E.PATIENT.weightKg, 2)} µg/min bei ${E.PATIENT.weightKg} kg`;
     renderPump('propofol');
     renderPump('remifentanil');
+  }
+
+  function adjustPump(id, direction) {
+    const step = id === 'propofol' ? .25 : .01;
+    pumps[id].rate = E.clamp(Math.round((pumps[id].rate + direction * step) * 100) / 100, ...E.LIMITS[id]);
+    updatePumpOutputs();
+    addEvent(`${id === 'propofol' ? 'Propofol' : 'Remifentanil'} auf ${number(pumps[id].rate, 2)} ${id === 'propofol' ? 'mg/kg/h' : 'µg/kg/min'} eingestellt.`);
+  }
+
+  function selectPumpDose(id) {
+    if (!['propofol', 'remifentanil'].includes(id)) return;
+    selectedPumpDose = id;
+    document.querySelectorAll('[data-pump-dose]').forEach(button => {
+      const active = button.dataset.pumpDose === id;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
   }
 
   function renderPump(id) {
@@ -192,10 +428,44 @@
     return [...access].some(item => ACCESS_DEFINITIONS[accessType(item)]?.vascular);
   }
 
+  function showToast(text) {
+    let toast = $('toastMessage');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'toastMessage';
+      toast.className = 'toast-message';
+    }
+    const host = document.querySelector('dialog[open]') || document.body;
+    if (toast.parentElement !== host) host.appendChild(toast);
+    toast.style.left = '50%';
+    toast.style.top = '24px';
+    toast.textContent = String(text);
+    toast.classList.remove('show');
+    void toast.offsetWidth;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1800);
+  }
+
+  function flashNoStaff(roles) {
+    noStaffRoles = [...roles];
+    noStaffFlashUntil = performance.now() + 700;
+    showToast('Das benötigte Personal ist gerade nicht verfügbar.');
+    const panel = $('staffPanel');
+    if (panel) {
+      panel.classList.remove('no-staff-flash');
+      void panel.offsetWidth;
+      panel.classList.add('no-staff-flash');
+      setTimeout(() => panel.classList.remove('no-staff-flash'), 700);
+    }
+    renderClinical();
+  }
+
   function assignTask(label, duration, roles, onComplete, kind = 'clinical') {
     const person = staff.find(candidate => roles.includes(candidate.role) && candidate.busyUntil <= state.elapsed);
     if (!person) {
+      flashNoStaff(roles);
       addEvent(`Auftrag nicht gestartet: Für „${label}“ ist kein geeignetes Personal frei.`);
+      addChat('Team vor Ort', `Der Auftrag „${label}“ kann noch nicht starten, weil kein geeignetes Personal frei ist.`);
       return null;
     }
     const task = {
@@ -257,21 +527,37 @@
   function renderClinical() {
     const grid = $('staffGrid');
     if (!grid) return;
+    const flashActive = performance.now() < noStaffFlashUntil;
     grid.innerHTML = staff.map(person => {
       const busy = person.busyUntil > state.elapsed;
-      return `<article class="staff-card ${busy ? 'busy' : ''}"><span class="staff-icon">${person.icon}</span><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(person.roleLabel)} · ${busy ? `belegt: ${person.taskLabel}` : 'verfügbar'}</small></article>`;
+      const denied = flashActive && noStaffRoles.includes(person.role);
+      return `<article data-staff-id="${person.id}" class="staff-card ${busy ? 'busy' : 'available'}${denied ? ' deny-flash' : ''}">
+        <div class="staff-avatar"><span class="staff-icon">${person.icon}</span><span class="availability-dot"></span></div>
+        <div class="staff-identity"><div class="staff-name">${escapeHtml(person.name)}</div><div class="staff-role">${escapeHtml(person.roleLabel)}</div></div>
+        <div class="staff-status-badge">${busy ? 'BESCHÄFTIGT' : 'VERFÜGBAR'}</div>
+        <div class="staff-task"><span>${busy ? escapeHtml(person.taskLabel) : 'Bereit für Auftrag'}</span>${busy ? `<strong>${formatTime(Math.max(0, person.busyUntil - state.elapsed))}</strong>` : ''}</div>
+      </article>`;
     }).join('');
 
-    const accessItems = ['endotracheal_tube', ...access];
-    $('accessList').innerHTML = accessItems.map(item => {
-      if (item === 'endotracheal_tube') return '<span class="access-chip">Tubus 7,0 · 21 cm</span>';
-      return `<span class="access-chip">${escapeHtml(ACCESS_DEFINITIONS[accessType(item)]?.label || item)}</span>`;
-    }).join('');
-    $('lineMonitoring').innerHTML = `<span>ART <strong>${hasAccess('artery') ? 'aktiv' : '–'}</strong></span><span>ZVD <strong>${hasAccess('zvk') ? '5 mmHg' : '–'}</strong></span><span>Temperatur <strong>${hasAccess('bladder') ? 'über DK' : 'Ösophagus'}</strong></span><span>Medikamente <strong>${medicationsGiven.length}</strong></span>`;
-    $('therapySummary').textContent = `Kristalloide: ${Number(state.crystalloidMl || 0)} ml${state.norepiBolusUntil > state.elapsed ? ' · Noradrenalin-Bolus aktiv' : ''}`;
+    const accessLabels = ['Tubus 7,0 · 21 cm', ...[...access].map(item => ACCESS_DEFINITIONS[accessType(item)]?.label || item)];
+    const therapies = [
+      `PCV: ΔP ${settings.deltaP}, PEEP ${settings.peep}, AF ${settings.rr}, FiO₂ ${number(settings.fio2, 2)}`,
+      pumps.propofol.running ? `Propofol ${number(pumps.propofol.rate, 2)} mg/kg/h` : 'Propofol gestoppt',
+      pumps.remifentanil.running ? `Remifentanil ${number(pumps.remifentanil.rate, 2)} µg/kg/min` : 'Remifentanil gestoppt'
+    ];
+    if (state.crystalloidMl) therapies.push(`Kristalloid ${state.crystalloidMl} ml`);
+    if (state.norepiBolusUntil > state.elapsed) therapies.push('Noradrenalin-Bolus wirksam');
+    const markers = ['T', ...[...access].map(item => {
+      const type = accessType(item);
+      return type === 'artery' ? 'A' : type === 'zvk' ? 'Z' : type === 'bladder' ? 'DK' : 'P';
+    })].slice(0, 5);
+    $('patientMap').innerHTML = `<div class="body-figure">
+      <div class="head"></div><div class="torso"></div><div class="arm left"></div><div class="arm right"></div><div class="leg left"></div><div class="leg right"></div>
+      ${markers.map((marker, index) => `<span class="access-marker marker-${index}">${marker}</span>`).join('')}
+    </div><div class="patient-lines"><div><strong>Zugänge/Katheter</strong>${accessLabels.map(label => `<span>${escapeHtml(label)}</span>`).join('')}</div><div><strong>Laufende Therapie</strong>${therapies.map(label => `<span>${escapeHtml(label)}</span>`).join('')}</div></div>`;
 
     const active = [...assignedTasks, ...backgroundTasks];
-    const list = $('activeTasks');
+    const list = $('activeOrders');
     list.classList.toggle('empty', active.length === 0);
     list.innerHTML = active.length
       ? active.map(task => `<div class="active-task"><strong>${escapeHtml(task.label)}</strong><span>${Math.max(0, Math.ceil(task.completeAt - state.elapsed))} s</span><small>${escapeHtml(task.personName || 'Hintergrundprozess')}</small></div>`).join('')
@@ -316,9 +602,13 @@
     const task = assignTask(`${definition.label} legen`, definition.duration, definition.roles, () => {
       access.add(`${type}_${Date.now()}`);
       if (type === 'artery') addEvent('Die arterielle Druckkurve ist aufgeschaltet.');
+      addChat('Team vor Ort', `${definition.label} liegt und ist angeschlossen.`);
       renderClinical();
     });
-    if (task) $('accessDialog').close();
+    if (task) {
+      $('accessDialog').close();
+      addChat('Team vor Ort', `${definition.label} wird angelegt.`);
+    }
   }
 
   function requestBga(type) {
@@ -336,6 +626,7 @@
     const task = assignTask(label, duration, roles, () => completeBga(type), 'diagnostic');
     if (!task) return;
     bgaTask = { ...task, type };
+    $('bgaRequestDialog')?.close();
     renderDiagnostics();
   }
 
@@ -354,6 +645,7 @@
     bgaTask = null;
     $('bgaHistoryBtn').disabled = false;
     addEvent(`${type === 'venous' ? 'Venöse' : 'Arterielle'} BGA: pH ${number(sample.pH, 2)}, pCO₂ ${number(sample.paCO2, 1)} mmHg, pO₂ ${number(sample.paO2, 0)} mmHg.`);
+    addChat('Team vor Ort', `${type === 'venous' ? 'Die venöse' : 'Die arterielle'} BGA ist verfügbar: pH ${number(sample.pH, 2)}, pCO₂ ${number(sample.paCO2, 1)} mmHg, pO₂ ${number(sample.paO2, 0)} mmHg.`);
     renderDiagnostics();
   }
 
@@ -377,6 +669,7 @@
         });
         $('labHistoryBtn').disabled = false;
         addEvent('Neue Laborergebnisse sind verfügbar.');
+        addChat('Zentrallabor', 'Die angeforderten Laborergebnisse sind jetzt verfügbar.');
         renderDiagnostics();
       }, 'diagnostic');
     }, 'diagnostic');
@@ -385,11 +678,51 @@
     renderDiagnostics();
   }
 
+  function buildTrendTable(history, title) {
+    if (!history.length) return '<p>Keine Ergebnisse verfügbar.</p>';
+    const all = [];
+    const seen = new Set();
+    history.forEach(entry => (entry.values || []).forEach(value => {
+      const key = value.id || value[0];
+      if (!seen.has(key)) {
+        seen.add(key);
+        all.push(key);
+      }
+    }));
+    const findValue = (key, entry) => (entry.values || []).find(value => (value.id || value[0]) === key);
+    const labelFor = key => {
+      for (const entry of history) {
+        const value = findValue(key, entry);
+        if (value) return value.label || value[0] || key;
+      }
+      return key;
+    };
+    const normFor = key => {
+      for (const entry of history) {
+        const value = findValue(key, entry);
+        if (value) return value.norm || value[2] || '—';
+      }
+      return '—';
+    };
+    const headers = history.map((entry, index) =>
+      `<th>${title} ${index + 1}<small>${formatTime(entry.time)}${entry.type ? ` · ${escapeHtml(entry.type)}` : ''}</small></th>`
+    ).join('');
+    const rows = all.map(key =>
+      `<tr><th>${escapeHtml(labelFor(key))}<small>${escapeHtml(normFor(key))}</small></th>${history.map(entry => {
+        const value = findValue(key, entry);
+        if (!value) return '<td class="trend-missing">—</td>';
+        const result = value.value ?? value[1];
+        const abnormal = value.abnormal ?? value[3];
+        return `<td class="${abnormal ? 'abnormal' : ''}">${escapeHtml(result)}</td>`;
+      }).join('')}</tr>`
+    ).join('');
+    return `<div class="trend-table-wrap"><table class="result-table trend-table"><thead><tr><th>Parameter<small>Normbereich</small></th>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
   function renderLabHistory() {
-    $('labResultsContent').innerHTML = labHistory.length
-      ? labHistory.map((entry, index) => `<section class="result-group"><h3>Labor ${index + 1} · ${formatTime(entry.time)}</h3><table class="result-table"><thead><tr><th>Parameter</th><th>Wert</th><th>Norm</th></tr></thead><tbody>${entry.values.map(value => `<tr><td>${escapeHtml(value.label)}</td><td>${escapeHtml(value.value)}</td><td>${escapeHtml(value.norm)}</td></tr>`).join('')}</tbody></table></section>`).join('')
-      : '<p>Noch keine Laborergebnisse vorhanden.</p>';
-    $('labResultsDialog').showModal();
+    $('resultsTitle').textContent = 'Laborverlauf';
+    $('resultsContent').innerHTML = buildTrendTable(labHistory, 'Labor');
+    $('resultsDialog').showModal();
   }
 
   function valueClass(id, value, type = 'arterial') {
@@ -419,14 +752,11 @@
   }
 
   function renderDiagnostics() {
-    const activeDiagnostics = [...assignedTasks, ...backgroundTasks].filter(item => item.kind === 'diagnostic');
-    const task = $('diagnosticTasks');
-    task.classList.toggle('hidden', activeDiagnostics.length === 0);
-    task.innerHTML = activeDiagnostics.map(item => `${escapeHtml(item.label)} · noch ${Math.max(0, Math.ceil(item.completeAt - state.elapsed))} s`).join('<br>');
     $('requestArterialBgaBtn').disabled = Boolean(bgaTask);
     $('requestVenousBgaBtn').disabled = Boolean(bgaTask);
-    $('requestArterialBgaBtn').textContent = hasAccess('artery') ? 'Arteriell über Arterie · 15 s' : 'Arteriell punktieren · 45 s';
     $('labHistoryBtn').disabled = labHistory.length === 0;
+    $('ecgResultBtn').disabled = !ecgResult;
+    $('sonoResultBtn').disabled = !sonoResult;
     const latest = bgaHistory.at(-1);
     const container = $('latestBga');
     container.classList.toggle('empty', !latest);
@@ -448,69 +778,109 @@
       ['Glukose', 'glucose', 'mg/dl', '70–110'],
       ['Hb', 'hemoglobin', 'g/dl', '12–16']
     ];
-    $('bgaDialogContent').innerHTML = bgaHistory.length
-      ? `<div class="bga-table-wrap"><table class="bga-table"><thead><tr><th>Parameter</th><th>Norm</th>${bgaHistory.map((entry, index) => `<th>${entry.type === 'venous' ? 'venöse' : 'arterielle'} BGA ${index + 1}<br><small>${formatTime(entry.time)} · FiO₂ ${number(entry.settings.fio2, 2)}</small></th>`).join('')}</tr></thead><tbody>${rows.map(([label, id, unit, norm]) => `<tr><th>${label}<br><small>${unit}</small></th><td>${norm}</td>${bgaHistory.map(entry => {
-          const value = entry.values[id];
-          const decimals = id === 'pH' ? 2 : ['paCO2', 'bicarbonate', 'baseExcess', 'saturation', 'lactate', 'potassium', 'ionizedCalcium', 'hemoglobin'].includes(id) ? 1 : 0;
-          return `<td class="${valueClass(id, value, entry.type)}">${number(value, decimals)}</td>`;
-        }).join('')}</tr>`).join('')}</tbody></table></div>`
-      : '<p>Noch keine BGA vorhanden.</p>';
-    $('bgaDialog').showModal();
+    const history = bgaHistory.map(entry => ({
+      time: entry.time,
+      type: entry.type === 'venous' ? 'venös' : 'arteriell',
+      values: rows.map(([label, id, unit, norm]) => {
+        const value = entry.values[id];
+        const decimals = id === 'pH' ? 2 : ['paCO2', 'bicarbonate', 'baseExcess', 'saturation', 'lactate', 'potassium', 'ionizedCalcium', 'hemoglobin'].includes(id) ? 1 : 0;
+        return {
+          id,
+          label,
+          norm: `${norm}${unit ? ` ${unit}` : ''}`,
+          value: `${number(value, decimals)}${unit ? ` ${unit}` : ''}`,
+          abnormal: Boolean(valueClass(id, value, entry.type))
+        };
+      })
+    }));
+    $('resultsTitle').textContent = 'BGA-Verlauf';
+    $('resultsContent').innerHTML = buildTrendTable(history, 'BGA');
+    $('resultsDialog').showModal();
   }
 
-  function setupMedicationOptions() {
-    const definitions = window.TELECARE_MEDICATIONS || {};
-    $('medicationSelect').innerHTML = Object.entries(definitions)
-      .sort((a, b) => a[1].label.localeCompare(b[1].label, 'de'))
-      .map(([id, definition]) => `<option value="${escapeHtml(id)}">${escapeHtml(definition.label)}</option>`)
-      .join('');
-    if (definitions.rocuronium) $('medicationSelect').value = 'rocuronium';
-  }
-
-  function giveSelectedMedication() {
-    const id = $('medicationSelect').value;
+  function giveMedicationById(id) {
     const definition = window.TELECARE_MEDICATIONS?.[id];
     if (!definition) {
-      addEvent('Das ausgewählte Medikament ist nicht verfügbar.');
+      addChat('Team vor Ort', 'Dieses Medikament ist im Simulator nicht verfügbar.');
       return;
     }
     if (definition.requiresAccess && !hasVascularAccess()) {
-      addEvent(`${definition.label} kann ohne geeigneten Gefäßzugang nicht gegeben werden.`);
+      addChat('Team vor Ort', `${definition.label} kann ohne geeigneten Gefäßzugang nicht gegeben werden.`);
       return;
     }
-    assignTask(`${definition.label} verabreichen`, Number(definition.taskSeconds || 20), ['doctor', 'ata'], () => {
+    const task = assignTask(`${definition.label} verabreichen`, Number(definition.taskSeconds || 20), ['doctor', 'ata'], () => {
       state = E.addMedicationEffect(state, id, definition);
       medicationsGiven.push({ id, label: definition.label, time: state.elapsed });
       addEvent(`${definition.label} wurde gegeben; das bestehende TeleCare-Wirkprofil ist aktiv.`);
+      addChat('Team vor Ort', `${definition.label} wurde verabreicht.`);
       renderClinical();
     });
+    if (task) addChat('Team vor Ort', `${definition.label} wird vorbereitet und verabreicht.`);
   }
 
   function giveFluid() {
     if (!hasVascularAccess()) {
-      addEvent('Kristalloid kann ohne geeigneten Gefäßzugang nicht gegeben werden.');
+      addChat('Team vor Ort', 'Kristalloid kann ohne geeigneten Gefäßzugang nicht gegeben werden.');
       return;
     }
     const definition = window.TELECARE_INTERVENTIONS?.fluid_500;
-    assignTask(definition?.label || '500 ml Kristalloid', Number(definition?.taskSeconds || 60), ['doctor', 'ata'], () => {
+    const task = assignTask(definition?.label || '500 ml Kristalloid', Number(definition?.taskSeconds || 60), ['doctor', 'ata'], () => {
       state = E.addFluidEffect(state, 500);
       addEvent(`500 ml Kristalloid verabreicht; Gesamtmenge ${state.crystalloidMl} ml.`);
+      addChat('Team vor Ort', '500 ml Kristalloid sind vollständig verabreicht.');
       renderClinical();
     });
+    if (task) addChat('Team vor Ort', '500 ml Kristalloid werden verabreicht.');
   }
 
   function giveNorepiBolus() {
     if (!hasVascularAccess()) {
-      addEvent('Noradrenalin kann ohne geeigneten Gefäßzugang nicht gegeben werden.');
+      addChat('Team vor Ort', 'Noradrenalin kann ohne geeigneten Gefäßzugang nicht gegeben werden.');
       return;
     }
     const definition = window.TELECARE_INTERVENTIONS?.norepi_bolus;
-    assignTask(definition?.label || 'Noradrenalin 5 µg i.v. als Bolus geben', Number(definition?.taskSeconds || 15), ['doctor', 'ata'], () => {
+    const task = assignTask(definition?.label || 'Noradrenalin 5 µg i.v. als Bolus geben', Number(definition?.taskSeconds || 15), ['doctor', 'ata'], () => {
       state = E.addNorepiBolus(state);
       addEvent('Noradrenalin 5 µg i.v. gegeben; der simulierte MAP-Effekt läuft etwa eine Minute.');
+      addChat('Team vor Ort', 'Noradrenalin 5 µg wurde i.v. als Bolus gegeben.');
       beginNibpMeasurement('nach Noradrenalin-Bolus');
       renderClinical();
     });
+    if (task) addChat('Team vor Ort', 'Noradrenalin 5 µg i.v. wird vorbereitet.');
+  }
+
+  function requestEcg() {
+    if (ecgResult) {
+      showSimpleResult('12-Kanal-EKG', ecgResult);
+      return;
+    }
+    const task = assignTask('12-Kanal-EKG schreiben', 45, ['doctor', 'ata'], () => {
+      ecgResult = 'Sinusrhythmus, Herzfrequenz im Verlauf entsprechend dem Monitor. Normale elektrische Herzachse, regelrechte Intervalle, keine akuten Ischämiezeichen.';
+      addEvent('12-Kanal-EKG abgeschlossen.');
+      addChat('Team vor Ort', 'Das 12-Kanal-EKG ist geschrieben und kann geöffnet werden.');
+      renderDiagnostics();
+    }, 'diagnostic');
+    if (task) addChat('Team vor Ort', 'Das 12-Kanal-EKG wird geschrieben.');
+  }
+
+  function requestSono() {
+    if (sonoResult) {
+      showSimpleResult('POCUS / Sono', sonoResult);
+      return;
+    }
+    const task = assignTask('POCUS durchführen', 60, ['doctor'], () => {
+      sonoResult = 'Gute globale linksventrikuläre Funktion, kein Perikarderguss. Rechte Herzhöhlen nicht dilatiert. Vena cava inferior atemvariabel. Beidseits Lungengleiten, keine B-Linien.';
+      addEvent('POCUS abgeschlossen.');
+      addChat('Dr. Lea Hartmann', 'Der POCUS-Befund ist verfügbar.');
+      renderDiagnostics();
+    }, 'diagnostic');
+    if (task) addChat('Dr. Lea Hartmann', 'Ich führe den POCUS durch.');
+  }
+
+  function showSimpleResult(title, content) {
+    $('simpleResultsTitle').textContent = title;
+    $('simpleResultsContent').textContent = content || 'Noch kein Befund vorhanden.';
+    $('simpleResultsDialog').showModal();
   }
 
   function highestAlarmPriority() {
@@ -526,48 +896,63 @@
       if (!priorAlarmIds.has(alarm.id)) addEvent(`Alarm: ${alarm.label}.`);
     });
     priorAlarmIds = alarmIds;
-    $('alarmSummary').textContent = alarms.length
-      ? `${alarms.length} aktive${alarms.length === 1 ? 'r Alarm' : ' Alarme'}`
-      : 'Keine aktiven Alarme';
-    const list = $('alarmList');
-    list.classList.toggle('empty', alarms.length === 0);
-    list.innerHTML = alarms.length
-      ? alarms.map(alarm => `<span class="alarm-item ${alarm.priority}">${escapeHtml(alarm.label)}</span>`).join('')
-      : 'Beatmung und Patientenzustand innerhalb der Alarmgrenzen.';
     const silenced = alarmSilencedUntil > state.elapsed;
-    $('silenceAlarmBtn').textContent = silenced
-      ? `pausiert · ${Math.ceil(alarmSilencedUntil - state.elapsed)} s`
-      : 'Alarm 2 min pausieren';
+    const visibleAlarmIds = silenced ? new Set() : alarmIds;
+    const monitorAlarmMap = {
+      hr: ['hr_low', 'hr_high', 'arrest'],
+      map: ['map_low', 'arrest'],
+      spo2: ['spo2_low', 'arrest'],
+      co2: ['co2_low', 'co2_high', 'arrest']
+    };
+    document.querySelectorAll('[data-monitor-alarm]').forEach(tile => {
+      const ids = monitorAlarmMap[tile.dataset.monitorAlarm] || [];
+      tile.classList.toggle('vital-alarm', ids.some(id => visibleAlarmIds.has(id)));
+    });
+    const ventAlarmMap = {
+      vt: ['vt_low', 'vt_high'],
+      mv: ['mv_low', 'mv_high'],
+      pressure: ['pressure_high'],
+      autoPeep: ['auto_peep']
+    };
+    document.querySelectorAll('[data-vent-alarm]').forEach(tile => {
+      const ids = ventAlarmMap[tile.dataset.ventAlarm] || [];
+      tile.classList.toggle('vent-value-alarm', ids.some(id => visibleAlarmIds.has(id)));
+    });
+    const button = $('alarmBtn');
+    button.classList.toggle('alarm-paused', silenced);
+    button.textContent = silenced ? `⏸ Alarm ${Math.ceil(alarmSilencedUntil - state.elapsed)} s` : '⏸ Alarm 2 min';
+    button.title = alarms.length ? alarms.map(alarm => alarm.label).join(' · ') : 'Keine aktiven Alarme';
   }
 
   function renderOverallStatus() {
-    const priority = highestAlarmPriority();
-    const status = $('overallStatus');
-    status.className = `overall-status ${priority}`;
-    status.querySelector('strong').textContent = state.cardiacArrest
-      ? 'Kreislaufstillstand'
-      : priority === 'critical' ? 'kritisch' : priority === 'warning' ? 'auffällig' : 'stabil';
     const badge = $('anesthesiaBadge');
-    badge.className = `status-badge ${state.anesthesiaStatus === 'unzureichend' ? 'critical' : state.anesthesiaStatus === 'oberflächlich' ? 'warning' : 'stable'}`;
-    badge.textContent = `Narkose ${state.anesthesiaStatus}`;
+    if (badge) {
+      badge.className = `status-pill ${state.anesthesiaStatus === 'unzureichend' ? 'critical' : state.anesthesiaStatus === 'oberflächlich' ? 'warning' : 'live'}`;
+      badge.textContent = `Narkose ${state.anesthesiaStatus}`;
+    }
   }
 
   function renderMonitor() {
+    const arterialConnected = hasAccess('artery');
+    const temperatureConnected = hasAccess('bladder');
+    document.querySelector('.monitor-vital.art')?.classList.toggle('hidden', !arterialConnected);
+    document.querySelector('.monitor-vital.temp')?.classList.toggle('hidden', !temperatureConnected);
+    document.querySelector('.monitor-strip')?.style.setProperty('--monitor-vitals', String(4 + Number(arterialConnected) + Number(temperatureConnected)));
     $('monitorHr').textContent = Math.max(0, Math.round(state.hr));
     $('monitorNibp').textContent = `${nibp.last.sys}/${nibp.last.dia}`;
     $('monitorMap').textContent = `MAP ${nibp.last.map} mmHg · ${formatTime(state.elapsed - nibp.last.time)} alt`;
-    $('monitorArt').textContent = hasAccess('artery') ? `${Math.round(state.sys)}/${Math.round(state.dia)}` : 'kein Signal';
-    $('monitorArtMap').textContent = hasAccess('artery') ? `MAP ${Math.round(state.map)} mmHg · kontinuierlich` : 'Arterie erforderlich';
+    $('monitorArt').textContent = arterialConnected ? `${Math.round(state.sys)}/${Math.round(state.dia)}` : 'kein Signal';
+    $('monitorArtMap').textContent = arterialConnected ? `MAP ${Math.round(state.map)} mmHg · kontinuierlich` : 'Arterie erforderlich';
     $('monitorSpo2').textContent = number(state.spo2, state.spo2 < 95 ? 1 : 0);
     $('monitorEtco2').textContent = number(state.etCO2, 0);
-    $('monitorTemp').textContent = number(state.temp, 1);
+    if (temperatureConnected) $('monitorTemp').textContent = number(state.temp, 1);
 
     if (nibp.measuringUntil !== null) {
       const remaining = Math.max(0, Math.ceil(nibp.measuringUntil - state.elapsed));
       $('nibpCountdown').textContent = `Messung läuft · ${remaining} s`;
       $('measureNibpBtn').textContent = `Messung · ${remaining} s`;
     } else {
-      $('measureNibpBtn').textContent = 'Jetzt messen · 20 s';
+      $('measureNibpBtn').textContent = 'Start · 20 s';
       $('nibpCountdown').textContent = nibp.interval > 0 && nibp.nextAt !== null
         ? `Nächste Messung ${formatTime(Math.max(0, nibp.nextAt - state.elapsed))}`
         : 'Automatik aus';
@@ -587,6 +972,18 @@
     $('timesValue').textContent = `${number(d.ti, 1)} / ${number(d.te, 1)}`;
   }
 
+  function setVentValuesPage(page) {
+    const pages = [...document.querySelectorAll('[data-vent-values-page]')];
+    if (!pages.length) return;
+    ventValuesPage = (Number(page) + pages.length) % pages.length;
+    pages.forEach((node, index) => {
+      const active = index === ventValuesPage;
+      node.hidden = !active;
+      node.classList.toggle('active', active);
+    });
+    $('ventValuesPageIndicator').textContent = `${ventValuesPage + 1} / ${pages.length}`;
+  }
+
   function render(now = performance.now()) {
     $('simTime').textContent = formatTime(state.elapsed);
     $('runState').textContent = running ? (timeScale === 1 ? 'läuft in Echtzeit' : `Zeitraffer ${timeScale}×`) : 'Simulation pausiert';
@@ -603,24 +1000,44 @@
   }
 
   function tone(frequency, duration, gain = 0.035) {
-    if (!soundEnabled || !audioContext) return;
+    if (!soundEnabled || document.hidden || !audioContext || audioContext.state !== 'running') return false;
     const oscillator = audioContext.createOscillator();
     const volume = audioContext.createGain();
+    const startedAt = audioContext.currentTime;
+    const attackEndsAt = startedAt + Math.min(0.005, duration / 3);
     oscillator.type = 'sine';
     oscillator.frequency.value = frequency;
-    volume.gain.setValueAtTime(gain, audioContext.currentTime);
-    volume.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
+    volume.gain.setValueAtTime(0.0001, startedAt);
+    volume.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), attackEndsAt);
+    volume.gain.exponentialRampToValueAtTime(0.0001, startedAt + duration);
     oscillator.connect(volume).connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + duration);
+    oscillator.start(startedAt);
+    oscillator.stop(startedAt + duration);
+    return true;
+  }
+
+  function pulseTone(frequency) {
+    if (!soundEnabled || !audioContext || audioContext.state !== 'running') return false;
+    const now = audioContext.currentTime;
+    if (now - lastPulseAudioAt < 0.18) return true;
+    lastPulseAudioAt = now;
+    return tone(frequency, 0.045, 0.025);
+  }
+
+  async function ensureAudioContext() {
+    try {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === 'suspended') await audioContext.resume();
+    } catch {
+      audioContext = null;
+    }
   }
 
   function updateSound() {
     if (!soundEnabled || !running || state.cardiacArrest) return;
     if (state.elapsed >= nextPulseAt && state.hr > 0) {
       const spo2Frequency = E.clamp(430 + (state.spo2 - 80) * 16, 260, 760);
-      tone(spo2Frequency, 0.07, 0.025);
-      nextPulseAt = state.elapsed + 60 / Math.max(20, state.hr);
+      if (pulseTone(spo2Frequency)) nextPulseAt = state.elapsed + 60 / Math.max(20, state.hr);
     }
     if (state.alarms.length && alarmSilencedUntil <= state.elapsed && state.elapsed >= nextAlarmToneAt) {
       const critical = state.alarms.some(alarm => alarm.priority === 'critical');
@@ -716,36 +1133,40 @@
   }
 
   function bindControls() {
-    document.querySelectorAll('.dock-tab').forEach(button => {
-      button.addEventListener('click', () => {
-        document.querySelectorAll('.dock-tab').forEach(tabButton => tabButton.classList.toggle('active', tabButton === button));
-        document.querySelectorAll('.dock-view').forEach(view => view.classList.toggle('active', view.id === button.dataset.dockTarget));
-      });
+    document.querySelectorAll('.setting-key').forEach(button => {
+      button.addEventListener('click', () => selectSetting(button.dataset.setting));
+      button.addEventListener('wheel', event => {
+        if (selectedSetting !== button.dataset.setting) return;
+        event.preventDefault();
+        const now = performance.now();
+        if (now - lastSettingWheelAt < 90 || event.deltaY === 0) return;
+        lastSettingWheelAt = now;
+        adjustSelectedSetting(event.deltaY < 0 ? 1 : -1);
+      }, { passive: false });
     });
-    ['deltaPInput', 'peepInput', 'rrInput', 'fio2Input', 'ieInput', 'riseTimeInput'].forEach(id => {
-      $(id).addEventListener('input', readSettings);
-      $(id).addEventListener('change', () => {
-        readSettings();
-        const d = E.lungMechanics(state, settings);
-        addEvent(`PCV geändert: ΔP ${settings.deltaP} mbar, PEEP ${settings.peep} mbar, AF ${settings.rr}/min, FiO₂ ${number(settings.fio2, 2)}, I:E ${settings.ie}; erwartetes VTe ${Math.round(d.tidalVolumeMl)} ml.`);
-      });
-    });
-    $('restoreVentBtn').addEventListener('click', () => {
-      settings = { ...E.DEFAULT_SETTINGS };
-      writeSettings();
-      addEvent('PCV-Einstellungen auf Startwerte zurückgesetzt.');
-    });
+    document.querySelectorAll('[data-setting-step]').forEach(button => button.addEventListener('click', () => {
+      const control = button.closest('[data-setting-control]');
+      if (!control || control.dataset.settingControl !== selectedSetting) return;
+      adjustSelectedSetting(Number(button.dataset.settingStep));
+    }));
 
-    $('propofolInput').addEventListener('input', event => {
-      pumps.propofol.rate = E.clamp(event.target.value, ...E.LIMITS.propofol);
-      updatePumpOutputs();
+    $('propofolDown').addEventListener('click', () => adjustPump('propofol', -1));
+    $('propofolUp').addEventListener('click', () => adjustPump('propofol', 1));
+    $('remifentanilDown').addEventListener('click', () => adjustPump('remifentanil', -1));
+    $('remifentanilUp').addEventListener('click', () => adjustPump('remifentanil', 1));
+    $('ventValuesPrev').addEventListener('click', () => setVentValuesPage(ventValuesPage - 1));
+    $('ventValuesNext').addEventListener('click', () => setVentValuesPage(ventValuesPage + 1));
+    document.querySelectorAll('[data-pump-dose]').forEach(button => {
+      button.addEventListener('click', () => selectPumpDose(button.dataset.pumpDose));
+      button.addEventListener('wheel', event => {
+        if (selectedPumpDose !== button.dataset.pumpDose) return;
+        event.preventDefault();
+        const now = performance.now();
+        if (now - lastPumpWheelAt < 90 || event.deltaY === 0) return;
+        lastPumpWheelAt = now;
+        adjustPump(button.dataset.pumpDose, event.deltaY < 0 ? 1 : -1);
+      }, { passive: false });
     });
-    $('propofolInput').addEventListener('change', () => addEvent(`Propofol auf ${number(pumps.propofol.rate, 2)} mg/kg/h eingestellt.`));
-    $('remifentanilInput').addEventListener('input', event => {
-      pumps.remifentanil.rate = E.clamp(event.target.value, ...E.LIMITS.remifentanil);
-      updatePumpOutputs();
-    });
-    $('remifentanilInput').addEventListener('change', () => addEvent(`Remifentanil auf ${number(pumps.remifentanil.rate, 2)} µg/kg/min eingestellt.`));
     ['propofol', 'remifentanil'].forEach(id => {
       $(`${id}Toggle`).addEventListener('click', () => {
         pumps[id].running = !pumps[id].running;
@@ -765,20 +1186,32 @@
       render();
     });
     $('measureNibpBtn').addEventListener('click', () => beginNibpMeasurement());
-    $('openAccessBtn').addEventListener('click', () => $('accessDialog').showModal());
+    $('accessBtn').addEventListener('click', () => $('accessDialog').showModal());
     document.querySelectorAll('[data-access-type]').forEach(button => button.addEventListener('click', () => insertAccess(button.dataset.accessType)));
-    $('giveMedicationBtn').addEventListener('click', giveSelectedMedication);
-    $('giveFluidBtn').addEventListener('click', giveFluid);
-    $('giveNorepiBtn').addEventListener('click', giveNorepiBolus);
+    $('bgaBtn').addEventListener('click', () => $('bgaRequestDialog').showModal());
     $('requestArterialBgaBtn').addEventListener('click', () => requestBga('arterial'));
     $('requestVenousBgaBtn').addEventListener('click', () => requestBga('venous'));
     $('bgaHistoryBtn').addEventListener('click', renderBgaHistory);
-    $('openLabBtn').addEventListener('click', () => $('labDialog').showModal());
+    $('labBtn').addEventListener('click', () => $('labDialog').showModal());
     $('submitLabBtn').addEventListener('click', requestLabs);
     $('labHistoryBtn').addEventListener('click', renderLabHistory);
+    $('ecgBtn').addEventListener('click', requestEcg);
+    $('sonoBtn').addEventListener('click', requestSono);
+    $('ecgResultBtn').addEventListener('click', () => showSimpleResult('12-Kanal-EKG', ecgResult));
+    $('sonoResultBtn').addEventListener('click', () => showSimpleResult('POCUS / Sono', sonoResult));
     document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => $(button.dataset.closeDialog).close()));
-    $('closeBgaDialog').addEventListener('click', () => $('bgaDialog').close());
-    $('clearLogBtn').addEventListener('click', () => { events = []; renderEvents(); });
+    $('closeResultsBtn').addEventListener('click', () => $('resultsDialog').close());
+
+    $('chatLog').addEventListener('scroll', () => {
+      const log = $('chatLog');
+      chatAutoFollow = log.scrollHeight - log.scrollTop - log.clientHeight < 50;
+    });
+    $('chatForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const input = $('chatInput');
+      handleChat(input.value);
+      input.value = '';
+    });
 
     $('pauseBtn').addEventListener('click', () => {
       running = !running;
@@ -796,33 +1229,49 @@
       $('requestVenousBgaBtn').disabled = false;
       $('bgaHistoryBtn').disabled = true;
       $('labHistoryBtn').disabled = true;
+      $('ecgResultBtn').disabled = true;
+      $('sonoResultBtn').disabled = true;
+      soundEnabled = true;
+      $('soundBtn').textContent = '🔊 Pulston';
+      $('soundBtn').setAttribute('aria-pressed', 'true');
       document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
       render();
+      checkAiStatus();
     });
-    $('silenceAlarmBtn').addEventListener('click', () => {
+    $('alarmBtn').addEventListener('click', () => {
       alarmSilencedUntil = state.elapsed + 120;
       addEvent('Akustischer Alarm für 2 Minuten pausiert.');
+      renderAlarms();
     });
     $('soundBtn').addEventListener('click', async () => {
-      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioContext.state === 'suspended') await audioContext.resume();
-      soundEnabled = !soundEnabled;
-      $('soundBtn').textContent = soundEnabled ? '🔊 Ton an' : '🔇 Ton aus';
+      if (soundEnabled) {
+        soundEnabled = false;
+      } else {
+        await ensureAudioContext();
+        soundEnabled = true;
+        nextPulseAt = state.elapsed;
+      }
+      $('soundBtn').textContent = soundEnabled ? '🔊 Pulston' : '🔇 Pulston aus';
       $('soundBtn').setAttribute('aria-pressed', String(soundEnabled));
-      if (soundEnabled) tone(620, 0.08, 0.03);
+    });
+    document.addEventListener('pointerdown', () => {
+      if (soundEnabled) ensureAudioContext();
+    }, { once: true });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && soundEnabled) nextPulseAt = state.elapsed;
     });
   }
 
   function init() {
-    soundEnabled = false;
-    $('pbwHeader').textContent = number(E.PATIENT.predictedBodyWeightKg, 1);
+    soundEnabled = true;
     freshSession();
     writeSettings();
     updatePumpOutputs();
     renderLabOptions();
-    setupMedicationOptions();
     bindControls();
+    setVentValuesPage(0);
     render();
+    checkAiStatus();
     requestAnimationFrame(frame);
   }
 
