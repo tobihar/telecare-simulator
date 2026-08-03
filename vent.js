@@ -6,6 +6,8 @@
 
   const E = window.TELECARE_VENT_ENGINE;
   if (!E) throw new Error('Beatmungs-Engine konnte nicht geladen werden.');
+  const W = window.TELECARE_VENT_WAVEFORMS;
+  if (!W) throw new Error('Kurvenpuffer konnte nicht geladen werden.');
 
   const $ = id => document.getElementById(id);
   const number = (value, decimals = 0) => Number(value).toFixed(decimals).replace('.', ',');
@@ -84,6 +86,7 @@
   let selectedPumpDose;
   let lastPumpWheelAt;
   let ventValuesPage;
+  let waveformRecorder;
 
   function freshSession() {
     settings = { ...E.DEFAULT_SETTINGS };
@@ -92,6 +95,7 @@
       remifentanil: { ...E.DEFAULT_PUMPS.remifentanil }
     };
     state = E.step(E.createInitial(), settings, pumps, 0.01);
+    waveformRecorder = W.create(E, settings, state);
     running = true;
     lastFrameAt = performance.now();
     alarmSilencedUntil = 0;
@@ -1086,31 +1090,27 @@
     ctx.beginPath(); ctx.moveTo(0, rowHeight); ctx.lineTo(cssWidth, rowHeight); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, rowHeight * 2); ctx.lineTo(cssWidth, rowHeight * 2); ctx.stroke();
 
-    const secondsVisible = 12;
-    const samples = Math.max(320, Math.round(cssWidth));
+    const sweep = W.sweep(waveformRecorder, state.elapsed, cssWidth);
     const drawLine = (key, row, min, max, color) => {
       ctx.beginPath();
-      for (let i = 0; i < samples; i += 1) {
-        const x = i / (samples - 1) * cssWidth;
-        const sampleTime = state.elapsed - secondsVisible + i / (samples - 1) * secondsVisible;
-        const wave = E.waveformAt(sampleTime, settings, state);
-        const normalized = E.clamp((wave[key] - min) / (max - min), 0, 1);
+      sweep.points.forEach(point => {
+        const normalized = E.clamp((point[key] - min) / (max - min), 0, 1);
         const y = row * rowHeight + rowHeight - 7 - normalized * (rowHeight - 14);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
+        if (point.breakBefore) ctx.moveTo(point.x, y);
+        else ctx.lineTo(point.x, y);
+      });
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
       ctx.shadowColor = color;
       ctx.shadowBlur = 5;
       ctx.stroke();
       ctx.shadowBlur = 0;
     };
-    const pressureMax = Math.max(40, (state.lastDerived?.peakPressure || 30) + 8);
-    const flowAbs = Math.max(80, Math.abs(state.lastDerived?.peakInspiratoryFlowLMin || 60) * 1.1);
-    const volumeMax = Math.max(800, (state.lastDerived?.tidalVolumeMl || 500) * 1.25);
-    drawLine('pressure', 0, 0, pressureMax, '#54e7ef');
-    drawLine('flow', 1, -flowAbs, flowAbs, '#ffd25c');
-    drawLine('volume', 2, 0, volumeMax, '#35e58a');
+    drawLine('pressure', 0, 0, 50, '#54e7ef');
+    drawLine('flow', 1, -160, 160, '#ffd25c');
+    drawLine('volume', 2, 0, 1600, '#35e58a');
   }
 
   function frame(now) {
@@ -1121,6 +1121,7 @@
     } else if (running && state.cardiacArrest) {
       state = E.step(state, settings, pumps, (rawDt || 0.016) * timeScale);
     }
+    W.advance(waveformRecorder, state.elapsed, settings, state);
     updateTasks();
     if (state.cardiacArrest && !priorCardiacArrest) {
       priorCardiacArrest = true;

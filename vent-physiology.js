@@ -24,6 +24,9 @@
     remifentanil: { running: true, rate: 0.15 }
   });
 
+  const INTUBATED_AIRWAY_DEAD_SPACE_ML_PER_KG_PBW = 1.95;
+  const APPARATUS_DEAD_SPACE_ML = 25;
+
   const LIMITS = Object.freeze({
     deltaP: [0, 40],
     peep: [0, 25],
@@ -166,7 +169,8 @@
       intrinsicPeep * clamp(te / cycleSeconds, 0, 1) * 0.35;
     const peakInspiratoryFlowLMin = settings.deltaP / resistance * 60;
     const minuteVolume = tidalVolumeMl * settings.rr / 1000;
-    const deadSpaceMl = 2.2 * PATIENT.predictedBodyWeightKg + 25 +
+    const deadSpaceMl = INTUBATED_AIRWAY_DEAD_SPACE_ML_PER_KG_PBW * PATIENT.predictedBodyWeightKg +
+      APPARATUS_DEAD_SPACE_ML +
       Math.max(0, settings.peep - 12) * 2.5 +
       state.lungInjury * 70;
     const alveolarMinuteVolume = Math.max(0.08, (tidalVolumeMl - deadSpaceMl) * settings.rr / 1000);
@@ -432,9 +436,9 @@
     return { ...current, norepiBolusUntil: current.elapsed + 60 };
   }
 
-  function waveformAt(timeSeconds, rawSettings, state) {
-    const d = state.lastDerived || lungMechanics(state, rawSettings);
-    const phase = ((timeSeconds % d.cycleSeconds) + d.cycleSeconds) % d.cycleSeconds;
+  function waveformAtPhase(phaseSeconds, rawSettings, state) {
+    const d = lungMechanics(state, rawSettings);
+    const phase = ((phaseSeconds % d.cycleSeconds) + d.cycleSeconds) % d.cycleSeconds;
     const inspiration = phase < d.ti;
     let pressure;
     let flowLMin;
@@ -460,6 +464,10 @@
       volume: clamp(volumeMl, 0, 1800),
       inspiration
     };
+  }
+
+  function waveformAt(timeSeconds, rawSettings, state) {
+    return waveformAtPhase(timeSeconds, rawSettings, state);
   }
 
   function runFor(state, settings, pumps, seconds, dt = 0.25) {
@@ -488,6 +496,7 @@
     addMedicationEffect,
     addFluidEffect,
     addNorepiBolus,
+    waveformAtPhase,
     waveformAt,
     runFor
   });
