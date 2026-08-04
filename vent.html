@@ -19,19 +19,23 @@
         <div class="game-timer"><span>Simulationszeit</span><strong id="simTime">00:00</strong></div>
       </div>
       <div class="top-actions">
-        <button id="soundBtn" type="button" aria-pressed="true" title="Pulston ein/aus">🔊 Pulston</button>
-        <button id="alarmBtn" type="button" title="Akustischen und optischen Alarm für 2 Minuten pausieren">⏸ Alarm 2 min</button>
         <button id="pauseBtn" type="button">Pause</button>
         <details class="game-menu">
           <summary>Menü</summary>
           <div class="game-menu-panel">
-            <label for="speedSelect">Tempo</label>
-            <select id="speedSelect">
-              <option value="1" selected>1×</option>
-              <option value="5">5×</option>
-              <option value="10">10×</option>
-            </select>
-            <small id="runState">läuft in Echtzeit</small>
+            <div class="menu-section">
+              <label for="speedSelect">Tempo</label>
+              <select id="speedSelect">
+                <option value="1" selected>1×</option>
+                <option value="5">5×</option>
+                <option value="10">10×</option>
+              </select>
+              <small id="runState">läuft in Echtzeit</small>
+            </div>
+            <details class="sound-submenu">
+              <summary><span>Sounds</span><small>4 Kanäle</small></summary>
+              <div id="soundMixer" class="sound-mixer" aria-label="Lautstärkemischung"></div>
+            </details>
             <button id="resetBtn" type="button">Fall neu starten</button>
             <a class="button-link" href="/simulator">Zur Simulationsauswahl</a>
           </div>
@@ -299,6 +303,7 @@
   <script src="interventions.js"></script>
   <script src="vent-physiology.js"></script>
   <script src="vent-waveform-history.js"></script>
+  <script src="ui-sound.js"></script>
   <script src="vent.js"></script>
 </body>
 </html>

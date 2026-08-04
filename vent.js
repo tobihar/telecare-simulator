@@ -28,6 +28,15 @@
     bladder: { label: 'Blasenkatheter', duration: 60, roles: ['ata'], vascular: false }
   });
   const FIO2_OPTIONS = Object.freeze([.21, .25, .3, .35, .4, .45, .5, .55, .6, .65, .7, .75, .8, .85, .9, .95, 1]);
+  const SOUND_STORAGE_KEY = 'galenVentSoundLevels';
+  const SOUND_LEVEL_GAIN = Object.freeze([0, .28, .5, .75, 1]);
+  const SOUND_LEVEL_LABELS = Object.freeze(['Stumm', 'Leise', 'Mittel', 'Laut', 'Maximal']);
+  const SOUND_CHANNELS = Object.freeze([
+    { id: 'alarm', label: 'Alarme', defaultLevel: 3 },
+    { id: 'pulse', label: 'Pulston', defaultLevel: 2 },
+    { id: 'ventilator', label: 'Beatmungston', defaultLevel: 2 },
+    { id: 'interface', label: 'Interface', defaultLevel: 2 }
+  ]);
   const LAB_DEFINITIONS = Object.freeze({
     hemoglobin: { label: 'Hämoglobin', value: '13,4 g/dl', norm: '12,0–16,0 g/dl' },
     hematocrit: { label: 'Hämatokrit', value: '40 %', norm: '36–46 %' },
@@ -53,7 +62,6 @@
   let state;
   let running;
   let lastFrameAt;
-  let alarmSilencedUntil;
   let bgaTask;
   let bgaHistory;
   let nibp;
@@ -61,10 +69,13 @@
   let priorAlarmIds;
   let priorCardiacArrest;
   let audioContext;
-  let soundEnabled;
+  let soundLevels;
   let nextPulseAt;
   let nextAlarmToneAt;
   let lastPulseAudioAt = Number.NEGATIVE_INFINITY;
+  let ventilatorNoiseBuffer;
+  const activeVentilatorNodes = new Set();
+  let lastSoundElapsed;
   let lastRenderAt;
   let staff;
   let access;
@@ -89,6 +100,7 @@
   let waveformRecorder;
 
   function freshSession() {
+    stopVentilatorSound();
     settings = { ...E.DEFAULT_SETTINGS };
     pumps = {
       propofol: { ...E.DEFAULT_PUMPS.propofol },
@@ -98,7 +110,6 @@
     waveformRecorder = W.create(E, settings, state);
     running = true;
     lastFrameAt = performance.now();
-    alarmSilencedUntil = 0;
     bgaTask = null;
     bgaHistory = [];
     labHistory = [];
@@ -132,10 +143,61 @@
     priorCardiacArrest = false;
     nextPulseAt = 0;
     nextAlarmToneAt = 0;
+    lastSoundElapsed = Number.NEGATIVE_INFINITY;
     lastRenderAt = 0;
     setVentValuesPage(0);
     addEvent('Sandbox gestartet: PCV und beide Perfusoren laufen mit den Startwerten.');
     addChat('Jonas Richter', 'Patientin zur elektiven Gallenblasenentfernung. Gerade intubiert, bitte übernehmen. Lass einen Propofol- und einen Remifentanil-Perfusor laufen, Remifentanil in µg/kg/min und Propofol in mg/kg/h.');
+  }
+
+  function defaultSoundLevels() {
+    return Object.fromEntries(SOUND_CHANNELS.map(channel => [channel.id, channel.defaultLevel]));
+  }
+
+  function loadSoundLevels() {
+    const levels = defaultSoundLevels();
+    try {
+      const saved = JSON.parse(localStorage.getItem(SOUND_STORAGE_KEY) || 'null');
+      SOUND_CHANNELS.forEach(channel => {
+        if (Number.isFinite(Number(saved?.[channel.id]))) levels[channel.id] = E.clamp(Math.round(Number(saved[channel.id])), 0, 4);
+      });
+    } catch {}
+    return levels;
+  }
+
+  function persistSoundLevels() {
+    try { localStorage.setItem(SOUND_STORAGE_KEY, JSON.stringify(soundLevels)); } catch {}
+  }
+
+  function channelGain(channel) {
+    return SOUND_LEVEL_GAIN[E.clamp(Math.round(Number(soundLevels?.[channel]) || 0), 0, 4)] || 0;
+  }
+
+  function renderSoundMixer() {
+    const mixer = $('soundMixer');
+    if (!mixer) return;
+    mixer.innerHTML = SOUND_CHANNELS.map(channel => {
+      const level = soundLevels[channel.id];
+      const buttons = SOUND_LEVEL_LABELS.map((label, value) => `
+        <button type="button" class="sound-level${level === value ? ' active' : ''}" data-sound-channel="${channel.id}" data-sound-level="${value}" aria-label="${channel.label}: ${label}" aria-pressed="${level === value}" title="${label}"></button>
+      `).join('');
+      return `<div class="sound-channel"><strong>${channel.label}</strong><output>${SOUND_LEVEL_LABELS[level]}</output><div class="sound-levels" role="group" aria-label="${channel.label} Lautstärke">${buttons}</div></div>`;
+    }).join('');
+    window.GalenUiSound?.setLevel(soundLevels.interface);
+  }
+
+  async function setSoundLevel(channel, rawLevel) {
+    if (!SOUND_CHANNELS.some(item => item.id === channel)) return;
+    const level = E.clamp(Math.round(Number(rawLevel) || 0), 0, 4);
+    soundLevels[channel] = level;
+    persistSoundLevels();
+    renderSoundMixer();
+    if (channel === 'interface') window.GalenUiSound?.setLevel(level);
+    if (channel === 'ventilator' && level === 0) stopVentilatorSound();
+    if (channel === 'ventilator' && level > 0) lastSoundElapsed = Number.NEGATIVE_INFINITY;
+    if (channel === 'pulse' && level > 0) nextPulseAt = state.elapsed;
+    if (channel === 'alarm' && level > 0) nextAlarmToneAt = state.elapsed;
+    if (channel !== 'interface' && level > 0) await ensureAudioContext();
   }
 
   function addEvent(text) {
@@ -373,6 +435,8 @@
     settings = E.normalizeSettings(settings);
     writeSettings();
     if (before !== JSON.stringify(settings)) {
+      stopVentilatorSound();
+      lastSoundElapsed = Number.NEGATIVE_INFINITY;
       const d = E.lungMechanics(state, settings);
       addEvent(`PCV geändert: ΔP ${settings.deltaP} mbar, PEEP ${settings.peep} mbar, AF ${settings.rr}/min, FiO₂ ${number(settings.fio2, 2)}, I:E ${settings.ie}; erwartetes VTe ${Math.round(d.tidalVolumeMl)} ml.`);
     }
@@ -900,8 +964,7 @@
       if (!priorAlarmIds.has(alarm.id)) addEvent(`Alarm: ${alarm.label}.`);
     });
     priorAlarmIds = alarmIds;
-    const silenced = alarmSilencedUntil > state.elapsed;
-    const visibleAlarmIds = silenced ? new Set() : alarmIds;
+    const visibleAlarmIds = alarmIds;
     const monitorAlarmMap = {
       hr: ['hr_low', 'hr_high', 'arrest'],
       map: ['map_low', 'arrest'],
@@ -922,10 +985,6 @@
       const ids = ventAlarmMap[tile.dataset.ventAlarm] || [];
       tile.classList.toggle('vent-value-alarm', ids.some(id => visibleAlarmIds.has(id)));
     });
-    const button = $('alarmBtn');
-    button.classList.toggle('alarm-paused', silenced);
-    button.textContent = silenced ? `⏸ Alarm ${Math.ceil(alarmSilencedUntil - state.elapsed)} s` : '⏸ Alarm 2 min';
-    button.title = alarms.length ? alarms.map(alarm => alarm.label).join(' · ') : 'Keine aktiven Alarme';
   }
 
   function renderOverallStatus() {
@@ -1003,29 +1062,31 @@
     lastRenderAt = now;
   }
 
-  function tone(frequency, duration, gain = 0.035) {
-    if (!soundEnabled || document.hidden || !audioContext || audioContext.state !== 'running') return false;
+  function tone(frequency, duration, gain = 0.035, channel = 'pulse', type = 'sine', delay = 0) {
+    const levelGain = channelGain(channel);
+    if (!levelGain || document.hidden || !audioContext || audioContext.state !== 'running') return false;
     const oscillator = audioContext.createOscillator();
     const volume = audioContext.createGain();
-    const startedAt = audioContext.currentTime;
+    const startedAt = audioContext.currentTime + Math.max(0, delay);
     const attackEndsAt = startedAt + Math.min(0.005, duration / 3);
-    oscillator.type = 'sine';
+    oscillator.type = type;
     oscillator.frequency.value = frequency;
     volume.gain.setValueAtTime(0.0001, startedAt);
-    volume.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), attackEndsAt);
+    volume.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain * levelGain), attackEndsAt);
     volume.gain.exponentialRampToValueAtTime(0.0001, startedAt + duration);
     oscillator.connect(volume).connect(audioContext.destination);
+    if (channel === 'ventilator') trackVentilatorNode(oscillator);
     oscillator.start(startedAt);
     oscillator.stop(startedAt + duration);
     return true;
   }
 
   function pulseTone(frequency) {
-    if (!soundEnabled || !audioContext || audioContext.state !== 'running') return false;
+    if (!channelGain('pulse') || !audioContext || audioContext.state !== 'running') return false;
     const now = audioContext.currentTime;
     if (now - lastPulseAudioAt < 0.18) return true;
     lastPulseAudioAt = now;
-    return tone(frequency, 0.045, 0.025);
+    return tone(frequency, 0.045, 0.025, 'pulse');
   }
 
   async function ensureAudioContext() {
@@ -1037,15 +1098,184 @@
     }
   }
 
+  function getVentilatorNoiseBuffer() {
+    if (!audioContext) return null;
+    if (ventilatorNoiseBuffer?.sampleRate === audioContext.sampleRate) return ventilatorNoiseBuffer;
+    const length = Math.max(1, Math.round(audioContext.sampleRate * 2));
+    ventilatorNoiseBuffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
+    const samples = ventilatorNoiseBuffer.getChannelData(0);
+    let smoothed = 0;
+    for (let i = 0; i < length; i += 1) {
+      smoothed = smoothed * .54 + (Math.random() * 2 - 1) * .46;
+      samples[i] = smoothed * .9 + (Math.random() * 2 - 1) * .1;
+    }
+    return ventilatorNoiseBuffer;
+  }
+
+  function trackVentilatorNode(node) {
+    activeVentilatorNodes.add(node);
+    node.addEventListener('ended', () => activeVentilatorNodes.delete(node), { once: true });
+    return node;
+  }
+
+  function stopVentilatorSound() {
+    activeVentilatorNodes.forEach(node => {
+      try { node.stop(); } catch {}
+      try { node.disconnect(); } catch {}
+    });
+    activeVentilatorNodes.clear();
+  }
+
+  function scheduleVentilatorValveClick(startedAt, levelGain, pitch = 1, strength = 1) {
+    const noise = getVentilatorNoiseBuffer();
+    if (!noise) return;
+
+    const snap = trackVentilatorNode(audioContext.createBufferSource());
+    const snapHighPass = audioContext.createBiquadFilter();
+    const snapResonance = audioContext.createBiquadFilter();
+    const snapGain = audioContext.createGain();
+    snap.buffer = noise;
+    snapHighPass.type = 'highpass';
+    snapHighPass.frequency.setValueAtTime(820 * pitch, startedAt);
+    snapResonance.type = 'peaking';
+    snapResonance.frequency.setValueAtTime(2050 * pitch, startedAt);
+    snapResonance.Q.setValueAtTime(1.1, startedAt);
+    snapResonance.gain.setValueAtTime(5, startedAt);
+    snapGain.gain.setValueAtTime(.016 * levelGain * strength, startedAt);
+    snapGain.gain.exponentialRampToValueAtTime(.0001, startedAt + .014);
+    snap.connect(snapHighPass).connect(snapResonance).connect(snapGain).connect(audioContext.destination);
+    snap.start(startedAt);
+    snap.stop(startedAt + .018);
+
+    const body = trackVentilatorNode(audioContext.createOscillator());
+    const bodyGain = audioContext.createGain();
+    body.type = 'triangle';
+    body.frequency.setValueAtTime(430 * pitch, startedAt);
+    body.frequency.exponentialRampToValueAtTime(220 * pitch, startedAt + .019);
+    bodyGain.gain.setValueAtTime(.0032 * levelGain * strength, startedAt);
+    bodyGain.gain.exponentialRampToValueAtTime(.0001, startedAt + .021);
+    body.connect(bodyGain).connect(audioContext.destination);
+    body.start(startedAt);
+    body.stop(startedAt + .023);
+  }
+
+  function scheduleVentilatorBreath(derived) {
+    const levelGain = channelGain('ventilator');
+    if (!levelGain || !running || state.cardiacArrest || document.hidden || !audioContext || audioContext.state !== 'running') return false;
+    const noise = getVentilatorNoiseBuffer();
+    if (!noise) return false;
+
+    const playbackScale = Math.max(1, timeScale);
+    const ti = E.clamp(derived.ti / playbackScale, .04, 15);
+    const te = E.clamp(derived.te / playbackScale, .04, 15);
+    const startedAt = audioContext.currentTime + .004;
+    const inspirationEndsAt = startedAt + ti;
+    const breathEndsAt = inspirationEndsAt + te;
+    const rise = Math.min(Math.max(.012, settings.riseTime / playbackScale), Math.max(.014, ti * .72));
+    const peakFlow = Math.max(0, Number(derived.peakInspiratoryFlowLMin) || 0);
+    const flowIntensity = E.clamp(.62 + peakFlow / 180, .68, 1.35);
+    const inspirationPeakAt = startedAt + Math.min(Math.max(.014, rise * .35), ti * .36);
+    const inspirationTailAt = Math.max(inspirationPeakAt + .012, inspirationEndsAt - .014);
+    const inspirationPeakGain = .027 * levelGain * flowIntensity;
+    const inspirationTailGain = Math.max(.0007, inspirationPeakGain * .16);
+
+    const inspiration = trackVentilatorNode(audioContext.createBufferSource());
+    const inspirationHighPass = audioContext.createBiquadFilter();
+    const inspirationLowPass = audioContext.createBiquadFilter();
+    const inspirationGain = audioContext.createGain();
+    inspiration.buffer = noise;
+    inspiration.loop = true;
+    inspirationHighPass.type = 'highpass';
+    inspirationHighPass.frequency.setValueAtTime(260, startedAt);
+    inspirationLowPass.type = 'lowpass';
+    inspirationLowPass.frequency.setValueAtTime(3900 + Math.min(900, settings.deltaP * 28), startedAt);
+    inspirationLowPass.Q.setValueAtTime(.55, startedAt);
+    inspirationLowPass.frequency.exponentialRampToValueAtTime(1450, inspirationTailAt);
+    inspirationGain.gain.setValueAtTime(.0001, startedAt);
+    inspirationGain.gain.exponentialRampToValueAtTime(inspirationPeakGain, inspirationPeakAt);
+    inspirationGain.gain.exponentialRampToValueAtTime(inspirationTailGain, inspirationTailAt);
+    inspirationGain.gain.exponentialRampToValueAtTime(.0001, inspirationEndsAt);
+    inspiration.connect(inspirationHighPass).connect(inspirationLowPass).connect(inspirationGain).connect(audioContext.destination);
+    inspiration.start(startedAt);
+    inspiration.stop(inspirationEndsAt + .004);
+
+    const turbine = trackVentilatorNode(audioContext.createOscillator());
+    const turbineGain = audioContext.createGain();
+    turbine.type = 'sine';
+    turbine.frequency.setValueAtTime(86 + settings.deltaP * .7, startedAt);
+    turbine.frequency.exponentialRampToValueAtTime(122 + settings.deltaP * .9, inspirationPeakAt);
+    turbine.frequency.exponentialRampToValueAtTime(92, inspirationTailAt);
+    turbineGain.gain.setValueAtTime(.0001, startedAt);
+    turbineGain.gain.exponentialRampToValueAtTime(.0017 * levelGain * flowIntensity, inspirationPeakAt);
+    turbineGain.gain.exponentialRampToValueAtTime(.00035 * levelGain, inspirationTailAt);
+    turbineGain.gain.exponentialRampToValueAtTime(.0001, inspirationEndsAt);
+    turbine.connect(turbineGain).connect(audioContext.destination);
+    turbine.start(startedAt);
+    turbine.stop(inspirationEndsAt + .004);
+
+    const expiration = trackVentilatorNode(audioContext.createBufferSource());
+    const expirationHighPass = audioContext.createBiquadFilter();
+    const expirationLowPass = audioContext.createBiquadFilter();
+    const expirationGain = audioContext.createGain();
+    const lungTau = Math.max(.15, Number(derived.tau) || .8) / playbackScale;
+    const expirationAttackAt = inspirationEndsAt + Math.min(.012, te * .18);
+    const expirationDecayAt = Math.min(breathEndsAt - .012, inspirationEndsAt + Math.max(.09, Math.min(te * .82, lungTau * 3.1)));
+    const expirationIntensity = E.clamp(.7 + derived.tidalVolumeMl / 950, .72, 1.45);
+    const expirationPeakGain = .028 * levelGain * expirationIntensity;
+    expiration.buffer = noise;
+    expiration.loop = true;
+    expirationHighPass.type = 'highpass';
+    expirationHighPass.frequency.setValueAtTime(170, inspirationEndsAt);
+    expirationLowPass.type = 'lowpass';
+    expirationLowPass.frequency.setValueAtTime(2850 + Math.min(950, derived.tidalVolumeMl * 1.4), inspirationEndsAt);
+    expirationLowPass.Q.setValueAtTime(.48, inspirationEndsAt);
+    expirationLowPass.frequency.exponentialRampToValueAtTime(720, expirationDecayAt);
+    expirationGain.gain.setValueAtTime(.0001, inspirationEndsAt);
+    expirationGain.gain.exponentialRampToValueAtTime(expirationPeakGain, expirationAttackAt);
+    expirationGain.gain.exponentialRampToValueAtTime(.0011 * levelGain, expirationDecayAt);
+    expirationGain.gain.exponentialRampToValueAtTime(.0001, breathEndsAt);
+    expiration.connect(expirationHighPass).connect(expirationLowPass).connect(expirationGain).connect(audioContext.destination);
+    expiration.start(inspirationEndsAt);
+    expiration.stop(breathEndsAt + .004);
+
+    scheduleVentilatorValveClick(startedAt, levelGain, 1.08, .86);
+    scheduleVentilatorValveClick(inspirationEndsAt, levelGain, .88, 1);
+    return true;
+  }
+
+  function updateVentilatorSound() {
+    if (!running || state.cardiacArrest || !channelGain('ventilator')) {
+      stopVentilatorSound();
+      lastSoundElapsed = state.elapsed;
+      return;
+    }
+    const derived = state.lastDerived || E.lungMechanics(state, settings);
+    if (!Number.isFinite(lastSoundElapsed)) {
+      scheduleVentilatorBreath(derived);
+      lastSoundElapsed = state.elapsed;
+      return;
+    }
+    const previousElapsed = lastSoundElapsed;
+    const previousBreath = Math.floor(Math.max(0, previousElapsed) / derived.cycleSeconds);
+    const currentBreath = Math.floor(Math.max(0, state.elapsed) / derived.cycleSeconds);
+    if (state.elapsed < previousElapsed || currentBreath > previousBreath) scheduleVentilatorBreath(derived);
+    lastSoundElapsed = state.elapsed;
+  }
+
   function updateSound() {
-    if (!soundEnabled || !running || state.cardiacArrest) return;
-    if (state.elapsed >= nextPulseAt && state.hr > 0) {
+    if (!running) {
+      stopVentilatorSound();
+      lastSoundElapsed = Number.NEGATIVE_INFINITY;
+      return;
+    }
+    updateVentilatorSound();
+    if (!state.cardiacArrest && state.elapsed >= nextPulseAt && state.hr > 0) {
       const spo2Frequency = E.clamp(430 + (state.spo2 - 80) * 16, 260, 760);
       if (pulseTone(spo2Frequency)) nextPulseAt = state.elapsed + 60 / Math.max(20, state.hr);
     }
-    if (state.alarms.length && alarmSilencedUntil <= state.elapsed && state.elapsed >= nextAlarmToneAt) {
+    if (state.alarms.length && state.elapsed >= nextAlarmToneAt) {
       const critical = state.alarms.some(alarm => alarm.priority === 'critical');
-      tone(critical ? 930 : 720, critical ? 0.16 : 0.11, 0.045);
+      tone(critical ? 930 : 720, critical ? 0.16 : 0.11, 0.045, 'alarm');
       nextAlarmToneAt = state.elapsed + (critical ? 0.7 : 1.4);
     }
   }
@@ -1183,8 +1413,15 @@
     });
     $('speedSelect').addEventListener('change', event => {
       timeScale = [1, 5, 10].includes(Number(event.target.value)) ? Number(event.target.value) : 1;
+      stopVentilatorSound();
+      lastSoundElapsed = Number.NEGATIVE_INFINITY;
       addEvent(`Simulationsgeschwindigkeit auf ${timeScale}× gesetzt.`);
       render();
+    });
+    $('soundMixer').addEventListener('click', event => {
+      const button = event.target.closest('[data-sound-channel][data-sound-level]');
+      if (!button) return;
+      setSoundLevel(button.dataset.soundChannel, button.dataset.soundLevel);
     });
     $('measureNibpBtn').addEventListener('click', () => beginNibpMeasurement());
     $('accessBtn').addEventListener('click', () => $('accessDialog').showModal());
@@ -1217,6 +1454,7 @@
     $('pauseBtn').addEventListener('click', () => {
       running = !running;
       lastFrameAt = performance.now();
+      if (running) lastSoundElapsed = Number.NEGATIVE_INFINITY;
       addEvent(running ? 'Simulation fortgesetzt.' : 'Simulation pausiert.');
       render();
     });
@@ -1232,34 +1470,22 @@
       $('labHistoryBtn').disabled = true;
       $('ecgResultBtn').disabled = true;
       $('sonoResultBtn').disabled = true;
-      soundEnabled = true;
-      $('soundBtn').textContent = '🔊 Pulston';
-      $('soundBtn').setAttribute('aria-pressed', 'true');
       document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
+      renderSoundMixer();
       render();
       checkAiStatus();
     });
-    $('alarmBtn').addEventListener('click', () => {
-      alarmSilencedUntil = state.elapsed + 120;
-      addEvent('Akustischer Alarm für 2 Minuten pausiert.');
-      renderAlarms();
-    });
-    $('soundBtn').addEventListener('click', async () => {
-      if (soundEnabled) {
-        soundEnabled = false;
-      } else {
-        await ensureAudioContext();
-        soundEnabled = true;
-        nextPulseAt = state.elapsed;
-      }
-      $('soundBtn').textContent = soundEnabled ? '🔊 Pulston' : '🔇 Pulston aus';
-      $('soundBtn').setAttribute('aria-pressed', String(soundEnabled));
-    });
-    document.addEventListener('pointerdown', () => {
-      if (soundEnabled) ensureAudioContext();
+    document.addEventListener('pointerdown', async () => {
+      if (channelGain('alarm') || channelGain('pulse') || channelGain('ventilator')) await ensureAudioContext();
+      if (channelGain('ventilator')) lastSoundElapsed = Number.NEGATIVE_INFINITY;
     }, { once: true });
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && soundEnabled) nextPulseAt = state.elapsed;
+      if (document.hidden) stopVentilatorSound();
+      if (!document.hidden) {
+        nextPulseAt = state.elapsed;
+        nextAlarmToneAt = state.elapsed;
+        lastSoundElapsed = Number.NEGATIVE_INFINITY;
+      }
     });
   }
 
@@ -1276,11 +1502,13 @@
       }
     } catch {}
     if ($('participantName')) $('participantName').textContent = participant || '–';
-    soundEnabled = true;
+    soundLevels = loadSoundLevels();
+    window.GalenUiSound?.setLevel(soundLevels.interface);
     freshSession();
     writeSettings();
     updatePumpOutputs();
     renderLabOptions();
+    renderSoundMixer();
     bindControls();
     setVentValuesPage(0);
     render();
