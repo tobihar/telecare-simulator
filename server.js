@@ -81,7 +81,8 @@ async function sendFile(req, res, relative) {
 }
 async function staticFile(req, res, pathname) {
   if (pathname === '/admin' || pathname === '/admin/') return sendFile(req, res, 'admin.html');
-  let rel = pathname === '/' ? 'index.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+  if (pathname === '/simulator' || pathname === '/simulator/') return sendFile(req, res, 'index.html');
+  let rel = pathname === '/' ? 'landing.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const abs = safePath(rel);
   if (!abs) return text(res, 403, 'Forbidden');
   try {
