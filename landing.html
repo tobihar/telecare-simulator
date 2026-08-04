@@ -32,7 +32,7 @@
       <a href="#about">Über uns</a>
     </nav>
 
-    <a class="login-link" href="/admin"><span class="login-dot" aria-hidden="true"></span>Einloggen</a>
+    <button class="login-link placeholder-login" type="button" title="Benutzerlogin – in Vorbereitung"><span class="login-dot" aria-hidden="true"></span>Einloggen</button>
   </header>
 
   <main id="main">
@@ -191,14 +191,14 @@
       </div>
 
       <div class="course-grid">
-        <a class="course-card course-primary reveal" href="/simulator">
+        <a class="course-card course-primary reveal" href="/simulator?module=shock">
           <div class="course-status"><i></i> Einsatzbereit</div>
           <div class="course-planet shock-planet" aria-hidden="true"><span></span><i></i></div>
           <div class="course-copy"><small>TRAINING DECK 01</small><h3>Akutmedizin &amp;<br />Schockraum</h3><p>Sechs dynamische Szenarien mit Teamkommunikation, Diagnostik und zeitkritischer Therapie.</p></div>
           <div class="course-meta"><span>06 Missionen</span><strong>Deck öffnen ↗</strong></div>
         </a>
 
-        <a class="course-card reveal" href="/vent.html">
+        <a class="course-card reveal" href="/simulator?module=anesthesia">
           <div class="course-status experimental"><i></i> Experimental</div>
           <div class="course-planet vent-planet" aria-hidden="true"><span></span><i></i></div>
           <div class="course-copy"><small>TRAINING DECK 02</small><h3>Anästhesie &amp;<br />Beatmung</h3><p>PCV-Sandbox für Beatmungsphysiologie, TIVA und perioperatives Monitoring.</p></div>
@@ -233,8 +233,11 @@
 
   <footer class="site-footer">
     <a class="brand footer-brand" href="#top"><span class="brand-orbit" aria-hidden="true"><i></i></span><span class="brand-type"><strong>GALEN</strong><small>Clinical Simulation</small></span></a>
-    <p>Medizinische Simulation für Lehre und Training.</p>
-    <div><span>© <span id="year"></span> Tobias Harig</span><a href="/admin">Dozentenbereich</a></div>
+    <div class="footer-center">
+      <a class="admin-login" href="/admin"><span aria-hidden="true"></span>Admin Login</a>
+      <p>Medizinische Simulation für Lehre und Training.</p>
+    </div>
+    <div class="footer-meta"><span>© <span id="year"></span> Tobias Harig</span></div>
   </footer>
 
   <script src="landing.js"></script>

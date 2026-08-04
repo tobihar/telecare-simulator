@@ -1264,6 +1264,18 @@
   }
 
   function init() {
+    let participant = '';
+    try {
+      const launchConfig = JSON.parse(sessionStorage.getItem('galenLaunchConfig') || 'null');
+      if (launchConfig?.version === 1 && launchConfig.module === 'anesthesia' && Date.now() - Number(launchConfig.createdAt || 0) <= 30 * 60 * 1000) {
+        participant = String(launchConfig.username || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+        sessionStorage.setItem('galenParticipant', participant);
+        sessionStorage.removeItem('galenLaunchConfig');
+      } else {
+        participant = String(sessionStorage.getItem('galenParticipant') || '').trim().slice(0, 80);
+      }
+    } catch {}
+    if ($('participantName')) $('participantName').textContent = participant || '–';
     soundEnabled = true;
     freshSession();
     writeSettings();

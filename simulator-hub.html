@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#05080d" />
+  <meta name="description" content="Wähle deine nächste klinische Simulation in Galen." />
+  <title>Galen · Simulation auswählen</title>
+  <script>document.documentElement.classList.add('js')</script>
+  <link rel="stylesheet" href="landing.css" />
+  <link rel="stylesheet" href="simulator-hub.css" />
+</head>
+<body class="hub-body">
+  <a class="skip-link" href="#missionSelection">Zur Simulationsauswahl springen</a>
+  <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+  <div class="space-haze" aria-hidden="true"></div>
+  <div class="hub-orbit hub-orbit-left" aria-hidden="true"></div>
+  <div class="hub-orbit hub-orbit-right" aria-hidden="true"></div>
+
+  <header class="site-header hub-header" id="siteHeader">
+    <a class="brand" href="/" aria-label="Zur Galen Startseite">
+      <span class="brand-orbit" aria-hidden="true"><i></i></span>
+      <span class="brand-type"><strong>GALEN</strong><small>Simulation Deck</small></span>
+    </a>
+    <div class="hub-header-status" aria-hidden="true"><i></i><span>Mission Control online</span></div>
+    <a class="hub-back" href="/"><span aria-hidden="true">←</span> Startseite</a>
+  </header>
+
+  <main class="hub-main" id="missionSelection">
+    <section class="hub-intro reveal visible">
+      <div class="mission-label"><span></span> Simulation Deck // Select mission</div>
+      <h1>Was simulierst<br />du <em>heute?</em></h1>
+      <p>Wähle dein Trainingsgebiet und stelle die Mission zusammen. Dein Benutzername begleitet dich bis in die Auswertung.</p>
+    </section>
+
+    <form id="missionForm" novalidate>
+      <section class="identity-console reveal visible" aria-labelledby="identityTitle">
+        <div class="identity-index" aria-hidden="true">01</div>
+        <div class="identity-copy">
+          <span class="console-label">Teilnehmeridentifikation</span>
+          <h2 id="identityTitle">Wie dürfen wir dich nennen?</h2>
+          <p>Der Name wird für deinen Simulationsdurchlauf und die persönliche Auswertung verwendet.</p>
+        </div>
+        <label class="identity-field" for="participantInput">
+          <span>Benutzername <b>Pflichtfeld</b></span>
+          <span class="input-shell">
+            <i aria-hidden="true"></i>
+            <input id="participantInput" name="participant" type="text" minlength="2" maxlength="80" autocomplete="name" placeholder="z. B. Tobias" required aria-describedby="participantError" />
+            <strong id="identityState" aria-hidden="true">ID</strong>
+          </span>
+          <small id="participantError" class="field-error" aria-live="polite"></small>
+        </label>
+      </section>
+
+      <section class="module-section" aria-labelledby="moduleTitle">
+        <div class="module-heading reveal">
+          <div><span class="console-label">02 / Trainingsgebiet</span><h2 id="moduleTitle">Wähle ein Simulationsdeck</h2></div>
+          <p>Jedes Deck verwendet eine eigene klinische Umgebung, behält aber dieselbe Galen-Systemlogik.</p>
+        </div>
+
+        <input id="selectedModule" name="module" type="hidden" required />
+        <div class="module-grid">
+          <button class="module-card shock-module reveal" type="button" data-module="shock" aria-pressed="false">
+            <span class="module-status"><i></i> Einsatzbereit</span>
+            <span class="module-number">DECK 01</span>
+            <span class="module-visual shock-visual" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><b></b>
+            </span>
+            <span class="module-copy"><small>Akutmedizin</small><strong>Schock</strong><em>6 dynamische Fallszenarien</em></span>
+            <span class="module-action">Konfigurieren <b>↗</b></span>
+          </button>
+
+          <button class="module-card anesthesia-module reveal" type="button" data-module="anesthesia" aria-pressed="false">
+            <span class="module-status experimental"><i></i> Experimental</span>
+            <span class="module-number">DECK 02</span>
+            <span class="module-visual vent-visual" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><i></i><b></b>
+            </span>
+            <span class="module-copy"><small>OP &amp; Intensivmedizin</small><strong>Anästhesie</strong><em>PCV-Beatmungssandbox</em></span>
+            <span class="module-action">Konfigurieren <b>↗</b></span>
+          </button>
+
+          <article class="module-card future-module reveal" aria-label="Weitere Simulatoren in Vorbereitung">
+            <span class="module-status planned"><i></i> In Entwicklung</span>
+            <span class="module-number">NEXT</span>
+            <span class="module-visual future-visual" aria-hidden="true"><i></i><i></i><b>+</b></span>
+            <span class="module-copy"><small>Neue Trainingsdecks</small><strong>More<br />coming soon</strong><em>Weitere Module sind in Planung</em></span>
+            <span class="module-action muted">Signal ausstehend</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="config-panel" id="configPanel" aria-live="polite" hidden>
+        <div class="config-topline"><span>03 / Missionskonfiguration</span><button id="closeConfig" type="button" aria-label="Konfiguration schließen">×</button></div>
+
+        <div class="config-header">
+          <div class="config-emblem" id="configEmblem" aria-hidden="true"><i></i></div>
+          <div><small id="configKicker">DECK 01</small><h2 id="configTitle">Schock-Simulation</h2><p id="configDescription">Wähle Szenario, Schwierigkeit und Simulationsdauer.</p></div>
+          <div class="ready-state"><i></i><span>Systemstatus</span><strong>STARTKLAR</strong></div>
+        </div>
+
+        <div id="shockConfig" class="config-content">
+          <label class="config-field case-field" for="hubCaseSelect">
+            <span><b>01</b> Fallszenario</span>
+            <select id="hubCaseSelect" name="caseId"></select>
+            <small id="caseMeta">Setting wird geladen …</small>
+          </label>
+
+          <fieldset class="config-field">
+            <legend><b>02</b> Schwierigkeit</legend>
+            <div class="segment-control difficulty-control">
+              <label><input type="radio" name="difficulty" value="easy" checked /><span><strong>Leicht</strong><small>mehr Stabilität</small></span></label>
+              <label><input type="radio" name="difficulty" value="medium" /><span><strong>Mittel</strong><small>dynamischer Verlauf</small></span></label>
+              <label><input type="radio" name="difficulty" value="hard" /><span><strong>Schwer</strong><small>maximaler Zeitdruck</small></span></label>
+            </div>
+          </fieldset>
+
+          <fieldset class="config-field">
+            <legend><b>03</b> Simulationsdauer</legend>
+            <div class="segment-control duration-control-hub">
+              <label><input type="radio" name="duration" value="300" /><span><strong>05</strong><small>Minuten</small></span></label>
+              <label><input type="radio" name="duration" value="600" checked /><span><strong>10</strong><small>Minuten</small></span></label>
+              <label><input type="radio" name="duration" value="900" /><span><strong>15</strong><small>Minuten</small></span></label>
+              <label><input type="radio" name="duration" value="1200" /><span><strong>20</strong><small>Minuten</small></span></label>
+            </div>
+          </fieldset>
+        </div>
+
+        <div id="anesthesiaConfig" class="config-content anesthesia-config" hidden>
+          <div class="locked-setting"><span><b>01</b> Szenario</span><strong>Beatmung bei elektiver OP</strong><small>Gesunde Patientin nach Intubation</small></div>
+          <div class="locked-setting"><span><b>02</b> Modus</span><strong>PCV Sandbox</strong><small>Freie Beatmungs- und TIVA-Einstellungen</small></div>
+          <div class="locked-setting"><span><b>03</b> Laufzeit</span><strong>Offen</strong><small>Simulation endet manuell</small></div>
+        </div>
+
+        <div class="launch-console">
+          <div class="launch-summary"><span>Teilnehmer</span><strong id="launchParticipant">Noch nicht angegeben</strong><small id="launchSummary">Deck auswählen und Einstellungen prüfen</small></div>
+          <button class="mission-launch" id="missionLaunch" type="submit"><span aria-hidden="true">↗</span><i><small>Konfiguration bestätigt</small><strong>Simulation starten</strong></i><b aria-hidden="true"></b></button>
+        </div>
+      </section>
+    </form>
+  </main>
+
+  <footer class="hub-footer">
+    <span>GALEN // SIMULATION DECK</span>
+    <p>Nur für Lehre und Simulation – nicht zur Behandlung realer Patientinnen und Patienten.</p>
+    <span>© <span id="year"></span> Tobias Harig</span>
+  </footer>
+
+  <script src="cases.js"></script>
+  <script src="landing.js"></script>
+  <script src="simulator-hub.js"></script>
+</body>
+</html>
