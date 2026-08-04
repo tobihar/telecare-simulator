@@ -3,41 +3,88 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TeleCare · Dozentenbereich</title>
+  <meta name="theme-color" content="#eef4f7" />
+  <title>Galen · Admin Control Center</title>
   <link rel="stylesheet" href="admin.css" />
 </head>
 <body>
+  <div class="admin-backdrop" aria-hidden="true">
+    <span class="grid-plane"></span>
+    <span class="orbit orbit-one"></span>
+    <span class="orbit orbit-two"></span>
+  </div>
+
   <main class="admin-shell">
     <section id="loginView" class="login-card">
-      <div class="eyebrow">TeleCare</div>
-      <h1>Dozentenbereich</h1>
-      <p>Geschützter Zugriff auf gespeicherte Simulationsergebnisse.</p>
-      <form id="loginForm">
-        <label>Benutzername<input id="adminUsername" autocomplete="username" required /></label>
-        <label>Passwort<input id="adminPassword" type="password" autocomplete="current-password" required /></label>
-        <p id="loginError" class="error hidden"></p>
-        <button type="submit">Anmelden</button>
-      </form>
-      <a class="back-link" href="/">← Zur Simulation</a>
+      <div class="login-brand-panel">
+        <a class="admin-brand" href="/" aria-label="Zur Galen Startseite">
+          <span class="admin-brand-mark"><i></i></span>
+          <span class="admin-brand-copy"><strong>GALEN</strong><small>Clinical Simulation</small></span>
+        </a>
+
+        <div class="access-visual" aria-hidden="true">
+          <span class="access-ring ring-a"></span>
+          <span class="access-ring ring-b"></span>
+          <span class="access-core"></span>
+          <span class="access-scan"></span>
+        </div>
+
+        <div class="login-intro">
+          <div class="eyebrow">Admin Control Center</div>
+          <h1>Lehre steuern.<br />Fortschritt verstehen.</h1>
+          <p>Der geschützte Arbeitsbereich für Simulationsergebnisse und anonyme Evaluationen.</p>
+        </div>
+
+        <div class="login-system-state">
+          <span><i></i> System bereit</span>
+          <span>ACCESS LEVEL / ADMIN</span>
+        </div>
+      </div>
+
+      <div class="login-form-panel">
+        <div class="panel-index"><span>AUTHENTIFIZIERUNG</span><strong>01 / 01</strong></div>
+        <div class="form-heading">
+          <div class="eyebrow red">Geschützter Bereich</div>
+          <h2>Admin Login</h2>
+          <p>Melde dich mit deinen Zugangsdaten an.</p>
+        </div>
+        <form id="loginForm">
+          <label><span>Benutzername</span><input id="adminUsername" autocomplete="username" required /></label>
+          <label><span>Passwort</span><input id="adminPassword" type="password" autocomplete="current-password" required /></label>
+          <p id="loginError" class="error hidden"></p>
+          <button type="submit"><span>Anmelden</span><strong aria-hidden="true">→</strong></button>
+        </form>
+        <a class="back-link" href="/"><span>←</span> Zurück zur Startseite</a>
+        <p class="security-note">Nur für autorisiertes Lehrpersonal. Zugriffe auf diesen Bereich sind geschützt.</p>
+      </div>
     </section>
 
     <section id="dashboardView" class="dashboard hidden">
       <header class="dashboard-head">
-        <div><div class="eyebrow">TeleCare</div><h1>Dozentenbereich</h1><p id="sessionInfo"></p></div>
-        <div class="head-actions"><a class="button secondary" href="/api/admin/export.csv">Ergebnisse CSV</a><a class="button secondary" href="/api/admin/evaluations/export.csv">Evaluationen CSV</a><button id="logoutBtn" class="secondary">Abmelden</button></div>
+        <div class="dashboard-identity">
+          <a class="admin-brand compact-brand" href="/" aria-label="Zur Galen Startseite">
+            <span class="admin-brand-mark"><i></i></span>
+            <span class="admin-brand-copy"><strong>GALEN</strong><small>Admin Control</small></span>
+          </a>
+          <span class="identity-divider"></span>
+          <div class="dashboard-title"><div class="eyebrow">Dozentenbereich</div><h1>Control Center</h1><p id="sessionInfo"></p></div>
+        </div>
+        <div class="dashboard-controls">
+          <div class="system-ready"><i></i><span><small>Systemstatus</small><strong>Bereit</strong></span></div>
+          <div class="head-actions"><a class="button secondary export-button" href="/api/admin/export.csv"><span>Ergebnisse</span> CSV ↓</a><a class="button secondary export-button" href="/api/admin/evaluations/export.csv"><span>Evaluationen</span> CSV ↓</a><button id="logoutBtn" class="secondary logout-button">Abmelden ↗</button></div>
+        </div>
       </header>
 
       <nav class="admin-tabs" aria-label="Bereiche">
-        <button class="tab-btn active" data-view="resultsView">Ergebnisse</button>
-        <button class="tab-btn" data-view="caseSummaryView">Anonyme Evaluationen</button>
-        <button class="tab-btn" data-view="systemSummaryView">System-Evaluation</button>
+        <button class="tab-btn active" data-view="resultsView"><span>01</span> Ergebnisse</button>
+        <button class="tab-btn" data-view="caseSummaryView"><span>02</span> Anonyme Evaluationen</button>
+        <button class="tab-btn" data-view="systemSummaryView"><span>03</span> System-Evaluation</button>
       </nav>
 
       <section id="resultsView" class="admin-view">
         <div class="toolbar">
-          <input id="searchInput" placeholder="Benutzername suchen …" />
-          <button id="searchBtn">Suchen</button>
-          <button id="refreshBtn" class="secondary">Aktualisieren</button>
+          <div class="toolbar-title"><span>DATENSÄTZE</span><strong>Simulationsergebnisse</strong></div>
+          <div class="toolbar-search"><input id="searchInput" placeholder="Benutzername suchen …" /><button id="searchBtn">Suchen →</button><button id="refreshBtn" class="secondary">↻ Aktualisieren</button></div>
         </div>
         <p id="dashboardMessage" class="message"></p>
         <div class="table-wrap">
@@ -49,7 +96,7 @@
       </section>
 
       <section id="caseSummaryView" class="admin-view hidden">
-        <div class="summary-header"><div><h2>Anonyme Evaluationen nach Fall</h2><p>Die Fragebögen enthalten keine Benutzernamen und sind nicht mit Simulationsergebnissen verknüpft.</p></div></div>
+        <div class="summary-header"><div><div class="section-code">EVALUATION / 02</div><h2>Anonyme Evaluationen nach Fall</h2><p>Die Fragebögen enthalten keine Benutzernamen und sind nicht mit Simulationsergebnissen verknüpft.</p></div><span class="privacy-badge">ANONYM GETRENNT</span></div>
         <p id="caseSummaryMessage" class="message"></p>
         <div id="caseFolderList" class="case-folder-list" aria-label="Fälle"></div>
         <div id="caseSummaryContent"></div>
@@ -61,7 +108,7 @@
       </section>
 
       <section id="systemSummaryView" class="admin-view hidden">
-        <div class="summary-header"><div><h2>Evaluation des TeleCare-Systems</h2><p>Gesamtauswertung aller abgegebenen Systembewertungen.</p></div></div>
+        <div class="summary-header"><div><div class="section-code">SYSTEM / 03</div><h2>Evaluation des Galen-Systems</h2><p>Gesamtauswertung aller abgegebenen Systembewertungen.</p></div><span class="status-badge">LIVE AGGREGIERT</span></div>
         <p id="systemSummaryMessage" class="message"></p>
         <div id="systemSummaryContent"></div>
       </section>
@@ -70,7 +117,7 @@
 
   <dialog id="detailDialog">
     <div class="detail-card">
-      <header><div><div class="eyebrow">Detailansicht</div><h2 id="detailTitle">Ergebnis</h2></div><button id="closeDetailBtn" class="icon">×</button></header>
+      <header><div><div class="eyebrow">Datensatz / Detailansicht</div><h2 id="detailTitle">Ergebnis</h2></div><button id="closeDetailBtn" class="icon" aria-label="Detailansicht schließen">×</button></header>
       <div id="detailContent"></div>
     </div>
   </dialog>
