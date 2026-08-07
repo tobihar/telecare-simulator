@@ -23,7 +23,7 @@
   cases.forEach(item => {
     const option = document.createElement('option');
     option.value = item.id;
-    option.textContent = `${item.number} · ${item.title}`;
+    option.textContent = `${item.number} · ${item.shortTitle || item.title}`;
     caseSelect.append(option);
   });
 
