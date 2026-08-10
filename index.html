@@ -1,171 +1,194 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>telecare - von Tobias Harig</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Mitarbeiterinformation zur Studie Telesupervision im Operationssaal an der Uniklinik RWTH Aachen.">
+  <meta name="theme-color" content="#00539f">
+  <title>Studie: Telesupervision im Operationssaal</title>
+  <link rel="icon" type="image/png" href="assets/uniklinik-rwth-aachen-anaesthesiologie.png">
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
-  <section id="startScreen" class="start-screen">
-    <div class="start-card">
-      <div class="start-brand">
-        <div class="eyebrow">Telekonsultations-Simulation</div>
-        <h1>telecare</h1>
-        <p>von Tobias Harig</p>
-      </div>
-      <form id="startForm" class="start-form">
-        <label class="start-field">
-          <span>Benutzername</span>
-          <input id="usernameInput" maxlength="80" autocomplete="name" placeholder="z. B. Tobias" required />
-        </label>
-        <label class="start-field">
-          <span>Fall</span>
-          <select id="caseSelect" aria-label="Fall auswählen"></select>
-        </label>
-        <label class="start-field">
-          <span>Falldauer</span>
-          <select id="durationSelect">
-            <option value="300">5 Minuten</option>
-            <option value="600" selected>10 Minuten</option>
-            <option value="900">15 Minuten</option>
-            <option value="1200">20 Minuten</option>
-          </select>
-        </label>
-        <label class="start-field">
-          <span>Schwierigkeit</span>
-          <select id="difficultySelect">
-            <option value="easy" selected>Leicht</option>
-            <option value="medium">Mittel</option>
-            <option value="hard">Schwer</option>
-          </select>
-        </label>
-        <p id="usernameError" class="form-error hidden">Bitte mindestens 2 Zeichen eingeben.</p>
-        <button type="submit" class="primary start-submit">Simulation starten</button>
-      </form>
-      <a class="experimental-entry" href="/simulator?module=anesthesia">
-        <span class="experimental-icon" aria-hidden="true">⚗</span>
-        <span><strong>Experimenteller Bereich</strong><small>PCV-Beatmungssimulator · Sandbox</small></span>
-        <span aria-hidden="true">→</span>
-      </a>
-      <p class="start-note">Nur für Unterricht und Simulation – nicht zur Behandlung realer Patientinnen und Patienten.</p>
-    </div>
-  </section>
+  <a class="skip-link" href="#inhalt">Direkt zum Inhalt</a>
 
-  <div id="simulationApp" class="app-shell hidden">
-    <div class="tablet-orientation-hint">Für die beste Übersicht das iPad bitte im Querformat verwenden.</div>
-    <header class="game-topbar">
-      <div class="game-brand">
-        <strong>telecare</strong>
-        <span>von Tobias Harig</span>
+  <main class="poster" id="inhalt">
+    <header class="poster-header">
+      <div class="logo-row">
+        <img class="clinic-logo" src="assets/uniklinik-rwth-aachen-anaesthesiologie.png" alt="Uniklinik RWTH Aachen – Klinik für Anästhesiologie" width="1330" height="549">
       </div>
-      <div class="game-meta">
-        <div><span>Fall</span><strong id="gameCaseName">–</strong></div>
-        <div><span>Benutzer</span><strong id="participantName">–</strong></div>
-        <div class="game-timer"><span>Restzeit</span><strong id="timer">10:00</strong></div>
+
+      <p class="overline">Information für Mitarbeitende im OP</p>
+      <h1><span>Telesupervision im</span><span>Operationssaal</span></h1>
+      <p class="intro">Die Studie untersucht, wie eine audiovisuelle Live-Verbindung die bisherige telefonische und persönliche oberärztliche Supervision im klinischen Alltag ergänzen kann.</p>
+
+      <div class="important" role="note" aria-label="Wichtiger Hinweis">
+        <strong>Wichtiger Hinweis</strong>
+        <p>Die Übertragung findet nur bei einzelnen Supervisionskontakten statt. Es erfolgt <strong>keine Aufzeichnung oder Speicherung</strong> von Bild und Ton.</p>
       </div>
-      <div class="top-actions">
-        <button id="soundBtn" title="Pulston ein/aus">🔊 Pulston</button>
-        <button id="alarmBtn" title="Akustischen und optischen Alarm für 2 Minuten pausieren">⏸ Alarm 2 min</button>
-        <button id="pauseBtn">Pause</button>
-        <button id="finishBtn">Auswertung</button>
-        <details class="game-menu"><summary>Menü</summary><div class="game-menu-panel"><button id="resetBtn" type="button">Fall neu starten</button><button id="logoutBtn" type="button">Ausloggen</button></div></details>
-      </div>
-      <button id="startBtn" class="hidden" aria-hidden="true" tabindex="-1">Start</button>
+
+      <dl class="key-data" aria-label="Studienkerndaten">
+        <div>
+          <dt>Ort</dt>
+          <dd>Uniklinik RWTH Aachen</dd>
+        </div>
+        <div>
+          <dt>Bereiche</dt>
+          <dd>Allgemeinchirurgie und Neurochirurgie</dd>
+        </div>
+        <div>
+          <dt>Zeitraum</dt>
+          <dd>Voraussichtlich Oktober 2026 bis April 2027</dd>
+        </div>
+        <div>
+          <dt>Zielgruppe</dt>
+          <dd>Assistenzärzt:innen sowie Oberärzt:innen der Anästhesiologie am UKAachen</dd>
+        </div>
+      </dl>
     </header>
 
-    <section class="vital-strip panel">
-      <div class="strip-vital hr"><span>HF</span><strong id="hr">112</strong><small>/min</small></div>
-      <div class="strip-vital nibp"><span>NIBP</span><strong id="nibp">– / –</strong><small id="nibpMap">MAP – mmHg</small><button id="measureNibpBtn" class="mini">Messen · 20 s</button></div>
-      <div class="strip-vital art hidden"><span>ART</span><strong id="artBp">kein Signal</strong><small id="artMap">Arterie erforderlich</small></div>
-      <div class="strip-vital spo2"><span>SpO₂</span><strong id="spo2">95</strong><small>%</small></div>
-      <div class="strip-vital rr"><span>AF</span><strong id="rr">–</strong><small>/min</small><button id="countRrBtn" class="mini">Auszählen · 15 s</button></div>
-      <div class="strip-vital temp"><span>Temp</span><strong id="temp">–</strong><small id="tempInfo">°C</small><button id="measureTempBtn" class="mini">Messen · 15 s</button></div>
-      <div class="strip-vital cvp hidden"><span>ZVD</span><strong id="cvp">kein Signal</strong><small id="cvpInfo">ZVK erforderlich</small></div>
-      <div id="norepiPanel" class="strip-perfusor hidden">
-        <span>Noradrenalin</span>
-        <button id="norepiDownBtn">−</button><strong id="norepiRate">0,05 µg/kg/min</strong><button id="norepiUpBtn">+</button><button id="norepiStopBtn">Stop</button>
+    <section aria-labelledby="ziel">
+      <h2 id="ziel">Was untersucht die Studie?</h2>
+      <p>Die oberärztliche Supervision ist ein fester Bestandteil der anästhesiologischen Versorgung. Im Rahmen der Studie wird die bestehende telefonische und persönliche Supervision um die Möglichkeit einer audiovisuellen Live-Verbindung ergänzt.</p>
+      <p>Untersucht werden die Akzeptanz der zusätzlichen Form der Supervision, die technische Stabilität im klinischen Realbetrieb sowie die Anlässe, die zu einer Kontaktaufnahme mit der zuständigen oberärztlichen Person führen.</p>
+    </section>
+
+    <section aria-labelledby="ablauf">
+      <h2 id="ablauf">Wie läuft die Studie ab?</h2>
+
+      <div class="study-tree" role="img" aria-label="Studienaufbau: Auf eine Voruntersuchung folgt die Hauptuntersuchung mit Kontrollgruppe und Interventionsgruppe.">
+        <div class="tree-node tree-start">
+          <strong>Voruntersuchung</strong>
+          <span>Beobachtung der bestehenden Supervision ohne Telesupervision</span>
+        </div>
+        <div class="tree-stem" aria-hidden="true"></div>
+        <div class="tree-node tree-main">
+          <strong>Hauptuntersuchung</strong>
+        </div>
+        <div class="tree-fork" aria-hidden="true">
+          <span class="tree-fork-left"></span>
+          <span class="tree-fork-right"></span>
+        </div>
+        <div class="tree-branches">
+          <span class="tree-mobile-label">Aufteilung in zwei Gruppen</span>
+          <div class="tree-node">
+            <strong>Kontrollgruppe</strong>
+            <span>Supervision ohne Telesupervision</span>
+          </div>
+          <div class="tree-node tree-node-accent">
+            <strong>Interventionsgruppe</strong>
+            <span>Supervision mit zusätzlicher Telesupervision</span>
+          </div>
+        </div>
+      </div>
+
+      <h3>Begleitung durch eine Studienperson</h3>
+      <p>Während der eingeschlossenen Operationen ist eine Studienperson vor Ort. Sie dokumentiert die für die Studie relevanten Abläufe, unterstützt bei technischen Fragen und ist für die beteiligten Mitarbeitenden jederzeit ansprechbar. Die Studienperson greift nicht in die medizinische Versorgung ein.</p>
+    </section>
+
+    <section aria-labelledby="uebertragung">
+      <h2 id="uebertragung">Was wird live übertragen?</h2>
+      <ul>
+        <li>Livebilder von Patientenmonitor und Narkose- beziehungsweise Beatmungsgerät</li>
+        <li>Ton- und Videoverbindung zwischen OP-Saal und zuständiger oberärztlicher Person</li>
+        <li>Überblicksperspektive über den OP-Saal</li>
+        <li>Aktivierung nur für einzelne Supervisionskontakte</li>
+      </ul>
+      <p class="signal-note"><strong>Transparente Aktivierung:</strong> Beim Aufbau einer Live-Übertragung erfolgt im OP-Saal eine deutliche optische und akustische Signalisierung.</p>
+
+      <h3>Was ausdrücklich nicht erfolgt</h3>
+      <ul>
+        <li>Keine Aufzeichnung oder Speicherung von Bild und Ton</li>
+        <li>Keine Fernsteuerung medizinischer Geräte</li>
+        <li>Keine dauerhafte Verbindung aus dem OP-Saal</li>
+        <li>Kein Ersatz für eine medizinisch erforderliche Vor-Ort-Präsenz</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="technik">
+      <h2 id="technik">Technische Umsetzung</h2>
+      <p>Die relevanten Bildquellen werden auf einem zentralen Tablet im OP-Saal zusammengeführt. Von dort kann ein Videoanruf zur zuständigen oberärztlichen Person aufgebaut werden.</p>
+
+      <div class="tech-diagram" role="img" aria-label="Patientenmonitor, Narkosegerät und Überblickskamera werden auf einem zentralen Tablet im OP zusammengeführt. Die anästhesiologische Person im Saal kann von dort einen Videoanruf zum Tablet der oberärztlichen Person aufbauen.">
+        <div class="tech-sources">
+          <span>Patientenmonitor</span>
+          <span>Narkose- und<br>Beatmungsgerät</span>
+          <span>Überblick über<br>den OP-Saal</span>
+        </div>
+        <span class="tech-arrow" aria-hidden="true">→</span>
+        <div class="tech-station">
+          <strong>Zentrales Tablet im OP</strong>
+          <span>Anästhesiologische Person im Saal</span>
+        </div>
+        <span class="tech-call" aria-hidden="true">Videoanruf</span>
+        <div class="tech-station tech-supervision">
+          <strong>Tablet der oberärztlichen Person</strong>
+          <span>Livebild und Ton</span>
+        </div>
+      </div>
+
+      <div class="photo-slots" aria-label="Platzhalter für drei später einzufügende Fotos aus dem OP-Saal">
+        <figure>
+          <div class="photo-placeholder"><span>Foto 1</span></div>
+          <figcaption>OP-Aufnahme einfügen</figcaption>
+        </figure>
+        <figure>
+          <div class="photo-placeholder"><span>Foto 2</span></div>
+          <figcaption>OP-Aufnahme einfügen</figcaption>
+        </figure>
+        <figure>
+          <div class="photo-placeholder"><span>Foto 3</span></div>
+          <figcaption>OP-Aufnahme einfügen</figcaption>
+        </figure>
       </div>
     </section>
 
-    <main class="main-layout">
-      <aside class="left-column">
-        <section id="staffPanel" class="staff panel compact-staff">
-          <div class="panel-title-row"><div><span class="kicker">Team vor Ort</span><h2>Personal</h2></div></div>
-          <div id="staffGrid" class="staff-grid compact"></div>
-        </section>
+    <section aria-labelledby="mitarbeitende">
+      <h2 id="mitarbeitende">Was bedeutet die Studie für Mitarbeitende?</h2>
+      <p>Die reguläre Patientenversorgung und die bestehenden klinischen Abläufe bleiben unverändert bestehen. In ausgewählten OP-Sälen wird eine Ton- und Videoverbindung als zusätzliche Möglichkeit zur Kontaktaufnahme mit der zuständigen oberärztlichen Person bereitgestellt.</p>
+      <p>Die bisherigen Kontaktwege bleiben weiterhin verfügbar. Telefonischer Kontakt und persönliche Anwesenheit der oberärztlichen Person sind jederzeit möglich. Die medizinisch erforderliche Form der Supervision richtet sich weiterhin nach der jeweiligen Situation.</p>
+      <p>Die Studienperson ist während der eingeschlossenen Operationen für Fragen und technische Unterstützung ansprechbar.</p>
 
-        <section class="patient panel"><div class="panel-title-row"><div><span class="kicker">Patient</span><h2>Zugänge & Therapie</h2></div></div><div id="patientMap" class="patient-map"></div></section>
+      <p class="plain-note"><strong>Keine Leistungsbewertung:</strong> Die Studieninformation sieht keine personenbezogene Leistungs- oder Verhaltensbewertung von Beschäftigten vor.</p>
+    </section>
 
-        <section class="inventory panel">
-          <div class="panel-title-row"><div><span class="kicker">Bestand</span><h2>Blutprodukte</h2></div></div>
-          <div class="inventory-grid"><div><span>Ungekreuzt</span><strong id="uncrossedCount">0</strong></div><div><span>Gekreuzt</span><strong id="crossedCount">0</strong></div><div><span>Gegeben</span><strong id="givenCount">0</strong></div></div>
-        </section>
-      </aside>
+    <section aria-labelledby="faq">
+      <h2 id="faq">Häufige Fragen</h2>
 
-      <section class="chat panel main-chat">
-        <div class="panel-title-row"><div><span class="kicker">Telekonsultation</span><h2>Chat mit dem Team vor Ort</h2></div><span id="aiStatus" class="status-pill idle">KI wird geprüft</span></div>
-        <div id="chatLog" class="chat-log"></div>
-        <form id="chatForm" class="chat-form"><input id="chatInput" autocomplete="off" placeholder="Frage oder Auftrag eingeben …" /><button class="primary" type="submit">Senden</button></form>
-      </section>
+      <div class="faq">
+        <h3>Wird dauerhaft aus dem OP übertragen?</h3>
+        <p>Nein. Die Verbindung wird nur für einzelne Supervisionskontakte aktiviert.</p>
 
-      <aside class="right-column">
-        <section class="actions panel">
-          <div class="panel-title-row"><div><span class="kicker">Diagnostik & Organisation</span><h2>Aufträge</h2></div></div>
-          <div class="action-grid one-col">
-            <button id="labBtn" class="action-btn"><strong>Labor</strong><small>Pflege · 20 s + 2 min Labor</small></button>
-            <button id="bgaBtn" class="action-btn"><strong>BGA</strong><small>Arzt oder Pflege · 30 s</small></button>
-            <button id="accessBtn" class="action-btn"><strong>Katheter / Zugänge</strong><small>Personal und Zeit im Menü</small></button>
-            <button id="bloodBtn" class="action-btn"><strong>Blutprodukte</strong><small>Arzt · 20 s + Bereitstellung</small></button>
-            <button id="ecgBtn" class="action-btn"><strong>12-Kanal-EKG</strong><small>Pflege · 45 s</small></button>
-            <button id="sonoBtn" class="action-btn"><strong>POCUS / Sono</strong><small>Arzt · 60 s</small></button>
-          </div>
-          <div class="result-buttons"><button id="openLabResultsBtn" disabled>Labor</button><button id="openBgaResultsBtn" disabled>BGA-Verlauf</button><button id="openSonoResultsBtn" disabled>Sono</button></div>
-        </section>
+        <h3>Werden Bild oder Ton aufgezeichnet?</h3>
+        <p>Nein. Es erfolgt keine Aufzeichnung oder Speicherung.</p>
 
-        <section class="orders panel"><div class="panel-title-row"><div><span class="kicker">Laufende Prozesse</span><h2>Aktive Maßnahmen</h2></div></div><div id="activeOrders" class="order-list empty-state">Keine aktiven Aufträge.</div></section>
-      </aside>
-    </main>
-  </div>
+        <h3>Ersetzt die Telesupervision den telefonischen Kontakt oder die Vor-Ort-Präsenz?</h3>
+        <p>Nein. Sie ist eine zusätzliche Kontaktmöglichkeit. Telefonischer Kontakt und eine notwendige Vor-Ort-Präsenz bleiben verfügbar.</p>
 
+        <h3>Woran ist eine aktive Übertragung erkennbar?</h3>
+        <p>Der Aufbau der Ton- und Videoverbindung wird im OP-Saal deutlich optisch und akustisch signalisiert.</p>
 
-  <dialog id="labDialog" class="modal"><form method="dialog" class="modal-card" id="labForm"><div class="modal-head"><h2>Laboranforderung</h2><button value="cancel" class="icon-btn">×</button></div><p class="modal-note">Blutentnahme bindet eine Pflegekraft 20 Sekunden. Anschließend benötigt das Labor 2 Minuten.</p><div id="labCheckboxes" class="check-grid"></div><div class="modal-actions"><button value="cancel">Abbrechen</button><button id="submitLabBtn" type="button" class="primary">Anfordern</button></div></form></dialog>
-  <dialog id="accessDialog" class="modal"><form method="dialog" class="modal-card" id="accessForm"><div class="modal-head"><h2>Katheter / Zugänge</h2><button value="cancel" class="icon-btn">×</button></div><div class="choice-grid"><button type="button" data-access="pvk_pink">PVK rosa <small>Arzt oder Pflege · 45 s</small></button><button type="button" data-access="pvk_green">PVK grün <small>Arzt oder Pflege · 55 s</small></button><button type="button" data-access="pvk_orange">PVK orange <small>Arzt oder Pflege · 70 s</small></button><button type="button" data-access="zvk">ZVK <small>Arzt · 120 s</small></button><button type="button" data-access="artery">Arterie <small>Arzt · 90 s</small></button><button type="button" data-access="shaldon">Shaldon <small>Arzt · 150 s</small></button><button type="button" data-access="bladder">Blasenkatheter <small>Pflege · 60 s</small></button></div></form></dialog>
-  <dialog id="bloodDialog" class="modal"><form method="dialog" class="modal-card"><div class="modal-head"><h2>Blutprodukte</h2><button value="cancel" class="icon-btn">×</button></div><div class="choice-grid"><button type="button" id="uncrossedBtn">2 ungekreuzte 0-neg. EK anfordern <small>Pflege oder Arzt · 20 s + 70 s Bereitstellung</small></button><button type="button" id="crossedBtn" disabled>2 gekreuzte EK anfordern <small>Pflege oder Arzt · 20 s + 100 s Bereitstellung</small></button><button type="button" id="giveCrossedEkBtn" disabled>1 gekreuztes EK transfundieren <small>Arzt · 45 s</small></button><button type="button" id="giveUncrossedEkBtn" disabled>1 ungekreuztes EK transfundieren <small>Arzt · 45 s</small></button></div><p class="modal-note">Anforderungen und Transfusionen sind mehrfach möglich. Gekreuzte EK werden nach Kreuzblut freigeschaltet.</p></form></dialog>
-
-  <dialog id="bgaDialog" class="modal"><form method="dialog" class="modal-card"><div class="modal-head"><h2>BGA anfordern</h2><button value="cancel" class="icon-btn">×</button></div><p class="modal-note">Venös: Arzt oder Pflege · 30 s. Arteriell per Einmalpunktion: Arzt · 45 s. Über eine liegende Arterie: Arzt oder Pflege · 15 s.</p><div class="choice-grid"><button type="button" id="venousBgaBtn">Venöse BGA <small>Arzt oder Pflege · 30 s</small></button><button type="button" id="arterialBgaBtn">Arterielle BGA <small>ohne Arterie: Arzt · 45 s<br>mit Arterie: Arzt oder Pflege · 15 s</small></button></div></form></dialog>
-  <dialog id="resultsDialog" class="modal"><div class="modal-card wide"><div class="modal-head"><h2 id="resultsTitle">Ergebnisse</h2><button id="closeResultsBtn" class="icon-btn">×</button></div><div id="resultsContent"></div></div></dialog>
-
-  <dialog id="evaluationDialog" class="modal evaluation-modal">
-    <div class="modal-card wide evaluation-card">
-      <div class="modal-head evaluation-head">
-        <div><span class="kicker">Pflicht vor der Auswertung</span><h2>Evaluation</h2></div>
-        <details class="evaluation-skip evaluation-skip-top">
-          <summary>Dozentenzugang</summary>
-          <form id="evaluationSkipForm"><input id="evaluationSkipPassword" type="password" autocomplete="off" placeholder="Passwort" required><button type="submit">Überspringen</button><p id="evaluationSkipError" class="form-error hidden"></p></form>
-        </details>
+        <h3>Was passiert bei technischen Problemen oder medizinischem Handlungsbedarf?</h3>
+        <p>Die klinische Routine hat Vorrang. Bei Bedarf wird wie gewohnt telefonisch oder persönlich Kontakt aufgenommen. Die Studienperson unterstützt bei technischen Problemen.</p>
       </div>
-      <p class="modal-note"><strong>Diese Evaluation ist anonym.</strong> Sie wird getrennt vom Simulationsergebnis gespeichert und enthält weder Benutzername noch Durchlauf-ID. Gespeichert werden nur Fall, Schwierigkeit, Antworten und Datum. Der Entwurf bleibt bis zum Absenden ausschließlich auf diesem Gerät gespeichert.</p>
-      <form id="evaluationForm">
-        <section class="evaluation-section"><h3>Fragen zum TeleCare-System</h3><div id="systemEvaluationQuestions" class="evaluation-questions"></div></section>
-        <section class="evaluation-section"><h3>Fragen zum Fall</h3><div id="caseEvaluationQuestions" class="evaluation-questions"></div></section>
-        <section class="evaluation-section technical-section">
-          <h3>Technik</h3>
-          <fieldset class="evaluation-question"><legend>Gab es technische Probleme?</legend><div class="binary-options"><label><input type="radio" name="technicalProblems" value="no" required> Nein</label><label><input type="radio" name="technicalProblems" value="yes" required> Ja</label></div></fieldset>
-          <label id="technicalProblemTextWrap" class="technical-text hidden">Bitte kurz beschreiben – ohne Namen oder andere persönliche Angaben (freiwillig)<textarea id="technicalProblemText" name="technicalProblemText" rows="3" maxlength="1000"></textarea></label>
-        </section>
-        <p id="evaluationError" class="form-error hidden">Bitte beantworte alle Pflichtfragen.</p>
-        <div class="modal-actions evaluation-actions"><button type="submit" class="primary">Evaluation absenden & Auswertung anzeigen</button></div>
-      </form>
-      <p id="evaluationSaveStatus" class="save-status"></p>
-    </div>
-  </dialog>
-  <dialog id="summaryDialog" class="modal"><div class="modal-card wide summary-card"><div class="modal-head"><h2>Abschlussprotokoll</h2><button id="closeSummaryBtn" class="icon-btn">×</button></div><div id="summaryContent"></div><div class="modal-actions"><button id="printBtn">Drucken</button><button id="restartFromSummaryBtn" class="primary">Neuer Versuch</button></div></div></dialog>
-  <script src="cases.js"></script>
-  <script src="medications.js"></script>
-  <script src="interventions.js"></script>
-  <script src="physiology.js"></script>
-  <script src="ui-sound.js"></script>
-  <script src="app.js"></script>
+    </section>
+
+    <section aria-labelledby="kontakt">
+      <h2 id="kontakt">Kontakt</h2>
+      <p>Bei Fragen oder Bedenken können Sie sich an die Studienleitung wenden:</p>
+      <address class="contact">
+        <strong>Dr. med. Sarah Veldeman · Studienleiterin</strong>
+        <span>Klinik für Anästhesiologie · Acute Care Innovation Hub</span>
+        <span>Uniklinik RWTH Aachen · Pauwelsstraße 30 · 52074 Aachen</span>
+        <a href="tel:+492418087132">Telefon: 0241 80-87132</a>
+        <a href="mailto:sveldeman@ukaachen.de">E-Mail: sveldeman@ukaachen.de</a>
+      </address>
+    </section>
+
+    <footer class="poster-footer">
+      <p>Studie: Telesupervision im Operationssaal · Mitarbeiterinformation</p>
+      <img src="assets/acih-logo.png" alt="Acute Care Innovation Hub" width="1399" height="295">
+    </footer>
+  </main>
 </body>
 </html>
