@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>telecare - von Tobias Harig</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <section id="startScreen" class="start-screen">
+    <div class="start-card">
+      <div class="start-brand">
+        <div class="eyebrow">Telekonsultations-Simulation</div>
+        <h1>telecare</h1>
+        <p>von Tobias Harig</p>
+      </div>
+      <form id="startForm" class="start-form">
+        <label class="start-field">
+          <span>Benutzername</span>
+          <input id="usernameInput" maxlength="80" autocomplete="name" placeholder="z. B. Tobias" required />
+        </label>
+        <label class="start-field">
+          <span>Fall</span>
+          <select id="caseSelect" aria-label="Fall auswählen"></select>
+        </label>
+        <label class="start-field">
+          <span>Falldauer</span>
+          <select id="durationSelect">
+            <option value="300">5 Minuten</option>
+            <option value="600" selected>10 Minuten</option>
+            <option value="900">15 Minuten</option>
+            <option value="1200">20 Minuten</option>
+          </select>
+        </label>
+        <label class="start-field">
+          <span>Schwierigkeit</span>
+          <select id="difficultySelect">
+            <option value="easy" selected>Leicht</option>
+            <option value="medium">Mittel</option>
+            <option value="hard">Schwer</option>
+          </select>
+        </label>
+        <p id="usernameError" class="form-error hidden">Bitte mindestens 2 Zeichen eingeben.</p>
+        <button type="submit" class="primary start-submit">Simulation starten</button>
+      </form>
+      <a class="experimental-entry" href="/simulator?module=anesthesia">
+        <span class="experimental-icon" aria-hidden="true">⚗</span>
+        <span><strong>Experimenteller Bereich</strong><small>PCV-Beatmungssimulator · Sandbox</small></span>
+        <span aria-hidden="true">→</span>
+      </a>
+      <p class="start-note">Nur für Unterricht und Simulation – nicht zur Behandlung realer Patientinnen und Patienten.</p>
+    </div>
+  </section>
+
+  <div id="simulationApp" class="app-shell hidden">
+    <div class="tablet-orientation-hint">Für die beste Übersicht das iPad bitte im Querformat verwenden.</div>
+    <header class="game-topbar">
+      <div class="game-brand">
+        <strong>telecare</strong>
+        <span>von Tobias Harig</span>
+      </div>
+      <div class="game-meta">
+        <div><span>Fall</span><strong id="gameCaseName">–</strong></div>
+        <div><span>Benutzer</span><strong id="participantName">–</strong></div>
+        <div class="game-timer"><span>Restzeit</span><strong id="timer">10:00</strong></div>
+      </div>
+      <div class="top-actions">
+        <button id="soundBtn" title="Pulston ein/aus">🔊 Pulston</button>
+        <button id="alarmBtn" title="Akustischen und optischen Alarm für 2 Minuten pausieren">⏸ Alarm 2 min</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="finishBtn">Auswertung</button>
+        <details class="game-menu"><summary>Menü</summary><div class="game-menu-panel"><button id="resetBtn" type="button">Fall neu starten</button><button id="logoutBtn" type="button">Ausloggen</button></div></details>
+      </div>
+      <button id="startBtn" class="hidden" aria-hidden="true" tabindex="-1">Start</button>
+    </header>
+
+    <section class="vital-strip panel">
+      <div class="strip-vital hr"><span>HF</span><strong id="hr">112</strong><small>/min</small></div>
+      <div class="strip-vital nibp"><span>NIBP</span><strong id="nibp">– / –</strong><small id="nibpMap">MAP – mmHg</small><button id="measureNibpBtn" class="mini">Messen · 20 s</button></div>
+      <div class="strip-vital art hidden"><span>ART</span><strong id="artBp">kein Signal</strong><small id="artMap">Arterie erforderlich</small></div>
+      <div class="strip-vital spo2"><span>SpO₂</span><strong id="spo2">95</strong><small>%</small></div>
+      <div class="strip-vital rr"><span>AF</span><strong id="rr">–</strong><small>/min</small><button id="countRrBtn" class="mini">Auszählen · 15 s</button></div>
+      <div class="strip-vital temp"><span>Temp</span><strong id="temp">–</strong><small id="tempInfo">°C</small><button id="measureTempBtn" class="mini">Messen · 15 s</button></div>
+      <div class="strip-vital cvp hidden"><span>ZVD</span><strong id="cvp">kein Signal</strong><small id="cvpInfo">ZVK erforderlich</small></div>
+      <div id="norepiPanel" class="strip-perfusor hidden">
+        <span>Noradrenalin</span>
+        <button id="norepiDownBtn">−</button><strong id="norepiRate">0,05 µg/kg/min</strong><button id="norepiUpBtn">+</button><button id="norepiStopBtn">Stop</button>
+      </div>
+    </section>
+
+    <main class="main-layout">
+      <aside class="left-column">
+        <section id="staffPanel" class="staff panel compact-staff">
+          <div class="panel-title-row"><div><span class="kicker">Team vor Ort</span><h2>Personal</h2></div></div>
+          <div id="staffGrid" class="staff-grid compact"></div>
+        </section>
+
+        <section class="patient panel"><div class="panel-title-row"><div><span class="kicker">Patient</span><h2>Zugänge & Therapie</h2></div></div><div id="patientMap" class="patient-map"></div></section>
+
+        <section class="inventory panel">
+          <div class="panel-title-row"><div><span class="kicker">Bestand</span><h2>Blutprodukte</h2></div></div>
+          <div class="inventory-grid"><div><span>Ungekreuzt</span><strong id="uncrossedCount">0</strong></div><div><span>Gekreuzt</span><strong id="crossedCount">0</strong></div><div><span>Gegeben</span><strong id="givenCount">0</strong></div></div>
+        </section>
+      </aside>
+
+      <section class="chat panel main-chat">
+        <div class="panel-title-row"><div><span class="kicker">Telekonsultation</span><h2>Chat mit dem Team vor Ort</h2></div><span id="aiStatus" class="status-pill idle">KI wird geprüft</span></div>
+        <div id="chatLog" class="chat-log"></div>
+        <form id="chatForm" class="chat-form"><input id="chatInput" autocomplete="off" placeholder="Frage oder Auftrag eingeben …" /><button class="primary" type="submit">Senden</button></form>
+      </section>
+
+      <aside class="right-column">
+        <section class="actions panel">
+          <div class="panel-title-row"><div><span class="kicker">Diagnostik & Organisation</span><h2>Aufträge</h2></div></div>
+          <div class="action-grid one-col">
+            <button id="labBtn" class="action-btn"><strong>Labor</strong><small>Pflege · 20 s + 2 min Labor</small></button>
+            <button id="bgaBtn" class="action-btn"><strong>BGA</strong><small>Arzt oder Pflege · 30 s</small></button>
+            <button id="accessBtn" class="action-btn"><strong>Katheter / Zugänge</strong><small>Personal und Zeit im Menü</small></button>
+            <button id="bloodBtn" class="action-btn"><strong>Blutprodukte</strong><small>Arzt · 20 s + Bereitstellung</small></button>
+            <button id="ecgBtn" class="action-btn"><strong>12-Kanal-EKG</strong><small>Pflege · 45 s</small></button>
+            <button id="sonoBtn" class="action-btn"><strong>POCUS / Sono</strong><small>Arzt · 60 s</small></button>
+          </div>
+          <div class="result-buttons"><button id="openLabResultsBtn" disabled>Labor</button><button id="openBgaResultsBtn" disabled>BGA-Verlauf</button><button id="openSonoResultsBtn" disabled>Sono</button></div>
+        </section>
+
+        <section class="orders panel"><div class="panel-title-row"><div><span class="kicker">Laufende Prozesse</span><h2>Aktive Maßnahmen</h2></div></div><div id="activeOrders" class="order-list empty-state">Keine aktiven Aufträge.</div></section>
+      </aside>
+    </main>
+  </div>
+
+
+  <dialog id="labDialog" class="modal"><form method="dialog" class="modal-card" id="labForm"><div class="modal-head"><h2>Laboranforderung</h2><button value="cancel" class="icon-btn">×</button></div><p class="modal-note">Blutentnahme bindet eine Pflegekraft 20 Sekunden. Anschließend benötigt das Labor 2 Minuten.</p><div id="labCheckboxes" class="check-grid"></div><div class="modal-actions"><button value="cancel">Abbrechen</button><button id="submitLabBtn" type="button" class="primary">Anfordern</button></div></form></dialog>
+  <dialog id="accessDialog" class="modal"><form method="dialog" class="modal-card" id="accessForm"><div class="modal-head"><h2>Katheter / Zugänge</h2><button value="cancel" class="icon-btn">×</button></div><div class="choice-grid"><button type="button" data-access="pvk_pink">PVK rosa <small>Arzt oder Pflege · 45 s</small></button><button type="button" data-access="pvk_green">PVK grün <small>Arzt oder Pflege · 55 s</small></button><button type="button" data-access="pvk_orange">PVK orange <small>Arzt oder Pflege · 70 s</small></button><button type="button" data-access="zvk">ZVK <small>Arzt · 120 s</small></button><button type="button" data-access="artery">Arterie <small>Arzt · 90 s</small></button><button type="button" data-access="shaldon">Shaldon <small>Arzt · 150 s</small></button><button type="button" data-access="bladder">Blasenkatheter <small>Pflege · 60 s</small></button></div></form></dialog>
+  <dialog id="bloodDialog" class="modal"><form method="dialog" class="modal-card"><div class="modal-head"><h2>Blutprodukte</h2><button value="cancel" class="icon-btn">×</button></div><div class="choice-grid"><button type="button" id="uncrossedBtn">2 ungekreuzte 0-neg. EK anfordern <small>Pflege oder Arzt · 20 s + 70 s Bereitstellung</small></button><button type="button" id="crossedBtn" disabled>2 gekreuzte EK anfordern <small>Pflege oder Arzt · 20 s + 100 s Bereitstellung</small></button><button type="button" id="giveCrossedEkBtn" disabled>1 gekreuztes EK transfundieren <small>Arzt · 45 s</small></button><button type="button" id="giveUncrossedEkBtn" disabled>1 ungekreuztes EK transfundieren <small>Arzt · 45 s</small></button></div><p class="modal-note">Anforderungen und Transfusionen sind mehrfach möglich. Gekreuzte EK werden nach Kreuzblut freigeschaltet.</p></form></dialog>
+
+  <dialog id="bgaDialog" class="modal"><form method="dialog" class="modal-card"><div class="modal-head"><h2>BGA anfordern</h2><button value="cancel" class="icon-btn">×</button></div><p class="modal-note">Venös: Arzt oder Pflege · 30 s. Arteriell per Einmalpunktion: Arzt · 45 s. Über eine liegende Arterie: Arzt oder Pflege · 15 s.</p><div class="choice-grid"><button type="button" id="venousBgaBtn">Venöse BGA <small>Arzt oder Pflege · 30 s</small></button><button type="button" id="arterialBgaBtn">Arterielle BGA <small>ohne Arterie: Arzt · 45 s<br>mit Arterie: Arzt oder Pflege · 15 s</small></button></div></form></dialog>
+  <dialog id="resultsDialog" class="modal"><div class="modal-card wide"><div class="modal-head"><h2 id="resultsTitle">Ergebnisse</h2><button id="closeResultsBtn" class="icon-btn">×</button></div><div id="resultsContent"></div></div></dialog>
+
+  <dialog id="evaluationDialog" class="modal evaluation-modal">
+    <div class="modal-card wide evaluation-card">
+      <div class="modal-head evaluation-head">
+        <div><span class="kicker">Pflicht vor der Auswertung</span><h2>Evaluation</h2></div>
+        <details class="evaluation-skip evaluation-skip-top">
+          <summary>Dozentenzugang</summary>
+          <form id="evaluationSkipForm"><input id="evaluationSkipPassword" type="password" autocomplete="off" placeholder="Passwort" required><button type="submit">Überspringen</button><p id="evaluationSkipError" class="form-error hidden"></p></form>
+        </details>
+      </div>
+      <p class="modal-note"><strong>Diese Evaluation ist anonym.</strong> Sie wird getrennt vom Simulationsergebnis gespeichert und enthält weder Benutzername noch Durchlauf-ID. Gespeichert werden nur Fall, Schwierigkeit, Antworten und Datum. Der Entwurf bleibt bis zum Absenden ausschließlich auf diesem Gerät gespeichert.</p>
+      <form id="evaluationForm">
+        <section class="evaluation-section"><h3>Fragen zum TeleCare-System</h3><div id="systemEvaluationQuestions" class="evaluation-questions"></div></section>
+        <section class="evaluation-section"><h3>Fragen zum Fall</h3><div id="caseEvaluationQuestions" class="evaluation-questions"></div></section>
+        <section class="evaluation-section technical-section">
+          <h3>Technik</h3>
+          <fieldset class="evaluation-question"><legend>Gab es technische Probleme?</legend><div class="binary-options"><label><input type="radio" name="technicalProblems" value="no" required> Nein</label><label><input type="radio" name="technicalProblems" value="yes" required> Ja</label></div></fieldset>
+          <label id="technicalProblemTextWrap" class="technical-text hidden">Bitte kurz beschreiben – ohne Namen oder andere persönliche Angaben (freiwillig)<textarea id="technicalProblemText" name="technicalProblemText" rows="3" maxlength="1000"></textarea></label>
+        </section>
+        <p id="evaluationError" class="form-error hidden">Bitte beantworte alle Pflichtfragen.</p>
+        <div class="modal-actions evaluation-actions"><button type="submit" class="primary">Evaluation absenden & Auswertung anzeigen</button></div>
+      </form>
+      <p id="evaluationSaveStatus" class="save-status"></p>
+    </div>
+  </dialog>
+  <dialog id="summaryDialog" class="modal"><div class="modal-card wide summary-card"><div class="modal-head"><h2>Abschlussprotokoll</h2><button id="closeSummaryBtn" class="icon-btn">×</button></div><div id="summaryContent"></div><div class="modal-actions"><button id="printBtn">Drucken</button><button id="restartFromSummaryBtn" class="primary">Neuer Versuch</button></div></div></dialog>
+  <script src="cases.js"></script>
+  <script src="medications.js"></script>
+  <script src="interventions.js"></script>
+  <script src="physiology.js"></script>
+  <script src="ui-sound.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
