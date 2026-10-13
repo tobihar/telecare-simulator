@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-await import('../vent-physiology.js');
-await import('../vent-waveform-history.js');
+await import('../public/vent-physiology.js');
+await import('../public/vent-waveform-history.js');
 const E = globalThis.TELECARE_VENT_ENGINE;
 const W = globalThis.TELECARE_VENT_WAVEFORMS;
 
@@ -184,7 +184,7 @@ test('Ein kurzer Löschspalt läuft über die ansonsten feste Kurvenfläche', ()
 });
 
 test('Beatmungs-Sandbox ist von den bestehenden Schock-Modulen getrennt', async () => {
-  for (const file of ['../app.js', '../cases.js', '../physiology.js']) {
+  for (const file of ['../public/app.js', '../public/cases.js', '../public/physiology.js']) {
     const source = await readFile(new URL(file, import.meta.url), 'utf8');
     assert.equal(source.includes('TELECARE_VENT_ENGINE'), false, `${file} darf die Beatmungs-Engine nicht importieren`);
     assert.equal(source.includes('vent.html'), false, `${file} darf nicht zur Sandbox verzweigen`);
@@ -192,10 +192,10 @@ test('Beatmungs-Sandbox ist von den bestehenden Schock-Modulen getrennt', async 
 });
 
 test('Experimenteller Einstieg und Sandbox-Ressourcen sind vollständig verdrahtet', async () => {
-  const index = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-  const hub = await readFile(new URL('../simulator-hub.html', import.meta.url), 'utf8');
-  const hubApp = await readFile(new URL('../simulator-hub.js', import.meta.url), 'utf8');
-  const page = await readFile(new URL('../vent.html', import.meta.url), 'utf8');
+  const index = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const hub = await readFile(new URL('../public/simulator-hub.html', import.meta.url), 'utf8');
+  const hubApp = await readFile(new URL('../public/simulator-hub.js', import.meta.url), 'utf8');
+  const page = await readFile(new URL('../public/vent.html', import.meta.url), 'utf8');
   assert.match(index, /href="\/simulator\?module=anesthesia"/);
   assert.match(index, /Experimenteller Bereich/);
   assert.match(hub, /Was simulierst[\s\S]*du[\s\S]*heute/);
@@ -219,9 +219,9 @@ test('Experimenteller Einstieg und Sandbox-Ressourcen sind vollständig verdraht
 
 test('Beatmungsoberfläche nutzt das Schock-Layout ohne verschachtelte Gerätemenüs', async () => {
   const [page, app, styles] = await Promise.all([
-    readFile(new URL('../vent.html', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.js', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.css', import.meta.url), 'utf8')
+    readFile(new URL('../public/vent.html', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.js', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.css', import.meta.url), 'utf8')
   ]);
   assert.doesNotMatch(page, /experimental-ribbon|Übergabe aus der Einleitung|Patientenzustand|Alarmzentrale|dock-tabs|eventPanel|medicationSelect/);
   assert.doesNotMatch(page, /type="range"/);
@@ -309,12 +309,12 @@ test('Beatmungsoberfläche nutzt das Schock-Layout ohne verschachtelte Geräteme
 
 test('Invasive Monitorwerte erscheinen nur bei angeschlossenem Zugang', async () => {
   const [index, app, styles, ventPage, ventApp, ventStyles] = await Promise.all([
-    readFile(new URL('../index.html', import.meta.url), 'utf8'),
-    readFile(new URL('../app.js', import.meta.url), 'utf8'),
-    readFile(new URL('../styles.css', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.html', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.js', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.css', import.meta.url), 'utf8')
+    readFile(new URL('../public/index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../public/app.js', import.meta.url), 'utf8'),
+    readFile(new URL('../public/styles.css', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.html', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.js', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.css', import.meta.url), 'utf8')
   ]);
 
   assert.match(index, /strip-vital art hidden/);
