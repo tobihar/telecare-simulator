@@ -40,7 +40,7 @@ const SESSION_MAX_AGE = 8 * 60 * 60;
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-  '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
+  '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webp': 'image/webp', '.woff2': 'font/woff2'
 };
 const ACTIONS = ['ask_mental','ask_skin','ask_drainage','ask_urine','ask_allergy','ask_auscultation','measure_bz','measure_nibp','count_rr','measure_temp','alert_surgeon','insert_pvk','insert_artery','oxygen','upper_body_elevated','flat_position','defib_pads','warming','fluid','norepi_bolus','norepi_perfusor','stop_trigger','adrenaline_im','adrenaline_nebulized','intubate','txa','give_ek','give_medication','request_lab','request_bga','request_ecg','sono','ventilate','shock_position','limb_elevation','wound_compression','tourniquet'];
 const LAB_IDS = ['blood_cultures','urine_culture','pct','crp','leukocytes','creatinine','lactate','platelets','inr','fibrinogen','electrolytes','troponin','ck','ckmb','ldh','ast','alt','potassium','sodium'];
@@ -55,24 +55,68 @@ function text(res, status, value, contentType = 'text/plain; charset=utf-8', ext
   res.writeHead(status, {'Content-Type':contentType,'Cache-Control':'no-store', ...extraHeaders});
   res.end(value);
 }
-async function body(req) {
+async function body(req, maxLength = 4e6) {
   let s = '';
   for await (const c of req) {
     s += c;
-    if (s.length > 4e6) throw new Error('Body too large');
+    if (s.length > maxLength) throw new Error('Body too large');
   }
   return s ? JSON.parse(s) : {};
 }
-function safePath(relative) {
+
+// Einfaches In-Memory-Rate-Limit (feste Zeitfenster). Reicht für eine einzelne
+// Instanz; bei mehreren Instanzen müsste der Zähler in einen gemeinsamen Speicher.
+function rateLimiter(windowMs, max) {
+  const hits = new Map();
+  return {
+    retryAfter(key) {
+      const now = Date.now();
+      const entry = hits.get(key);
+      return entry && entry.reset > now && entry.count >= max ? Math.ceil((entry.reset - now) / 1000) : 0;
+    },
+    hit(key) {
+      const now = Date.now();
+      if (hits.size > 10000) for (const [k, e] of hits) if (e.reset <= now) hits.delete(k);
+      let entry = hits.get(key);
+      if (!entry || entry.reset <= now) { entry = {count:0, reset:now + windowMs}; hits.set(key, entry); }
+      entry.count += 1;
+    },
+    reset(key) { hits.delete(key); }
+  };
+}
+function clientIp(req) {
+  return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+}
+function tooManyRequests(res, seconds) {
+  return json(res, 429, {error:'Zu viele Anfragen. Bitte kurz warten und erneut versuchen.'}, {'Retry-After':String(seconds)});
+}
+const MAX_CHAT_MESSAGE_LENGTH = 1000;
+const MAX_CHAT_BODY_LENGTH = 200000;
+const chatPerIp = rateLimiter(60 * 1000, Number(process.env.CHAT_LIMIT_PER_MINUTE) || 60);
+const chatGlobal = rateLimiter(60 * 60 * 1000, Number(process.env.CHAT_LIMIT_PER_HOUR) || 600);
+const passwordFailures = rateLimiter(15 * 60 * 1000, 10);
+// Nur Frontend-Dateien sind öffentlich. Dotfiles (.env, .git), Serverquellcode,
+// SQL-Skripte, package.json und Tests werden nie ausgeliefert.
+const PUBLIC_EXTENSIONS = new Set(['.html','.js','.css','.png','.jpg','.jpeg','.svg','.ico','.webp','.woff2']);
+const PRIVATE_FILES = new Set(['server.js']);
+const PRIVATE_DIRS = new Set(['test','node_modules']);
+const SECURITY_HEADERS = {'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'DENY'};
+function publicPath(relative) {
   const abs = path.resolve(__dirname, relative);
-  return abs.startsWith(__dirname) ? abs : null;
+  const rel = path.relative(__dirname, abs);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  const parts = rel.split(path.sep);
+  if (parts.some(part => part.startsWith('.'))) return null;
+  if (PRIVATE_DIRS.has(parts[0]) || PRIVATE_FILES.has(rel)) return null;
+  if (!PUBLIC_EXTENSIONS.has(path.extname(abs).toLowerCase())) return null;
+  return abs;
 }
 async function sendFile(req, res, relative) {
-  const abs = safePath(relative);
-  if (!abs) return text(res, 403, 'Forbidden');
+  const abs = publicPath(relative);
+  if (!abs) return text(res, 404, 'Not found');
   try {
     const f = await readFile(abs);
-    res.writeHead(200, {'Content-Type':MIME[path.extname(abs)] || 'application/octet-stream','Cache-Control':'no-store'});
+    res.writeHead(200, {'Content-Type':MIME[path.extname(abs).toLowerCase()] || 'application/octet-stream','Cache-Control':'no-store', ...SECURITY_HEADERS});
     if (req.method === 'HEAD') return res.end();
     res.end(f);
   } catch {
@@ -83,17 +127,14 @@ async function staticFile(req, res, pathname) {
   if (pathname === '/admin' || pathname === '/admin/') return sendFile(req, res, 'admin.html');
   if (pathname === '/simulator' || pathname === '/simulator/') return sendFile(req, res, 'simulator-hub.html');
   if (pathname === '/shock' || pathname === '/shock/') return sendFile(req, res, 'index.html');
-  let rel = pathname === '/' ? 'landing.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
-  const abs = safePath(rel);
-  if (!abs) return text(res, 403, 'Forbidden');
-  try {
-    const f = await readFile(abs);
-    res.writeHead(200, {'Content-Type':MIME[path.extname(abs)] || 'application/octet-stream','Cache-Control':'no-store'});
-    if (req.method === 'HEAD') return res.end();
-    res.end(f);
-  } catch {
-    return sendFile(req, res, 'index.html');
-  }
+  if (pathname === '/') return sendFile(req, res, 'landing.html');
+  let rel;
+  try { rel = decodeURIComponent(pathname).replace(/^\/+/, ''); }
+  catch { return text(res, 400, 'Bad request'); }
+  if (rel.split(/[\\/]/).some(part => part.startsWith('.'))) return text(res, 404, 'Not found');
+  // Unbekannte Pfade ohne Dateiendung landen wie bisher im Schock-Simulator.
+  if (!path.extname(rel)) return sendFile(req, res, 'index.html');
+  return sendFile(req, res, rel);
 }
 
 function promptFor(message,state){return `Du bist ausschließlich das Team vor Ort in einer medizinischen Telekonsultations-Simulation.
@@ -177,9 +218,16 @@ function canTryFallbackModel(result){return [400,404,429,500,502,503,504].includ
 
 async function chat(req,res){
   if(!API_KEY)return json(res,503,{error:'Kein GEMINI_API_KEY gesetzt.'});
+  const ip=clientIp(req);
+  const retryAfter=chatPerIp.retryAfter(ip)||chatGlobal.retryAfter('all');
+  if(retryAfter)return tooManyRequests(res,retryAfter);
+  chatPerIp.hit(ip);chatGlobal.hit('all');
   try{
-    const {message,state}=await body(req);
+    let input;
+    try{input=await body(req,MAX_CHAT_BODY_LENGTH);}catch{return json(res,413,{error:'Anfrage zu groß oder ungültig.'});}
+    const {message,state}=input;
     if(typeof message!=='string'||!message.trim())return json(res,400,{error:'Nachricht fehlt.'});
+    if(message.length>MAX_CHAT_MESSAGE_LENGTH)return json(res,400,{error:`Nachricht zu lang (maximal ${MAX_CHAT_MESSAGE_LENGTH} Zeichen).`});
     const prompt=promptFor(message.trim(),state);
     let result=null;
     for(const model of MODEL_CANDIDATES){
@@ -286,7 +334,12 @@ async function saveEvaluation(req,res){
 }
 async function verifyEvaluationSkip(req,res){
   try{
-    const input=await body(req);if(!EVALUATION_SKIP_PASSWORD)return json(res,503,{error:'Überspringen ist nicht konfiguriert.'});if(!safeEqual(input.password||'',EVALUATION_SKIP_PASSWORD))return json(res,401,{error:'Passwort falsch.'});
+    if(!EVALUATION_SKIP_PASSWORD)return json(res,503,{error:'Überspringen ist nicht konfiguriert.'});
+    const key=`skip:${clientIp(req)}`,retryAfter=passwordFailures.retryAfter(key);
+    if(retryAfter)return tooManyRequests(res,retryAfter);
+    const input=await body(req,10000);
+    if(!safeEqual(input.password||'',EVALUATION_SKIP_PASSWORD)){passwordFailures.hit(key);return json(res,401,{error:'Passwort falsch.'});}
+    passwordFailures.reset(key);
     json(res,200,{ok:true});
   }catch(e){console.error('Skip evaluation failed:',e);json(res,500,{error:e instanceof Error?e.message:String(e)});}
 }
@@ -319,9 +372,12 @@ function isAdmin(req) {
 function adminRequired(req,res){ if(!isAdmin(req)){json(res,401,{error:'Nicht angemeldet.'});return false;} return true; }
 async function adminLogin(req,res){
   if(!ADMIN_PASSWORD||!SESSION_SECRET)return json(res,503,{error:'Dozentenlogin ist noch nicht konfiguriert.'});
+  const key=`admin:${clientIp(req)}`,retryAfter=passwordFailures.retryAfter(key);
+  if(retryAfter)return tooManyRequests(res,retryAfter);
   try{
-    const input=await body(req);
-    if(!safeEqual(input.username||'',ADMIN_USERNAME)||!safeEqual(input.password||'',ADMIN_PASSWORD))return json(res,401,{error:'Benutzername oder Passwort falsch.'});
+    const input=await body(req,10000);
+    if(!safeEqual(input.username||'',ADMIN_USERNAME)||!safeEqual(input.password||'',ADMIN_PASSWORD)){passwordFailures.hit(key);return json(res,401,{error:'Benutzername oder Passwort falsch.'});}
+    passwordFailures.reset(key);
     const secure=String(req.headers['x-forwarded-proto']||'').includes('https');
     const cookie=`${SESSION_COOKIE}=${encodeURIComponent(createSessionToken())}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_MAX_AGE}${secure?'; Secure':''}`;
     json(res,200,{ok:true,username:ADMIN_USERNAME},{'Set-Cookie':cookie});
