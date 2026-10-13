@@ -278,13 +278,13 @@ test('Beatmungsoberfläche nutzt das Schock-Layout ohne verschachtelte Geräteme
   assert.match(app, /button\.addEventListener\('wheel'/);
   assert.match(app, /\{ passive: false \}/);
   assert.match(app, /event\.deltaY < 0 \? 1 : -1/);
-  assert.match(app, /soundEnabled = true/);
+  assert.match(app, /soundLevels = loadSoundLevels\(\)/);
   assert.match(app, /if \(window\.__TELECARE_VENT_APP_ACTIVE__\) return/);
   assert.match(app, /function pulseTone\(frequency\)/);
   assert.match(app, /now - lastPulseAudioAt < 0\.18/);
   assert.match(app, /setValueAtTime\(0\.0001, startedAt\)/);
   assert.match(app, /pulseTone\(spo2Frequency\)/);
-  assert.match(app, /soundEnabled \|\| document\.hidden/);
+  assert.match(app, /!levelGain \|\| document\.hidden/);
   assert.match(app, /document\.addEventListener\('visibilitychange'/);
   assert.doesNotMatch(app, /if \(soundEnabled\) tone\(620/);
   assert.match(styles, /\.vent-app\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none/s);
@@ -302,9 +302,9 @@ test('Beatmungsoberfläche nutzt das Schock-Layout ohne verschachtelte Geräteme
   assert.match(styles, /\.vent-values-page > div\s*\{[^}]*grid-template-areas:\s*"label" "value" "unit"[^}]*justify-items:\s*center/s);
   assert.match(styles, /\.vent-values-page > div \+ div\s*\{[^}]*border-top:\s*0/s);
   assert.match(styles, /\.vent-values-page span\s*\{[^}]*font-size:\s*11px/s);
-  assert.match(styles, /\.vent-values-page strong\s*\{[^}]*18px "Courier New"[^}]*text-align:\s*center/s);
+  assert.match(styles, /\.vent-values-page strong\s*\{[^}]*font-family:\s*var\(--mono\)[^}]*font-size:\s*18px[^}]*text-align:\s*center/s);
   assert.match(styles, /\.setting-key > span\s*\{[^}]*font-size:\s*11px/s);
-  assert.match(styles, /\.setting-key output\s*\{[^}]*15px "Courier New"/s);
+  assert.match(styles, /\.setting-key output\s*\{[^}]*font-family:\s*var\(--mono\)[^}]*font-size:\s*15px/s);
 });
 
 test('Invasive Monitorwerte erscheinen nur bei angeschlossenem Zugang', async () => {
