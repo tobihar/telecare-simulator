@@ -1,8 +1,8 @@
-// TeleCare-Backend als Cloudflare Worker.
+// Galen-Backend als Cloudflare Worker.
 // Statische Dateien kommen aus ./public (Assets-Binding), Daten aus D1 (SQLite).
 import { askGemini, DEFAULT_MODEL } from './gemini.js';
 
-const SESSION_COOKIE = 'telecare_admin';
+const SESSION_COOKIE = 'galen_admin';
 const SESSION_MAX_AGE = 8 * 60 * 60;
 const MAX_BODY_LENGTH = 4e6;
 const MAX_CHAT_MESSAGE_LENGTH = 1000;
@@ -317,7 +317,7 @@ async function exportCsv(request, env) {
     FROM simulation_results ORDER BY created_at DESC LIMIT 5000`).all();
   const rows = [['Benutzername','Datum','Fall','Schwierigkeit','Spieldauer (s)','Ergebnis','Score (%)']];
   for (const r of results) rows.push([r.username, r.created_at, r.case_name, r.difficulty, r.elapsed_seconds, r.outcome, r.score_percent]);
-  return csvResponse(rows, 'telecare-ergebnisse');
+  return csvResponse(rows, 'galen-ergebnisse');
 }
 async function exportEvaluationCsv(request, env) {
   await requireAdmin(request, env);
@@ -329,7 +329,7 @@ async function exportEvaluationCsv(request, env) {
     rows.push([r.submitted_on, r.case_name, r.difficulty, ...SYSTEM_KEYS.map(k => sys[k] ?? ''), ...CASE_KEYS.map(k => cas[k] ?? ''),
       a.technicalProblems === true ? 'ja' : a.technicalProblems === false ? 'nein' : '', a.technicalProblemText ?? '']);
   }
-  return csvResponse(rows, 'telecare-anonyme-evaluationen');
+  return csvResponse(rows, 'galen-anonyme-evaluationen');
 }
 
 // --- Routing -------------------------------------------------------------------

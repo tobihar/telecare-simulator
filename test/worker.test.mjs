@@ -32,7 +32,7 @@ const ASSETS = {
 
 async function setup(extra = {}) {
   const env = {DB: await createDb(), ASSETS, ADMIN_PASSWORD: 'pw', SESSION_SECRET: 'secret', EVALUATION_SKIP_PASSWORD: 'skip', GEMINI_API_KEY: 'test', CHAT_LIMIT_PER_MINUTE: '3', ...extra};
-  const call = (path, {method = 'GET', body, cookie, ip = '1.2.3.4'} = {}) => worker.fetch(new Request(`https://telecare.example${path}`, {
+  const call = (path, {method = 'GET', body, cookie, ip = '1.2.3.4'} = {}) => worker.fetch(new Request(`https://galen.example${path}`, {
     method,
     headers: {'Content-Type': 'application/json', 'CF-Connecting-IP': ip, ...(cookie ? {Cookie: cookie} : {})},
     body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body)
@@ -54,8 +54,8 @@ test('Seiten-Aliase zeigen auf die richtigen HTML-Dateien', async () => {
   assert.match(await titleOf(await call('/')), /Clinical Simulation/);
   assert.match(await titleOf(await call('/simulator')), /Simulation auswählen/);
   assert.match(await titleOf(await call('/admin')), /Admin/);
-  assert.match(await titleOf(await call('/shock')), /telecare/);
-  assert.match(await titleOf(await call('/unbekannt')), /telecare/);
+  assert.match(await titleOf(await call('/shock')), /Schock-Simulation/);
+  assert.match(await titleOf(await call('/unbekannt')), /Schock-Simulation/);
   assert.equal((await call('/fehlt.js')).status, 404);
   assert.equal((await call('/api/gibtsnicht')).status, 404);
 });

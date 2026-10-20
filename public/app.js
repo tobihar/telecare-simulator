@@ -1,17 +1,17 @@
 let SIM_DURATION = 600;
 let participantUsername = '';
 const TICK_SECONDS = 3;
-const EVALUATION_STORAGE_KEY = 'telecare_pending_anonymous_evaluation_v2';
-const LEGACY_EVALUATION_STORAGE_KEY = 'telecare_pending_evaluation_v1';
+const EVALUATION_STORAGE_KEY = 'galen_pending_anonymous_evaluation_v2';
+const LEGACY_EVALUATION_STORAGE_KEY = 'galen_pending_evaluation_v1';
 const SYSTEM_EVALUATION_QUESTIONS = [
-  ['system_easy','Die Bedienung war einfach'],['system_clear','Die Oberfläche war übersichtlich'],['system_chat','Der Chat hat meine Anweisungen korrekt verstanden'],['system_overview','Ich konnte den Zustand des Patienten gut überblicken'],['system_teaching','Das TeleCare-Programm eignet sich für den Pflegeunterricht'],['system_more_cases','Ich würde weitere Fälle mit dem TeleCare-System bearbeiten']
+  ['system_easy','Die Bedienung war einfach'],['system_clear','Die Oberfläche war übersichtlich'],['system_chat','Der Chat hat meine Anweisungen korrekt verstanden'],['system_overview','Ich konnte den Zustand des Patienten gut überblicken'],['system_teaching','Galen eignet sich für den Pflegeunterricht'],['system_more_cases','Ich würde weitere Fälle mit Galen bearbeiten']
 ];
 const CASE_EVALUATION_QUESTIONS = [
   ['case_realistic','Der Fall wirkte realistisch'],['case_reactions','Die Reaktionen auf meine Maßnahmen waren nachvollziehbar'],['case_difficulty','Die Schwierigkeit war angemessen'],['case_apply_knowledge','Ich konnte meine Kenntnisse zum Schock anwenden'],['case_understanding','Der Fall hat mir geholfen, die Unterrichtsinhalte besser zu verstehen'],['case_overwhelmed','Ich war überfordert'],['case_recommend','Ich würde diesen Fall anderen Lernenden empfehlen']
 ];
 
-let activeCaseId = window.TELECARE_DEFAULT_CASE_ID;
-const getActiveCase = () => window.TELECARE_CASES[activeCaseId];
+let activeCaseId = window.GALEN_DEFAULT_CASE_ID;
+const getActiveCase = () => window.GALEN_CASES[activeCaseId];
 const clone = value => JSON.parse(JSON.stringify(value));
 function map(s,d){return Math.round((s+2*d)/3);}
 let LABS = clone(getActiveCase().labs);
@@ -31,7 +31,7 @@ const initialState = () => ({
   running:false,paused:false,ended:false,elapsed:0,timer:null,difficulty:'easy',dead:false,deathReason:null,criticalSeconds:0,alarmSilencedUntil:0,runId:(crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`),saveAttempted:false,savedResultId:null,pendingResultPayload:null,pendingSummary:null,evaluationSubmitted:false,evaluationSkipped:false,sepsisRecognizedAt:null,diagnosisRecognizedAt:null,anaphylaxisRecognizedAt:null,hemorrhageRecognizedAt:null,ecgAt:null,
   caseId:activeCaseId,
   patient:clone(getActiveCase().patient.initial),
-  physiologyCore:window.TELECARE_PHYSIOLOGY_ENGINE?window.TELECARE_PHYSIOLOGY_ENGINE.createInitial(getActiveCase()):null,
+  physiologyCore:window.GALEN_PHYSIOLOGY_ENGINE?window.GALEN_PHYSIOLOGY_ENGINE.createInitial(getActiveCase()):null,
   lastMeasurements:{nibp:null,rr:null,temp:null,bz:null},
   staff:getActiveCase().staff.map(person=>({...person,busyUntil:0,taskId:null})),
   tasks:[],events:[],chat:[],labsRequested:new Set(),labsAvailable:new Set(),labResults:[],bgaAvailable:false,bgaResults:[],access:new Set(getActiveCase().initialAccess||[]),
@@ -174,11 +174,11 @@ function updatePhysiology(){
   const fluidEffect=interventionEffect('fluid_500');
   const bloodEffect=interventionEffect('blood_unit');
 
-  if(!state.physiologyCore&&window.TELECARE_PHYSIOLOGY_ENGINE){
-    state.physiologyCore=window.TELECARE_PHYSIOLOGY_ENGINE.createInitial(caseConfig);
+  if(!state.physiologyCore&&window.GALEN_PHYSIOLOGY_ENGINE){
+    state.physiologyCore=window.GALEN_PHYSIOLOGY_ENGINE.createInitial(caseConfig);
   }
 
-  const engineResult=window.TELECARE_PHYSIOLOGY_ENGINE.step({
+  const engineResult=window.GALEN_PHYSIOLOGY_ENGINE.step({
     core:state.physiologyCore,
     patient:p,
     caseConfig,
@@ -521,8 +521,8 @@ function currentPainFinding(){
   return treated?'Die Schmerzen sind nach der Analgesie deutlich geringer, aber noch vorhanden.':'Der Patient gibt stärkste Schmerzen an.';
 }
 
-const MEDICATIONS=window.TELECARE_MEDICATIONS||{};
-const INTERVENTIONS=window.TELECARE_INTERVENTIONS||{};
+const MEDICATIONS=window.GALEN_MEDICATIONS||{};
+const INTERVENTIONS=window.GALEN_INTERVENTIONS||{};
 
 function caseEffectMultiplier(kind,id){
   const modifiers=getActiveCase()?.treatmentModifiers||{};
@@ -1021,7 +1021,7 @@ async function beginEvaluationFlow(){setupEvaluationQuestions();state.pendingSum
 function collectEvaluationAnswers(){const form=el('evaluationForm');if(!form?.checkValidity()){form?.reportValidity();return null;}const raw=evaluationDraftFromForm(),system={},caseQuestions={};SYSTEM_EVALUATION_QUESTIONS.forEach(([id])=>system[id]=Number(raw[id]));CASE_EVALUATION_QUESTIONS.forEach(([id])=>caseQuestions[id]=Number(raw[id]));return {system,case:caseQuestions,technicalProblems:raw.technicalProblems==='yes',technicalProblemText:String(raw.technicalProblemText||'').trim().slice(0,1000)};}
 async function submitEvaluation(e){e.preventDefault();const answers=collectEvaluationAnswers();if(!answers)return;const status=el('evaluationSaveStatus');status.textContent='Anonyme Evaluation wird gespeichert …';status.className='save-status';try{const response=await fetch('/api/evaluations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({caseId:activeCaseId,caseName:getActiveCase().title,difficulty:state.difficulty,answers})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Speichern fehlgeschlagen');state.evaluationSubmitted=true;clearPendingEvaluationStorage();status.textContent='✓ Anonyme Evaluation gespeichert.';status.className='save-status ok';setTimeout(()=>{el('evaluationDialog')?.close();showSummary();},200);}catch(error){status.textContent=`Evaluation konnte nicht gespeichert werden: ${error.message}`;status.className='save-status error';updatePendingEvaluationStorage();}}
 async function skipEvaluation(e){e.preventDefault();const password=String(el('evaluationSkipPassword')?.value||''),errorEl=el('evaluationSkipError');errorEl.classList.add('hidden');try{const response=await fetch('/api/evaluation/skip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Passwort falsch');state.evaluationSkipped=true;clearPendingEvaluationStorage();el('evaluationDialog')?.close();showSummary();}catch(error){errorEl.textContent=error.message;errorEl.classList.remove('hidden');}}
-async function restorePendingEvaluation(){const pending=readPendingEvaluationStorage();if(pending?.version!==2||!pending?.summary||!window.TELECARE_CASES[pending.caseId])return false;setupEvaluationQuestions();participantUsername='Teilnehmer';activeCaseId=pending.caseId;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);state=initialState();const snapshot=pending.snapshot||{};state.ended=true;state.running=false;state.restoredEvaluation=true;state.pendingResultPayload=null;state.pendingSummary=pending.summary;state.elapsed=Number(snapshot.elapsed)||0;state.difficulty=pending.difficulty||'easy';state.dead=Boolean(snapshot.dead);state.deathReason=snapshot.deathReason||null;state.events=Array.isArray(snapshot.events)?snapshot.events:[];state.vitalHistory=Array.isArray(snapshot.vitalHistory)&&snapshot.vitalHistory.length?snapshot.vitalHistory:state.vitalHistory;state.assessment=new Set(snapshot.assessment||[]);state.therapies={...state.therapies,...(snapshot.therapies||{})};state.patient={...state.patient,...(snapshot.patient||{})};state.escalationAt=snapshot.escalationAt??null;state.ecgAt=snapshot.ecgAt??null;state.anaphylaxisRecognizedAt=snapshot.anaphylaxisRecognizedAt??null;state.hemorrhageRecognizedAt=snapshot.hemorrhageRecognizedAt??null;el('startScreen')?.classList.add('hidden');el('simulationApp')?.classList.remove('hidden');renderAll();applyEvaluationDraft(pending.answers||{});el('evaluationDialog')?.showModal();return true;}
+async function restorePendingEvaluation(){const pending=readPendingEvaluationStorage();if(pending?.version!==2||!pending?.summary||!window.GALEN_CASES[pending.caseId])return false;setupEvaluationQuestions();participantUsername='Teilnehmer';activeCaseId=pending.caseId;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);state=initialState();const snapshot=pending.snapshot||{};state.ended=true;state.running=false;state.restoredEvaluation=true;state.pendingResultPayload=null;state.pendingSummary=pending.summary;state.elapsed=Number(snapshot.elapsed)||0;state.difficulty=pending.difficulty||'easy';state.dead=Boolean(snapshot.dead);state.deathReason=snapshot.deathReason||null;state.events=Array.isArray(snapshot.events)?snapshot.events:[];state.vitalHistory=Array.isArray(snapshot.vitalHistory)&&snapshot.vitalHistory.length?snapshot.vitalHistory:state.vitalHistory;state.assessment=new Set(snapshot.assessment||[]);state.therapies={...state.therapies,...(snapshot.therapies||{})};state.patient={...state.patient,...(snapshot.patient||{})};state.escalationAt=snapshot.escalationAt??null;state.ecgAt=snapshot.ecgAt??null;state.anaphylaxisRecognizedAt=snapshot.anaphylaxisRecognizedAt??null;state.hemorrhageRecognizedAt=snapshot.hemorrhageRecognizedAt??null;el('startScreen')?.classList.add('hidden');el('simulationApp')?.classList.remove('hidden');renderAll();applyEvaluationDraft(pending.answers||{});el('evaluationDialog')?.showModal();return true;}
 
 function consumeHubLaunchConfig(){
   let config=null;
@@ -1030,7 +1030,7 @@ function consumeHubLaunchConfig(){
   try{sessionStorage.removeItem('galenLaunchConfig');}catch{}
   if(Date.now()-Number(config.createdAt||0)>30*60*1000)return false;
   const username=String(config.username||'').trim().replace(/\s+/g,' ').slice(0,80);
-  if(username.length<2||!window.TELECARE_CASES[config.caseId])return false;
+  if(username.length<2||!window.GALEN_CASES[config.caseId])return false;
   const caseSelect=el('caseSelect'),durationSelect=el('durationSelect'),difficultySelect=el('difficultySelect'),startForm=el('startForm');
   if(!caseSelect||!durationSelect||!difficultySelect||!startForm)return false;
   el('usernameInput').value=username;
@@ -1057,7 +1057,7 @@ function bind(){
   onClick('norepiDownBtn',()=>adjustNorepi(-1));onClick('norepiUpBtn',()=>adjustNorepi(1));onClick('norepiStopBtn',stopNorepi);
   const chatLog=el('chatLog');if(chatLog)chatLog.addEventListener('scroll',()=>{state.chatAutoFollow=chatLog.scrollHeight-chatLog.scrollTop-chatLog.clientHeight<60;});
   const chatForm=el('chatForm');if(chatForm)chatForm.addEventListener('submit',e=>{e.preventDefault();const input=el('chatInput');if(input){handleChat(input.value);input.value='';}});
-  const caseSelect=el('caseSelect');if(caseSelect){caseSelect.innerHTML=Object.values(window.TELECARE_CASES).filter(c=>c.enabled!==false).map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.number)} · ${escapeHtml(c.shortTitle)}</option>`).join('');caseSelect.value=activeCaseId;caseSelect.onchange=()=>{activeCaseId=caseSelect.value;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);renderLabOptions();const c=getActiveCase();const durationSelect=el('durationSelect');if(durationSelect){durationSelect.value=String(c.defaultDurationSeconds||600);SIM_DURATION=Number(durationSelect.value);}};}
+  const caseSelect=el('caseSelect');if(caseSelect){caseSelect.innerHTML=Object.values(window.GALEN_CASES).filter(c=>c.enabled!==false).map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.number)} · ${escapeHtml(c.shortTitle)}</option>`).join('');caseSelect.value=activeCaseId;caseSelect.onchange=()=>{activeCaseId=caseSelect.value;LABS=clone(getActiveCase().labs);BGA=clone(getActiveCase().bga?.staticRows||[]);renderLabOptions();const c=getActiveCase();const durationSelect=el('durationSelect');if(durationSelect){durationSelect.value=String(c.defaultDurationSeconds||600);SIM_DURATION=Number(durationSelect.value);}};}
   const durationSelect=el('durationSelect');if(durationSelect)durationSelect.onchange=()=>{if(!state.running){SIM_DURATION=Number(durationSelect.value);renderButtons();}};const difficultySelect=el('difficultySelect');if(difficultySelect)difficultySelect.onchange=()=>{if(!state.running)state.difficulty=difficultySelect.value;};
   setupEvaluationQuestions();const evaluationForm=el('evaluationForm');if(evaluationForm){evaluationForm.addEventListener('submit',submitEvaluation);evaluationForm.addEventListener('change',()=>{const tech=document.querySelector('[name="technicalProblems"]:checked')?.value;el('technicalProblemTextWrap')?.classList.toggle('hidden',tech!=='yes');updatePendingEvaluationStorage();});evaluationForm.addEventListener('input',updatePendingEvaluationStorage);}el('evaluationSkipForm')?.addEventListener('submit',skipEvaluation);window.addEventListener('pagehide',updatePendingEvaluationStorage);
   setupLabDialog();setupAccessDialog();setupBloodDialog();

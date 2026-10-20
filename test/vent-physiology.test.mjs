@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 
 await import('../public/vent-physiology.js');
 await import('../public/vent-waveform-history.js');
-const E = globalThis.TELECARE_VENT_ENGINE;
-const W = globalThis.TELECARE_VENT_WAVEFORMS;
+const E = globalThis.GALEN_VENT_ENGINE;
+const W = globalThis.GALEN_VENT_WAVEFORMS;
 
 const standardPumps = E.DEFAULT_PUMPS;
 const standardSettings = E.DEFAULT_SETTINGS;
@@ -186,7 +186,7 @@ test('Ein kurzer Löschspalt läuft über die ansonsten feste Kurvenfläche', ()
 test('Beatmungs-Sandbox ist von den bestehenden Schock-Modulen getrennt', async () => {
   for (const file of ['../public/app.js', '../public/cases.js', '../public/physiology.js']) {
     const source = await readFile(new URL(file, import.meta.url), 'utf8');
-    assert.equal(source.includes('TELECARE_VENT_ENGINE'), false, `${file} darf die Beatmungs-Engine nicht importieren`);
+    assert.equal(source.includes('GALEN_VENT_ENGINE'), false, `${file} darf die Beatmungs-Engine nicht importieren`);
     assert.equal(source.includes('vent.html'), false, `${file} darf nicht zur Sandbox verzweigen`);
   }
 });
@@ -279,7 +279,7 @@ test('Beatmungsoberfläche nutzt das Schock-Layout ohne verschachtelte Geräteme
   assert.match(app, /\{ passive: false \}/);
   assert.match(app, /event\.deltaY < 0 \? 1 : -1/);
   assert.match(app, /soundLevels = loadSoundLevels\(\)/);
-  assert.match(app, /if \(window\.__TELECARE_VENT_APP_ACTIVE__\) return/);
+  assert.match(app, /if \(window\.__GALEN_VENT_APP_ACTIVE__\) return/);
   assert.match(app, /function pulseTone\(frequency\)/);
   assert.match(app, /now - lastPulseAudioAt < 0\.18/);
   assert.match(app, /setValueAtTime\(0\.0001, startedAt\)/);

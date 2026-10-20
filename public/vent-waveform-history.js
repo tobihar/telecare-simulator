@@ -123,7 +123,7 @@
     };
   }
 
-  root.TELECARE_VENT_WAVEFORMS = Object.freeze({
+  root.GALEN_VENT_WAVEFORMS = Object.freeze({
     DEFAULT_HISTORY_SECONDS,
     DEFAULT_SAMPLE_RATE,
     DEFAULT_ERASE_SECONDS,

@@ -477,7 +477,7 @@
     return next;
   }
 
-  root.TELECARE_VENT_ENGINE = Object.freeze({
+  root.GALEN_VENT_ENGINE = Object.freeze({
     PATIENT,
     DEFAULT_SETTINGS,
     DEFAULT_PUMPS,

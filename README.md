@@ -1,4 +1,4 @@
-# Galen · TeleCare-Simulator
+# Galen · Clinical Simulation
 
 Interaktive Simulation für medizinisches Personal: Die Teilnehmenden betreuen per
 Telekonsultation einen kritisch kranken Patienten und steuern das Team vor Ort
@@ -37,7 +37,7 @@ Voraussetzungen: Node.js 22 oder neuer und ein kostenloser Cloudflare-Account.
 ```bash
 npm install
 npx wrangler login                 # öffnet den Browser zur Anmeldung
-npx wrangler d1 create telecare    # legt die Datenbank an
+npx wrangler d1 create galen       # legt die Datenbank an
 ```
 
 Die von `d1 create` ausgegebene `database_id` in `wrangler.jsonc` eintragen.
@@ -56,11 +56,11 @@ Veröffentlichen (wendet zuerst neue Datenbank-Migrationen an):
 npm run deploy
 ```
 
-Die App ist dann unter `https://telecare-simulator.<dein-name>.workers.dev`
+Die App ist dann unter `https://galen.<dein-name>.workers.dev`
 erreichbar.
 
 **Automatisch aus GitHub deployen (optional):** Im Cloudflare-Dashboard unter
-*Workers & Pages → telecare-simulator → Settings → Builds* das Repository
+*Workers & Pages → galen → Settings → Builds* das Repository
 verbinden und als Deploy-Befehl `npm run deploy` eintragen. Dann wird jeder
 Push auf `main` automatisch veröffentlicht.
 
@@ -98,7 +98,7 @@ Normale Variablen (in `wrangler.jsonc` unter `vars`):
   der Kalendertag.
 
 Direkt in die Datenbank schauen:
-`npx wrangler d1 execute telecare --remote --command "SELECT count(*) FROM simulation_results"`
+`npx wrangler d1 execute galen --remote --command "SELECT count(*) FROM simulation_results"`
 
 ## Sicherheit
 

@@ -1,11 +1,11 @@
 {
-  "name": "telecare-simulator",
+  "name": "galen",
   "version": "5.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler d1 migrations apply telecare --local && wrangler dev",
-    "deploy": "wrangler d1 migrations apply telecare --remote && wrangler deploy",
+    "dev": "wrangler d1 migrations apply galen --local && wrangler dev",
+    "deploy": "wrangler d1 migrations apply galen --remote && wrangler deploy",
     "test": "node --test"
   },
   "devDependencies": {

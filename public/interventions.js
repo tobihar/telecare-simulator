@@ -35,5 +35,5 @@
     wound_compression:{label:'Manuelle Kompression am Handstumpf durchführen',taskSeconds:10,roles:['nurse','doctor']},
     tourniquet:{label:'Tourniquet am linken Unterarm anlegen',taskSeconds:15,roles:['nurse','doctor']}
   };
-  window.TELECARE_INTERVENTIONS = Object.freeze(interventions);
+  window.GALEN_INTERVENTIONS = Object.freeze(interventions);
 })();

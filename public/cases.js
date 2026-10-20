@@ -807,7 +807,7 @@
     ]
   };
 
-  window.TELECARE_CASES = Object.freeze({
+  window.GALEN_CASES = Object.freeze({
     [postoperativeBleeding.id]: postoperativeBleeding,
     [cardiogenicShock.id]: cardiogenicShock,
     [anaphylacticShock.id]: anaphylacticShock,
@@ -815,5 +815,5 @@
     [septicShock.id]: septicShock,
     [dehydrationShock.id]: dehydrationShock
   });
-  window.TELECARE_DEFAULT_CASE_ID = postoperativeBleeding.id;
+  window.GALEN_DEFAULT_CASE_ID = postoperativeBleeding.id;
 })();

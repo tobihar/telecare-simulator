@@ -1,4 +1,4 @@
--- TeleCare: Tabellen für Cloudflare D1 (SQLite).
+-- Galen: Tabellen für Cloudflare D1 (SQLite).
 
 -- Personenbezogene Simulationsergebnisse (Benutzername, Verlauf, Score).
 CREATE TABLE IF NOT EXISTS simulation_results (

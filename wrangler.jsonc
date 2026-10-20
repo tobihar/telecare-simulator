@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "telecare-simulator",
+  "name": "galen",
   "main": "src/worker.js",
   "compatibility_date": "2026-09-01",
   "assets": {
@@ -14,8 +14,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "telecare",
-      // Nach `npx wrangler d1 create telecare` die ausgegebene ID hier eintragen.
+      "database_name": "galen",
+      // Nach `npx wrangler d1 create galen` die ausgegebene ID hier eintragen.
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }

@@ -207,5 +207,5 @@
     };
   }
 
-  window.TELECARE_PHYSIOLOGY_ENGINE = Object.freeze({ createInitial, step });
+  window.GALEN_PHYSIOLOGY_ENGINE = Object.freeze({ createInitial, step });
 })();

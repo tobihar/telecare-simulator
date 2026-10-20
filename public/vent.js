@@ -1,12 +1,12 @@
 (function () {
   'use strict';
 
-  if (window.__TELECARE_VENT_APP_ACTIVE__) return;
-  window.__TELECARE_VENT_APP_ACTIVE__ = true;
+  if (window.__GALEN_VENT_APP_ACTIVE__) return;
+  window.__GALEN_VENT_APP_ACTIVE__ = true;
 
-  const E = window.TELECARE_VENT_ENGINE;
+  const E = window.GALEN_VENT_ENGINE;
   if (!E) throw new Error('Beatmungs-Engine konnte nicht geladen werden.');
-  const W = window.TELECARE_VENT_WAVEFORMS;
+  const W = window.GALEN_VENT_WAVEFORMS;
   if (!W) throw new Error('Kurvenpuffer konnte nicht geladen werden.');
 
   const $ = id => document.getElementById(id);
@@ -240,7 +240,7 @@
 
   function medicationFromText(text) {
     const q = normalizeText(text);
-    const definitions = window.TELECARE_MEDICATIONS || {};
+    const definitions = window.GALEN_MEDICATIONS || {};
     return Object.entries(definitions).find(([id, definition]) => {
       const aliases = [id, definition.label, ...(definition.aliases || [])].map(normalizeText).filter(Boolean);
       return aliases.some(alias => new RegExp(`(?:^|\\s)${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|\\s)`).test(q));
@@ -867,7 +867,7 @@
   }
 
   function giveMedicationById(id) {
-    const definition = window.TELECARE_MEDICATIONS?.[id];
+    const definition = window.GALEN_MEDICATIONS?.[id];
     if (!definition) {
       addChat('Team vor Ort', 'Dieses Medikament ist im Simulator nicht verfügbar.');
       return;
@@ -879,7 +879,7 @@
     const task = assignTask(`${definition.label} verabreichen`, Number(definition.taskSeconds || 20), ['doctor', 'ata'], () => {
       state = E.addMedicationEffect(state, id, definition);
       medicationsGiven.push({ id, label: definition.label, time: state.elapsed });
-      addEvent(`${definition.label} wurde gegeben; das bestehende TeleCare-Wirkprofil ist aktiv.`);
+      addEvent(`${definition.label} wurde gegeben; das hinterlegte Wirkprofil ist aktiv.`);
       addChat('Team vor Ort', `${definition.label} wurde verabreicht.`);
       renderClinical();
     });
@@ -891,7 +891,7 @@
       addChat('Team vor Ort', 'Kristalloid kann ohne geeigneten Gefäßzugang nicht gegeben werden.');
       return;
     }
-    const definition = window.TELECARE_INTERVENTIONS?.fluid_500;
+    const definition = window.GALEN_INTERVENTIONS?.fluid_500;
     const task = assignTask(definition?.label || '500 ml Kristalloid', Number(definition?.taskSeconds || 60), ['doctor', 'ata'], () => {
       state = E.addFluidEffect(state, 500);
       addEvent(`500 ml Kristalloid verabreicht; Gesamtmenge ${state.crystalloidMl} ml.`);
@@ -906,7 +906,7 @@
       addChat('Team vor Ort', 'Noradrenalin kann ohne geeigneten Gefäßzugang nicht gegeben werden.');
       return;
     }
-    const definition = window.TELECARE_INTERVENTIONS?.norepi_bolus;
+    const definition = window.GALEN_INTERVENTIONS?.norepi_bolus;
     const task = assignTask(definition?.label || 'Noradrenalin 5 µg i.v. als Bolus geben', Number(definition?.taskSeconds || 15), ['doctor', 'ata'], () => {
       state = E.addNorepiBolus(state);
       addEvent('Noradrenalin 5 µg i.v. gegeben; der simulierte MAP-Effekt läuft etwa eine Minute.');
