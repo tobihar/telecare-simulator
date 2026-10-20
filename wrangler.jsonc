@@ -15,8 +15,7 @@
     {
       "binding": "DB",
       "database_name": "galen",
-      // Nach `npx wrangler d1 create galen` die ausgegebene ID hier eintragen.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "bd83b687-eeba-474a-8634-b6ba086a7e06",
       "migrations_dir": "migrations"
     }
   ],
