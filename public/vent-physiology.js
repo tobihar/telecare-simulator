@@ -227,10 +227,7 @@
     else if (d.intrinsicPeep >= 2) push('auto_peep', 'warning', 'Exspiration unvollständig');
     if (state.spo2 < 88) push('spo2_low', 'critical', 'SpO₂ kritisch niedrig');
     else if (state.spo2 < 94) push('spo2_low', 'warning', 'SpO₂ niedrig');
-    if (state.etCO2 > 60) push('co2_high', 'critical', 'etCO₂ sehr hoch');
-    else if (state.etCO2 > 50) push('co2_high', 'warning', 'etCO₂ hoch');
-    if (state.etCO2 < 22) push('co2_low', 'critical', 'etCO₂ sehr niedrig');
-    else if (state.etCO2 < 30) push('co2_low', 'warning', 'etCO₂ niedrig');
+    alarms.push(...etco2Alarms(state.etCO2));
     if (state.pH < 7.1) push('ph_low', 'critical', 'Schwere respiratorische Azidose');
     else if (state.pH < 7.25) push('ph_low', 'warning', 'Respiratorische Azidose');
     if (state.pH > 7.58) push('ph_high', 'critical', 'Schwere respiratorische Alkalose');
@@ -243,6 +240,16 @@
     if (state.awareness > 0.55) push('anesthesia_low', 'critical', 'Narkosetiefe unzureichend');
     else if (state.awareness > 0.25) push('anesthesia_low', 'warning', 'Narkosetiefe nimmt ab');
     if (state.lungInjury > 0.2) push('lung_injury', 'warning', 'Anhaltend lungenschädliche Beatmung');
+    return alarms;
+  }
+
+  // Grenzwerte für etCO₂-Alarme; die Oberfläche wendet sie auf den pro Atemzug gemessenen Wert an.
+  function etco2Alarms(etCO2) {
+    const alarms = [];
+    if (etCO2 > 60) alarms.push({ id: 'co2_high', priority: 'critical', label: 'etCO₂ sehr hoch' });
+    else if (etCO2 > 50) alarms.push({ id: 'co2_high', priority: 'warning', label: 'etCO₂ hoch' });
+    if (etCO2 < 22) alarms.push({ id: 'co2_low', priority: 'critical', label: 'etCO₂ sehr niedrig' });
+    else if (etCO2 < 30) alarms.push({ id: 'co2_low', priority: 'warning', label: 'etCO₂ niedrig' });
     return alarms;
   }
 
@@ -477,7 +484,7 @@
     return next;
   }
 
-  root.TELECARE_VENT_ENGINE = Object.freeze({
+  root.GALEN_VENT_ENGINE = Object.freeze({
     PATIENT,
     DEFAULT_SETTINGS,
     DEFAULT_PUMPS,
@@ -491,6 +498,7 @@
     createInitial,
     lungMechanics,
     acidBase,
+    etco2Alarms,
     step,
     sampleBga,
     addMedicationEffect,

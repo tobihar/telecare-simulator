@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "galen",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "none",
+    // Diese Pfade gehen immer zuerst an den Worker (API und Seiten-Aliase).
+    "run_worker_first": ["/", "/api/*", "/admin", "/admin/", "/simulator", "/simulator/", "/shock", "/shock/"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "galen",
+      "database_id": "bd83b687-eeba-474a-8634-b6ba086a7e06",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "ADMIN_USERNAME": "dozent",
+    "GEMINI_MODEL": "gemini-3.1-flash-lite"
+  },
+  "observability": { "enabled": true }
+}

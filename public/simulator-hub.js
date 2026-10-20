@@ -19,7 +19,7 @@
   const launchSummary = document.getElementById('launchSummary');
   let selectedModule = '';
 
-  const cases = Object.values(window.TELECARE_CASES || {}).filter(item => item.enabled !== false);
+  const cases = Object.values(window.GALEN_CASES || {}).filter(item => item.enabled !== false);
   cases.forEach(item => {
     const option = document.createElement('option');
     option.value = item.id;

@@ -1,0 +1,5 @@
+# Für `npm run dev` nach .dev.vars kopieren und ausfüllen (wird nicht eingecheckt).
+GEMINI_API_KEY=
+ADMIN_PASSWORD=
+SESSION_SECRET=
+EVALUATION_SKIP_PASSWORD=

@@ -1,12 +1,12 @@
 (function () {
   'use strict';
 
-  if (window.__TELECARE_VENT_APP_ACTIVE__) return;
-  window.__TELECARE_VENT_APP_ACTIVE__ = true;
+  if (window.__GALEN_VENT_APP_ACTIVE__) return;
+  window.__GALEN_VENT_APP_ACTIVE__ = true;
 
-  const E = window.TELECARE_VENT_ENGINE;
+  const E = window.GALEN_VENT_ENGINE;
   if (!E) throw new Error('Beatmungs-Engine konnte nicht geladen werden.');
-  const W = window.TELECARE_VENT_WAVEFORMS;
+  const W = window.GALEN_VENT_WAVEFORMS;
   if (!W) throw new Error('Kurvenpuffer konnte nicht geladen werden.');
 
   const $ = id => document.getElementById(id);
@@ -98,6 +98,9 @@
   let lastPumpWheelAt;
   let ventValuesPage;
   let waveformRecorder;
+  // Endtidales CO₂ wird wie am echten Monitor nur am Ende jeder Ausatmung aktualisiert.
+  let measuredEtco2;
+  let measuredBreathCount;
 
   function freshSession() {
     stopVentilatorSound();
@@ -108,6 +111,8 @@
     };
     state = E.step(E.createInitial(), settings, pumps, 0.01);
     waveformRecorder = W.create(E, settings, state);
+    measuredEtco2 = state.etCO2;
+    measuredBreathCount = waveformRecorder.completedBreaths;
     running = true;
     lastFrameAt = performance.now();
     bgaTask = null;
@@ -240,7 +245,7 @@
 
   function medicationFromText(text) {
     const q = normalizeText(text);
-    const definitions = window.TELECARE_MEDICATIONS || {};
+    const definitions = window.GALEN_MEDICATIONS || {};
     return Object.entries(definitions).find(([id, definition]) => {
       const aliases = [id, definition.label, ...(definition.aliases || [])].map(normalizeText).filter(Boolean);
       return aliases.some(alias => new RegExp(`(?:^|\\s)${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|\\s)`).test(q));
@@ -255,7 +260,7 @@
     return {
       heartRate: Math.round(state.hr),
       spo2: Math.round(state.spo2),
-      etCO2: Math.round(state.etCO2),
+      etCO2: Math.round(measuredEtco2),
       arterialPressure: hasAccess('artery') ? `${Math.round(state.sys)}/${Math.round(state.dia)}` : null,
       lastNibp: nibp.last,
       temperature: hasAccess('bladder') ? Number(state.temp.toFixed(1)) : null,
@@ -323,7 +328,7 @@
       return;
     }
     if (/\b(vital|blutdruck|sattigung|spo2|etco2|herzfrequenz)\b/.test(q)) {
-      addChat('Jonas Richter', `HF ${Math.round(state.hr)}/min, SpO₂ ${number(state.spo2, 0)} %, etCO₂ ${number(state.etCO2, 0)} mmHg und letzter NIBP ${nibp.last.sys}/${nibp.last.dia} mmHg (MAP ${nibp.last.map}).`);
+      addChat('Jonas Richter', `HF ${Math.round(state.hr)}/min, SpO₂ ${number(state.spo2, 0)} %, etCO₂ ${number(measuredEtco2, 0)} mmHg und letzter NIBP ${nibp.last.sys}/${nibp.last.dia} mmHg (MAP ${nibp.last.map}).`);
       return;
     }
 
@@ -867,7 +872,7 @@
   }
 
   function giveMedicationById(id) {
-    const definition = window.TELECARE_MEDICATIONS?.[id];
+    const definition = window.GALEN_MEDICATIONS?.[id];
     if (!definition) {
       addChat('Team vor Ort', 'Dieses Medikament ist im Simulator nicht verfügbar.');
       return;
@@ -879,7 +884,7 @@
     const task = assignTask(`${definition.label} verabreichen`, Number(definition.taskSeconds || 20), ['doctor', 'ata'], () => {
       state = E.addMedicationEffect(state, id, definition);
       medicationsGiven.push({ id, label: definition.label, time: state.elapsed });
-      addEvent(`${definition.label} wurde gegeben; das bestehende TeleCare-Wirkprofil ist aktiv.`);
+      addEvent(`${definition.label} wurde gegeben; das hinterlegte Wirkprofil ist aktiv.`);
       addChat('Team vor Ort', `${definition.label} wurde verabreicht.`);
       renderClinical();
     });
@@ -891,7 +896,7 @@
       addChat('Team vor Ort', 'Kristalloid kann ohne geeigneten Gefäßzugang nicht gegeben werden.');
       return;
     }
-    const definition = window.TELECARE_INTERVENTIONS?.fluid_500;
+    const definition = window.GALEN_INTERVENTIONS?.fluid_500;
     const task = assignTask(definition?.label || '500 ml Kristalloid', Number(definition?.taskSeconds || 60), ['doctor', 'ata'], () => {
       state = E.addFluidEffect(state, 500);
       addEvent(`500 ml Kristalloid verabreicht; Gesamtmenge ${state.crystalloidMl} ml.`);
@@ -906,7 +911,7 @@
       addChat('Team vor Ort', 'Noradrenalin kann ohne geeigneten Gefäßzugang nicht gegeben werden.');
       return;
     }
-    const definition = window.TELECARE_INTERVENTIONS?.norepi_bolus;
+    const definition = window.GALEN_INTERVENTIONS?.norepi_bolus;
     const task = assignTask(definition?.label || 'Noradrenalin 5 µg i.v. als Bolus geben', Number(definition?.taskSeconds || 15), ['doctor', 'ata'], () => {
       state = E.addNorepiBolus(state);
       addEvent('Noradrenalin 5 µg i.v. gegeben; der simulierte MAP-Effekt läuft etwa eine Minute.');
@@ -951,14 +956,22 @@
     $('simpleResultsDialog').showModal();
   }
 
+  function currentAlarms() {
+    return [
+      ...state.alarms.filter(alarm => alarm.id !== 'co2_high' && alarm.id !== 'co2_low'),
+      ...E.etco2Alarms(measuredEtco2)
+    ];
+  }
+
   function highestAlarmPriority() {
-    return state.alarms.some(alarm => alarm.priority === 'critical')
+    const alarms = currentAlarms();
+    return alarms.some(alarm => alarm.priority === 'critical')
       ? 'critical'
-      : state.alarms.length ? 'warning' : 'stable';
+      : alarms.length ? 'warning' : 'stable';
   }
 
   function renderAlarms() {
-    const alarms = state.alarms;
+    const alarms = currentAlarms();
     const alarmIds = new Set(alarms.map(alarm => alarm.id));
     alarms.forEach(alarm => {
       if (!priorAlarmIds.has(alarm.id)) addEvent(`Alarm: ${alarm.label}.`);
@@ -1007,7 +1020,7 @@
     $('monitorArt').textContent = arterialConnected ? `${Math.round(state.sys)}/${Math.round(state.dia)}` : 'kein Signal';
     $('monitorArtMap').textContent = arterialConnected ? `MAP ${Math.round(state.map)} mmHg · kontinuierlich` : 'Arterie erforderlich';
     $('monitorSpo2').textContent = number(state.spo2, state.spo2 < 95 ? 1 : 0);
-    $('monitorEtco2').textContent = number(state.etCO2, 0);
+    $('monitorEtco2').textContent = number(measuredEtco2, 0);
     if (temperatureConnected) $('monitorTemp').textContent = number(state.temp, 1);
 
     if (nibp.measuringUntil !== null) {
@@ -1273,8 +1286,9 @@
       const spo2Frequency = E.clamp(430 + (state.spo2 - 80) * 16, 260, 760);
       if (pulseTone(spo2Frequency)) nextPulseAt = state.elapsed + 60 / Math.max(20, state.hr);
     }
-    if (state.alarms.length && state.elapsed >= nextAlarmToneAt) {
-      const critical = state.alarms.some(alarm => alarm.priority === 'critical');
+    const alarms = currentAlarms();
+    if (alarms.length && state.elapsed >= nextAlarmToneAt) {
+      const critical = alarms.some(alarm => alarm.priority === 'critical');
       tone(critical ? 930 : 720, critical ? 0.16 : 0.11, 0.045, 'alarm');
       nextAlarmToneAt = state.elapsed + (critical ? 0.7 : 1.4);
     }
@@ -1352,6 +1366,10 @@
       state = E.step(state, settings, pumps, (rawDt || 0.016) * timeScale);
     }
     W.advance(waveformRecorder, state.elapsed, settings, state);
+    if (waveformRecorder.completedBreaths !== measuredBreathCount) {
+      measuredBreathCount = waveformRecorder.completedBreaths;
+      measuredEtco2 = state.etCO2;
+    }
     updateTasks();
     if (state.cardiacArrest && !priorCardiacArrest) {
       priorCardiacArrest = true;

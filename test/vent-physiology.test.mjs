@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-await import('../vent-physiology.js');
-await import('../vent-waveform-history.js');
-const E = globalThis.TELECARE_VENT_ENGINE;
-const W = globalThis.TELECARE_VENT_WAVEFORMS;
+await import('../public/vent-physiology.js');
+await import('../public/vent-waveform-history.js');
+const E = globalThis.GALEN_VENT_ENGINE;
+const W = globalThis.GALEN_VENT_WAVEFORMS;
 
 const standardPumps = E.DEFAULT_PUMPS;
 const standardSettings = E.DEFAULT_SETTINGS;
@@ -184,18 +184,18 @@ test('Ein kurzer Löschspalt läuft über die ansonsten feste Kurvenfläche', ()
 });
 
 test('Beatmungs-Sandbox ist von den bestehenden Schock-Modulen getrennt', async () => {
-  for (const file of ['../app.js', '../cases.js', '../physiology.js']) {
+  for (const file of ['../public/app.js', '../public/cases.js', '../public/physiology.js']) {
     const source = await readFile(new URL(file, import.meta.url), 'utf8');
-    assert.equal(source.includes('TELECARE_VENT_ENGINE'), false, `${file} darf die Beatmungs-Engine nicht importieren`);
+    assert.equal(source.includes('GALEN_VENT_ENGINE'), false, `${file} darf die Beatmungs-Engine nicht importieren`);
     assert.equal(source.includes('vent.html'), false, `${file} darf nicht zur Sandbox verzweigen`);
   }
 });
 
 test('Experimenteller Einstieg und Sandbox-Ressourcen sind vollständig verdrahtet', async () => {
-  const index = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-  const hub = await readFile(new URL('../simulator-hub.html', import.meta.url), 'utf8');
-  const hubApp = await readFile(new URL('../simulator-hub.js', import.meta.url), 'utf8');
-  const page = await readFile(new URL('../vent.html', import.meta.url), 'utf8');
+  const index = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const hub = await readFile(new URL('../public/simulator-hub.html', import.meta.url), 'utf8');
+  const hubApp = await readFile(new URL('../public/simulator-hub.js', import.meta.url), 'utf8');
+  const page = await readFile(new URL('../public/vent.html', import.meta.url), 'utf8');
   assert.match(index, /href="\/simulator\?module=anesthesia"/);
   assert.match(index, /Experimenteller Bereich/);
   assert.match(hub, /Was simulierst[\s\S]*du[\s\S]*heute/);
@@ -219,9 +219,9 @@ test('Experimenteller Einstieg und Sandbox-Ressourcen sind vollständig verdraht
 
 test('Beatmungsoberfläche nutzt das Schock-Layout ohne verschachtelte Gerätemenüs', async () => {
   const [page, app, styles] = await Promise.all([
-    readFile(new URL('../vent.html', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.js', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.css', import.meta.url), 'utf8')
+    readFile(new URL('../public/vent.html', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.js', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.css', import.meta.url), 'utf8')
   ]);
   assert.doesNotMatch(page, /experimental-ribbon|Übergabe aus der Einleitung|Patientenzustand|Alarmzentrale|dock-tabs|eventPanel|medicationSelect/);
   assert.doesNotMatch(page, /type="range"/);
@@ -278,13 +278,13 @@ test('Beatmungsoberfläche nutzt das Schock-Layout ohne verschachtelte Geräteme
   assert.match(app, /button\.addEventListener\('wheel'/);
   assert.match(app, /\{ passive: false \}/);
   assert.match(app, /event\.deltaY < 0 \? 1 : -1/);
-  assert.match(app, /soundEnabled = true/);
-  assert.match(app, /if \(window\.__TELECARE_VENT_APP_ACTIVE__\) return/);
+  assert.match(app, /soundLevels = loadSoundLevels\(\)/);
+  assert.match(app, /if \(window\.__GALEN_VENT_APP_ACTIVE__\) return/);
   assert.match(app, /function pulseTone\(frequency\)/);
   assert.match(app, /now - lastPulseAudioAt < 0\.18/);
   assert.match(app, /setValueAtTime\(0\.0001, startedAt\)/);
   assert.match(app, /pulseTone\(spo2Frequency\)/);
-  assert.match(app, /soundEnabled \|\| document\.hidden/);
+  assert.match(app, /!levelGain \|\| document\.hidden/);
   assert.match(app, /document\.addEventListener\('visibilitychange'/);
   assert.doesNotMatch(app, /if \(soundEnabled\) tone\(620/);
   assert.match(styles, /\.vent-app\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none/s);
@@ -302,19 +302,19 @@ test('Beatmungsoberfläche nutzt das Schock-Layout ohne verschachtelte Geräteme
   assert.match(styles, /\.vent-values-page > div\s*\{[^}]*grid-template-areas:\s*"label" "value" "unit"[^}]*justify-items:\s*center/s);
   assert.match(styles, /\.vent-values-page > div \+ div\s*\{[^}]*border-top:\s*0/s);
   assert.match(styles, /\.vent-values-page span\s*\{[^}]*font-size:\s*11px/s);
-  assert.match(styles, /\.vent-values-page strong\s*\{[^}]*18px "Courier New"[^}]*text-align:\s*center/s);
+  assert.match(styles, /\.vent-values-page strong\s*\{[^}]*font-family:\s*var\(--mono\)[^}]*font-size:\s*18px[^}]*text-align:\s*center/s);
   assert.match(styles, /\.setting-key > span\s*\{[^}]*font-size:\s*11px/s);
-  assert.match(styles, /\.setting-key output\s*\{[^}]*15px "Courier New"/s);
+  assert.match(styles, /\.setting-key output\s*\{[^}]*font-family:\s*var\(--mono\)[^}]*font-size:\s*15px/s);
 });
 
 test('Invasive Monitorwerte erscheinen nur bei angeschlossenem Zugang', async () => {
   const [index, app, styles, ventPage, ventApp, ventStyles] = await Promise.all([
-    readFile(new URL('../index.html', import.meta.url), 'utf8'),
-    readFile(new URL('../app.js', import.meta.url), 'utf8'),
-    readFile(new URL('../styles.css', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.html', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.js', import.meta.url), 'utf8'),
-    readFile(new URL('../vent.css', import.meta.url), 'utf8')
+    readFile(new URL('../public/index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../public/app.js', import.meta.url), 'utf8'),
+    readFile(new URL('../public/styles.css', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.html', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.js', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.css', import.meta.url), 'utf8')
   ]);
 
   assert.match(index, /strip-vital art hidden/);
@@ -329,4 +329,26 @@ test('Invasive Monitorwerte erscheinen nur bei angeschlossenem Zugang', async ()
   assert.match(ventApp, /monitor-vital\.art'\)\?\.classList\.toggle\('hidden', !arterialConnected\)/);
   assert.match(ventApp, /monitor-vital\.temp'\)\?\.classList\.toggle\('hidden', !temperatureConnected\)/);
   assert.match(ventStyles, /repeat\(var\(--monitor-vitals, 4\)/);
+});
+
+test('Kurvenpuffer zählt abgeschlossene Atemzüge für die etCO₂-Messung', () => {
+  const E = globalThis.GALEN_VENT_ENGINE;
+  const W = globalThis.GALEN_VENT_WAVEFORMS;
+  const settings = { ...E.DEFAULT_SETTINGS, rr: 12 };
+  const state = E.step(E.createInitial(), settings, E.DEFAULT_PUMPS, 0.01);
+  const recorder = W.create(E, settings, state);
+  const before = recorder.completedBreaths;
+  W.advance(recorder, state.elapsed + 4.9, settings, state);
+  assert.ok(recorder.completedBreaths - before <= 1, 'Innerhalb eines 5-s-Zyklus höchstens ein Atemzugende');
+  W.advance(recorder, state.elapsed + 30, settings, state);
+  assert.equal(recorder.completedBreaths - before, 6, 'Bei AF 12 enden in 30 s genau sechs Atemzüge');
+});
+
+test('etCO₂-Alarmgrenzen sind unverändert', () => {
+  const E = globalThis.GALEN_VENT_ENGINE;
+  assert.deepEqual(E.etco2Alarms(37), []);
+  assert.deepEqual(E.etco2Alarms(25).map(a => [a.id, a.priority]), [['co2_low', 'warning']]);
+  assert.deepEqual(E.etco2Alarms(20).map(a => [a.id, a.priority]), [['co2_low', 'critical']]);
+  assert.deepEqual(E.etco2Alarms(55).map(a => [a.id, a.priority]), [['co2_high', 'warning']]);
+  assert.deepEqual(E.etco2Alarms(65).map(a => [a.id, a.priority]), [['co2_high', 'critical']]);
 });

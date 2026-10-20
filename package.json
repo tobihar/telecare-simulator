@@ -1,8 +1,17 @@
 {
-  "name":"telecare-simulator",
-  "version":"4.7.0",
-  "private":true,
-  "type":"module",
-  "scripts":{"start":"node server.js","test":"node --test"},
-  "engines":{"node":"20.x"}
+  "name": "galen",
+  "version": "5.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler d1 migrations apply galen --local && wrangler dev",
+    "deploy": "wrangler d1 migrations apply galen --remote && wrangler deploy",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "4.143.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }

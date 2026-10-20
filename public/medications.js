@@ -45,5 +45,5 @@
     fibrinogen:{label:'Fibrinogenkonzentrat',aliases:['fibrinogen','fibrinogenkonzentrat','haemocomplettan','haemocomplettan p'],taskSeconds:30,requiresAccess:true,effect:{duration:600,bleedingReduction:0.25}}
   };
 
-  window.TELECARE_MEDICATIONS = Object.freeze(medications);
+  window.GALEN_MEDICATIONS = Object.freeze(medications);
 })();
