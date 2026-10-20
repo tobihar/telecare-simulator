@@ -33,6 +33,7 @@
       if (remaining + EPSILON >= toNextBreath) {
         remaining = Math.max(0, remaining - toNextBreath);
         recorder.phaseSeconds = 0;
+        recorder.completedBreaths += 1;
         recorder.activeSettings = normalizedSettings(recorder.engine, desiredSettings);
       } else {
         recorder.phaseSeconds += remaining;
@@ -74,6 +75,7 @@
       historySeconds,
       sampleInterval,
       samples: [],
+      completedBreaths: 0,
       activeSettings,
       phaseSeconds: ((startTime % cycleSeconds) + cycleSeconds) % cycleSeconds,
       lastSampleAt: startTime,

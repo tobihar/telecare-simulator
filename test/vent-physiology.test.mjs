@@ -330,3 +330,25 @@ test('Invasive Monitorwerte erscheinen nur bei angeschlossenem Zugang', async ()
   assert.match(ventApp, /monitor-vital\.temp'\)\?\.classList\.toggle\('hidden', !temperatureConnected\)/);
   assert.match(ventStyles, /repeat\(var\(--monitor-vitals, 4\)/);
 });
+
+test('Kurvenpuffer zählt abgeschlossene Atemzüge für die etCO₂-Messung', () => {
+  const E = globalThis.GALEN_VENT_ENGINE;
+  const W = globalThis.GALEN_VENT_WAVEFORMS;
+  const settings = { ...E.DEFAULT_SETTINGS, rr: 12 };
+  const state = E.step(E.createInitial(), settings, E.DEFAULT_PUMPS, 0.01);
+  const recorder = W.create(E, settings, state);
+  const before = recorder.completedBreaths;
+  W.advance(recorder, state.elapsed + 4.9, settings, state);
+  assert.ok(recorder.completedBreaths - before <= 1, 'Innerhalb eines 5-s-Zyklus höchstens ein Atemzugende');
+  W.advance(recorder, state.elapsed + 30, settings, state);
+  assert.equal(recorder.completedBreaths - before, 6, 'Bei AF 12 enden in 30 s genau sechs Atemzüge');
+});
+
+test('etCO₂-Alarmgrenzen sind unverändert', () => {
+  const E = globalThis.GALEN_VENT_ENGINE;
+  assert.deepEqual(E.etco2Alarms(37), []);
+  assert.deepEqual(E.etco2Alarms(25).map(a => [a.id, a.priority]), [['co2_low', 'warning']]);
+  assert.deepEqual(E.etco2Alarms(20).map(a => [a.id, a.priority]), [['co2_low', 'critical']]);
+  assert.deepEqual(E.etco2Alarms(55).map(a => [a.id, a.priority]), [['co2_high', 'warning']]);
+  assert.deepEqual(E.etco2Alarms(65).map(a => [a.id, a.priority]), [['co2_high', 'critical']]);
+});

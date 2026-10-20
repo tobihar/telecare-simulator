@@ -98,6 +98,9 @@
   let lastPumpWheelAt;
   let ventValuesPage;
   let waveformRecorder;
+  // Endtidales CO₂ wird wie am echten Monitor nur am Ende jeder Ausatmung aktualisiert.
+  let measuredEtco2;
+  let measuredBreathCount;
 
   function freshSession() {
     stopVentilatorSound();
@@ -108,6 +111,8 @@
     };
     state = E.step(E.createInitial(), settings, pumps, 0.01);
     waveformRecorder = W.create(E, settings, state);
+    measuredEtco2 = state.etCO2;
+    measuredBreathCount = waveformRecorder.completedBreaths;
     running = true;
     lastFrameAt = performance.now();
     bgaTask = null;
@@ -255,7 +260,7 @@
     return {
       heartRate: Math.round(state.hr),
       spo2: Math.round(state.spo2),
-      etCO2: Math.round(state.etCO2),
+      etCO2: Math.round(measuredEtco2),
       arterialPressure: hasAccess('artery') ? `${Math.round(state.sys)}/${Math.round(state.dia)}` : null,
       lastNibp: nibp.last,
       temperature: hasAccess('bladder') ? Number(state.temp.toFixed(1)) : null,
@@ -323,7 +328,7 @@
       return;
     }
     if (/\b(vital|blutdruck|sattigung|spo2|etco2|herzfrequenz)\b/.test(q)) {
-      addChat('Jonas Richter', `HF ${Math.round(state.hr)}/min, SpO₂ ${number(state.spo2, 0)} %, etCO₂ ${number(state.etCO2, 0)} mmHg und letzter NIBP ${nibp.last.sys}/${nibp.last.dia} mmHg (MAP ${nibp.last.map}).`);
+      addChat('Jonas Richter', `HF ${Math.round(state.hr)}/min, SpO₂ ${number(state.spo2, 0)} %, etCO₂ ${number(measuredEtco2, 0)} mmHg und letzter NIBP ${nibp.last.sys}/${nibp.last.dia} mmHg (MAP ${nibp.last.map}).`);
       return;
     }
 
@@ -951,14 +956,22 @@
     $('simpleResultsDialog').showModal();
   }
 
+  function currentAlarms() {
+    return [
+      ...state.alarms.filter(alarm => alarm.id !== 'co2_high' && alarm.id !== 'co2_low'),
+      ...E.etco2Alarms(measuredEtco2)
+    ];
+  }
+
   function highestAlarmPriority() {
-    return state.alarms.some(alarm => alarm.priority === 'critical')
+    const alarms = currentAlarms();
+    return alarms.some(alarm => alarm.priority === 'critical')
       ? 'critical'
-      : state.alarms.length ? 'warning' : 'stable';
+      : alarms.length ? 'warning' : 'stable';
   }
 
   function renderAlarms() {
-    const alarms = state.alarms;
+    const alarms = currentAlarms();
     const alarmIds = new Set(alarms.map(alarm => alarm.id));
     alarms.forEach(alarm => {
       if (!priorAlarmIds.has(alarm.id)) addEvent(`Alarm: ${alarm.label}.`);
@@ -1007,7 +1020,7 @@
     $('monitorArt').textContent = arterialConnected ? `${Math.round(state.sys)}/${Math.round(state.dia)}` : 'kein Signal';
     $('monitorArtMap').textContent = arterialConnected ? `MAP ${Math.round(state.map)} mmHg · kontinuierlich` : 'Arterie erforderlich';
     $('monitorSpo2').textContent = number(state.spo2, state.spo2 < 95 ? 1 : 0);
-    $('monitorEtco2').textContent = number(state.etCO2, 0);
+    $('monitorEtco2').textContent = number(measuredEtco2, 0);
     if (temperatureConnected) $('monitorTemp').textContent = number(state.temp, 1);
 
     if (nibp.measuringUntil !== null) {
@@ -1273,8 +1286,9 @@
       const spo2Frequency = E.clamp(430 + (state.spo2 - 80) * 16, 260, 760);
       if (pulseTone(spo2Frequency)) nextPulseAt = state.elapsed + 60 / Math.max(20, state.hr);
     }
-    if (state.alarms.length && state.elapsed >= nextAlarmToneAt) {
-      const critical = state.alarms.some(alarm => alarm.priority === 'critical');
+    const alarms = currentAlarms();
+    if (alarms.length && state.elapsed >= nextAlarmToneAt) {
+      const critical = alarms.some(alarm => alarm.priority === 'critical');
       tone(critical ? 930 : 720, critical ? 0.16 : 0.11, 0.045, 'alarm');
       nextAlarmToneAt = state.elapsed + (critical ? 0.7 : 1.4);
     }
@@ -1352,6 +1366,10 @@
       state = E.step(state, settings, pumps, (rawDt || 0.016) * timeScale);
     }
     W.advance(waveformRecorder, state.elapsed, settings, state);
+    if (waveformRecorder.completedBreaths !== measuredBreathCount) {
+      measuredBreathCount = waveformRecorder.completedBreaths;
+      measuredEtco2 = state.etCO2;
+    }
     updateTasks();
     if (state.cardiacArrest && !priorCardiacArrest) {
       priorCardiacArrest = true;
