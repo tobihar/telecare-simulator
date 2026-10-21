@@ -37,6 +37,7 @@
               <summary><span>Sounds</span><small>4 Kanäle</small></summary>
               <div id="soundMixer" class="sound-mixer" aria-label="Lautstärkemischung"></div>
             </details>
+            <button id="resetLayoutBtn" type="button">Fensteranordnung zurücksetzen</button>
             <button id="resetBtn" type="button">Fall neu starten</button>
             <a class="button-link" href="/simulator">Zur Simulationsauswahl</a>
           </div>
@@ -90,17 +91,17 @@
 
     <div class="main-layout">
       <aside class="left-column">
-        <section id="staffPanel" class="staff panel">
+        <section id="staffPanel" class="staff panel" data-window="staff">
           <div class="panel-title-row"><div><span class="kicker">Team vor Ort</span><h2>Personal</h2></div></div>
           <div id="staffGrid" class="staff-grid" aria-label="Personal"></div>
         </section>
 
-        <section class="patient panel">
+        <section class="patient panel" data-window="patient">
           <div class="panel-title-row"><div><span class="kicker">Patient</span><h2>Zugänge &amp; Therapie</h2></div></div>
           <div id="patientMap" class="patient-map"></div>
         </section>
 
-        <section class="inventory panel">
+        <section class="inventory panel" data-window="inventory">
           <div class="panel-title-row"><div><span class="kicker">Bestand</span><h2>Blutprodukte</h2></div></div>
           <div class="inventory-grid">
             <div><span>Ungekreuzt</span><strong>0</strong></div>
@@ -112,7 +113,7 @@
 
       <section class="center-column">
         <div class="center-workspace">
-          <section class="chat panel main-chat">
+          <section class="chat panel main-chat" data-window="chat">
             <div class="panel-title-row">
               <div><span class="kicker">Telekonsultation</span><h2>Chat mit dem Team vor Ort</h2></div>
               <span id="aiStatus" class="status-pill idle">KI wird geprüft</span>
@@ -124,7 +125,7 @@
             </form>
           </section>
 
-          <section class="ventilator panel">
+          <section class="ventilator panel" data-window="ventilator">
             <div class="panel-title-row">
               <div><span class="kicker">Beatmungsgerät</span><h2>PCV</h2></div>
             </div>
@@ -198,7 +199,7 @@
             </section>
           </section>
 
-          <section class="pump-rack panel">
+          <section class="pump-rack panel" data-window="pumps">
             <div class="panel-title-row">
               <div><span class="kicker">TIVA</span><h2>Perfusoren</h2></div>
             </div>
@@ -227,7 +228,7 @@
       </section>
 
       <aside class="right-column">
-        <section class="actions panel">
+        <section class="actions panel" data-window="actions">
           <div class="panel-title-row"><div><span class="kicker">Diagnostik &amp; Organisation</span><h2>Aufträge</h2></div></div>
           <div class="action-grid">
             <button id="labBtn" class="action-btn" type="button"><strong>Labor</strong><small>ATA oder Arzt · 20 s + 2 min Labor</small></button>
@@ -245,7 +246,7 @@
           <div id="latestBga" class="latest-bga empty">Noch keine BGA abgenommen.</div>
         </section>
 
-        <section class="orders panel">
+        <section class="orders panel" data-window="orders">
           <div class="panel-title-row"><div><span class="kicker">Laufende Prozesse</span><h2>Aktive Maßnahmen</h2></div></div>
           <div id="activeOrders" class="active-tasks empty">Keine aktiven Maßnahmen.</div>
         </section>
@@ -306,5 +307,6 @@
   <script src="vent-waveform-history.js"></script>
   <script src="ui-sound.js"></script>
   <script src="vent.js"></script>
+  <script src="vent-layout.js"></script>
 </body>
 </html>

@@ -240,7 +240,7 @@ test('Beatmungsoberfläche nutzt das Schock-Layout ohne verschachtelte Geräteme
   assert.match(page, /id="propofolDown"/);
   assert.match(page, /id="remifentanilUp"/);
   const workspaceStart = page.indexOf('<div class="center-workspace">');
-  const pumpRack = page.indexOf('<section class="pump-rack panel">');
+  const pumpRack = page.indexOf('<section class="pump-rack panel"');
   const rightColumn = page.indexOf('<aside class="right-column">');
   assert.ok(workspaceStart >= 0 && pumpRack > workspaceStart && pumpRack < rightColumn, 'Perfusoren müssen im zentralen Arbeitsbereich statt unterhalb davon liegen');
   assert.match(page, /id="propofolPump" class="strip-perfusor propofol-label running"[\s\S]*id="propofolDown"[\s\S]*class="pump-dose"[\s\S]*data-pump-dose="propofol"[\s\S]*id="propofolOutput"[\s\S]*id="propofolUp"[\s\S]*id="propofolToggle"/);
@@ -351,4 +351,21 @@ test('etCO₂-Alarmgrenzen sind unverändert', () => {
   assert.deepEqual(E.etco2Alarms(20).map(a => [a.id, a.priority]), [['co2_low', 'critical']]);
   assert.deepEqual(E.etco2Alarms(55).map(a => [a.id, a.priority]), [['co2_high', 'warning']]);
   assert.deepEqual(E.etco2Alarms(65).map(a => [a.id, a.priority]), [['co2_high', 'critical']]);
+});
+
+test('Fenster im Anästhesie-Simulator sind skalier- und minimierbar verdrahtet', async () => {
+  const [page, layout, styles] = await Promise.all([
+    readFile(new URL('../public/vent.html', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent-layout.js', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent.css', import.meta.url), 'utf8')
+  ]);
+  for (const key of ['staff', 'patient', 'inventory', 'chat', 'ventilator', 'pumps', 'actions', 'orders']) {
+    assert.match(page, new RegExp(`data-window="${key}"`), `Fenster ${key} fehlt`);
+  }
+  assert.match(page, /src="vent\.js"><\/script>\s*<script src="vent-layout\.js">/);
+  assert.match(page, /id="resetLayoutBtn"/);
+  assert.match(layout, /localStorage/);
+  assert.match(styles, /var\(--left-w, 250px\)/);
+  assert.match(styles, /var\(--chat-w, minmax\(340px, \.85fr\)\) var\(--vent-w, minmax\(520px, 1\.15fr\)\)/);
+  assert.match(styles, /\.panel\.window-minimized > :not\(\.panel-title-row\) \{ display: none !important; \}/);
 });
