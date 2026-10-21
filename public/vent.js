@@ -1035,7 +1035,7 @@
     $('monitorMap').textContent = `MAP ${nibp.last.map} mmHg · ${formatTime(state.elapsed - nibp.last.time)} alt`;
     $('monitorArt').textContent = arterialConnected ? `${Math.round(state.sys)}/${Math.round(state.dia)}` : 'kein Signal';
     $('monitorArtMap').textContent = arterialConnected ? `MAP ${Math.round(state.map)} mmHg · kontinuierlich` : 'Arterie erforderlich';
-    $('monitorSpo2').textContent = number(state.spo2, state.spo2 < 95 ? 1 : 0);
+    $('monitorSpo2').textContent = String(Math.round(state.spo2));
     $('monitorEtco2').textContent = number(measuredEtco2, 0);
     if (temperatureConnected) $('monitorTemp').textContent = number(state.temp, 1);
 

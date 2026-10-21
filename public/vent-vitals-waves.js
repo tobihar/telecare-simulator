@@ -57,21 +57,31 @@
     return advance(recorder, endTime, vitals);
   }
 
+  // Pulswellenlaufzeit: Die arterielle Kurve (A. radialis) beginnt etwa 150 ms
+  // nach der R-Zacke, die Pleth-Kurve am Finger etwa 250 ms danach.
+  const R_PEAK_SECONDS = 0.185;
+  const ARTERIAL_DELAY_SECONDS = 0.15;
+  const PLETH_DELAY_SECONDS = 0.25;
+  const PLETH_FOOT_FRACTION = 0.06;
+  const cycleFraction = (seconds, beatSeconds) => (((seconds / beatSeconds) % 1) + 1) % 1;
+
   function sample(recorder, time, vitals) {
     const hr = Number(vitals.hr) || 0;
     const pulsatile = hr >= 15 && !vitals.cardiacArrest;
     const beatSeconds = pulsatile ? 60 / hr : 1;
     recorder.beatTime += recorder.sampleInterval;
     if (recorder.beatTime >= beatSeconds) recorder.beatTime -= beatSeconds;
-    const f = recorder.beatTime / beatSeconds;
+    const t = recorder.beatTime;
+    const fArterial = cycleFraction(t - R_PEAK_SECONDS - ARTERIAL_DELAY_SECONDS, beatSeconds);
+    const fPleth = cycleFraction(t - R_PEAK_SECONDS - PLETH_DELAY_SECONDS, beatSeconds) + PLETH_FOOT_FRACTION;
     const sys = Number(vitals.sys) || 0;
     const dia = Number(vitals.dia) || 0;
     const perfusion = clamp(((Number(vitals.map) || 0) - 25) / 55, 0, 1);
     recorder.samples.push({
       time,
       ecg: pulsatile ? ecgAt(recorder.beatTime, beatSeconds) : 0,
-      pleth: pulsatile ? 0.08 + 0.84 * perfusion * plethAt(f) : 0.08,
-      art: pulsatile ? dia + (sys - dia) * arterialShapeAt(f) : (sys + 2 * dia) / 3
+      pleth: pulsatile ? 0.08 + 0.84 * perfusion * plethAt(fPleth % 1) : 0.08,
+      art: pulsatile ? dia + (sys - dia) * arterialShapeAt(fArterial) : (sys + 2 * dia) / 3
     });
   }
 
@@ -89,12 +99,42 @@
     return recorder;
   }
 
+  // Kurvenskala mit Verzögerung: Die Skala wechselt erst, wenn der Wert mindestens
+  // holdSeconds (Simulationszeit) lang eine andere Stufe verlangt. So bleibt eine
+  // feste Skala ablesbar, und ein steigender Wert ist als steigende Kurve sichtbar.
+  function createScale(scales, holdSeconds = 20) {
+    return { scales: [...scales].sort((a, b) => a - b), holdSeconds, scale: Math.min(...scales), candidate: null, since: 0 };
+  }
+
+  function updateScale(tracker, value, elapsed) {
+    const v = Number(value) || 0;
+    const { scales } = tracker;
+    let desired = tracker.scale;
+    if (v > tracker.scale) desired = scales.find(scale => v * 1.1 <= scale) ?? scales[scales.length - 1];
+    else desired = scales.find(scale => scale <= tracker.scale && v < scale * 0.8) ?? tracker.scale;
+    if (desired === tracker.scale) {
+      tracker.candidate = null;
+    } else if (tracker.candidate !== desired || elapsed < tracker.since) {
+      tracker.candidate = desired;
+      tracker.since = elapsed;
+    } else if (elapsed - tracker.since >= tracker.holdSeconds) {
+      tracker.scale = desired;
+      tracker.candidate = null;
+    }
+    return tracker.scale;
+  }
+
   root.GALEN_VITAL_WAVES = Object.freeze({
     DEFAULT_HISTORY_SECONDS,
     DEFAULT_SAMPLE_RATE,
+    R_PEAK_SECONDS,
+    ARTERIAL_DELAY_SECONDS,
+    PLETH_DELAY_SECONDS,
     ecgAt,
     plethAt,
     arterialShapeAt,
+    createScale,
+    updateScale,
     create,
     advance
   });

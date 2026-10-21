@@ -15,6 +15,18 @@
   const VALUE_WIDTH = 118;
   const number = (value, decimals = 0) => Number(value).toFixed(decimals).replace('.', ',');
 
+  // Feste Skalen, die nur bei länger anhaltend anderen Werten wechseln.
+  const scales = { art: V.createScale([150, 200, 250]), co2: V.createScale([50, 75, 100, 150]) };
+  function updateScales(snapshot) {
+    if (scales.lastElapsed !== undefined && snapshot.elapsed < scales.lastElapsed) {
+      scales.art = V.createScale([150, 200, 250]);
+      scales.co2 = V.createScale([50, 75, 100, 150]);
+    }
+    scales.lastElapsed = snapshot.elapsed;
+    V.updateScale(scales.art, snapshot.sys, snapshot.elapsed);
+    V.updateScale(scales.co2, snapshot.etco2, snapshot.elapsed);
+  }
+
   const TRACES = {
     ecg: {
       label: 'EKG II', color: '#56f2a9', key: 'ecg', source: 'vitals', range: () => [-0.45, 1.25],
@@ -22,7 +34,7 @@
     },
     art: {
       label: 'ART', color: '#ff4f68', key: 'art', source: 'vitals', scale: true,
-      range: s => [0, s.sys > 135 ? 200 : 150],
+      range: () => [0, scales.art.scale],
       value: s => `${Math.round(s.sys)}/${Math.round(s.dia)}`, unit: s => `(${Math.round(s.map)}) mmHg`
     },
     pleth: {
@@ -31,7 +43,7 @@
     },
     co2: {
       label: 'CO₂', color: '#ffc768', key: 'co2', source: 'vent', scale: true,
-      range: s => [0, s.etco2 > 45 ? Math.ceil((s.etco2 + 10) / 10) * 10 : 50],
+      range: () => [0, scales.co2.scale],
       value: s => `etCO₂ ${Math.round(s.etco2)}`, unit: 'mmHg'
     }
   };
@@ -58,7 +70,26 @@
   }
 
   // Zeichnet mehrere Kurven untereinander im Stil der Beatmungskurven.
-  function drawTraces(canvas, traceIds, snapshot, { showValues = true } = {}) {
+  // Durchlaufende Darstellung mit festem Zeitmaßstab (für die Vorschau): der
+  // jüngste Wert steht rechts, ältere Werte laufen nach links heraus.
+  function scrollPoints(source, now, curveWidth, pixelsPerSecond) {
+    const from = now - curveWidth / pixelsPerSecond;
+    let previous = null;
+    return (source?.samples || []).filter(sample => sample.time >= from && sample.time <= now).map(sample => {
+      const point = { ...sample, x: curveWidth - (now - sample.time) * pixelsPerSecond, breakBefore: previous === null || sample.time - previous > 0.1 };
+      previous = sample.time;
+      return point;
+    });
+  }
+
+  // Kurvenbreite des großen Monitors, auch wenn er minimiert ist; daraus folgt
+  // der Zeitmaßstab der Vorschau, damit beide Darstellungen gleich aussehen.
+  function mainCurveWidth() {
+    const column = document.querySelector('.center-column');
+    return Math.max(300, (column?.clientWidth || 900) - 22 - VALUE_WIDTH);
+  }
+
+  function drawTraces(canvas, traceIds, snapshot, { showValues = true, scroll = false } = {}) {
     const { ctx, width, height } = prepareCanvas(canvas);
     if (width < 10 || height < 10) return;
     ctx.clearRect(0, 0, width, height);
@@ -66,9 +97,13 @@
     ctx.fillRect(0, 0, width, height);
     const curveWidth = showValues ? Math.max(60, width - VALUE_WIDTH) : width;
     const rowHeight = height / traceIds.length;
-    const sweeps = {
+    const ventRecorder = snapshot.ventRecorder;
+    const sweeps = scroll ? {
+      vitals: { points: scrollPoints(recorder, snapshot.elapsed, curveWidth, mainCurveWidth() / recorder.historySeconds) },
+      vent: { points: scrollPoints(ventRecorder, snapshot.elapsed, curveWidth, mainCurveWidth() / (ventRecorder?.historySeconds || 12)) }
+    } : {
       vitals: W.sweep(recorder, snapshot.elapsed, curveWidth),
-      vent: snapshot.ventRecorder ? W.sweep(snapshot.ventRecorder, snapshot.elapsed, curveWidth) : { points: [] }
+      vent: ventRecorder ? W.sweep(ventRecorder, snapshot.elapsed, curveWidth) : { points: [] }
     };
 
     traceIds.forEach((id, row) => {
@@ -172,12 +207,13 @@
     const snapshot = live.snapshot();
     if (snapshot) {
       updateRecorder(snapshot);
+      updateScales(snapshot);
       if (mainCanvas && panel && !panel.classList.contains('window-minimized') && mainCanvas.offsetParent) {
         drawTraces(mainCanvas, visibleTraces(snapshot), snapshot);
       }
       if (previewTrace) {
         if (previewTrace === 'art' && !snapshot.arterialConnected) preview.hidden = true;
-        else drawTraces(previewCanvas, [previewTrace], snapshot, { showValues: false });
+        else drawTraces(previewCanvas, [previewTrace], snapshot, { showValues: false, scroll: true });
       }
     }
     requestAnimationFrame(frame);

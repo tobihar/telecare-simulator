@@ -109,7 +109,9 @@
     let chatW = null, ventW = null;
     if (collapsed.center) { chatW = `${COLLAPSED_WIDTH}px`; ventW = 'minmax(0, 1fr)'; }
     else if (ventMinimized) { chatW = 'minmax(0, 1fr)'; ventW = `${COLLAPSED_WIDTH}px`; }
-    else if (state.chatFrac) { chatW = `minmax(${MIN_CHAT}px, ${state.chatFrac.toFixed(4)}fr)`; ventW = `minmax(${MIN_VENT}px, ${(1 - state.chatFrac).toFixed(4)}fr)`; }
+    // Faktoren ≥ 1 verwenden: Bei einer Summe < 1 würde Grid Platz frei lassen,
+    // sobald eine Spalte an ihre Mindestbreite stößt.
+    else if (state.chatFrac) { chatW = `minmax(${MIN_CHAT}px, ${(state.chatFrac * 100).toFixed(2)}fr)`; ventW = `minmax(${MIN_VENT}px, ${((1 - state.chatFrac) * 100).toFixed(2)}fr)`; }
     if (centerCollapsed) { chatW = `${COLLAPSED_WIDTH}px`; ventW = `${COLLAPSED_WIDTH}px`; }
     setVar(columns.center, '--vitals-h', state.vitalsH ? `${Math.round(state.vitalsH)}px` : null);
     setVar(workspace, '--chat-w', chatW);
@@ -118,6 +120,57 @@
     setVar(workspace, '--pumps-h', isMinimized('pumps') ? 'auto' : isMinimized('chat') ? 'minmax(0, 1fr)' : state.pumpsH ? `${Math.round(state.pumpsH)}px` : null);
 
     positionSplitters();
+    updatePumpScale();
+  }
+
+  // Perfusoren skalieren mit ihrem Fenster. Ist die Fensterhöhe vorgegeben
+  // (gezogen oder Chat minimiert), zählen Breite und Höhe; sonst nur die Breite,
+  // damit sich Inhalt und Höhe nicht gegenseitig aufschaukeln.
+  const PUMP_BASE_WIDTH = 200;
+  const PUMP_BASE_HEIGHT = 135;
+  const PUMP_MIN_SCALE = 0.7;
+  function pumpLayout() {
+    const panel = panels.pumps;
+    const grid = panel?.querySelector('.pump-grid');
+    if (!grid || !grid.clientWidth) return null;
+    const style = getComputedStyle(grid);
+    const columnCount = style.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
+    const gap = parseFloat(style.columnGap) || 7;
+    const rowCount = Math.ceil(grid.children.length / columnCount);
+    const titleRow = panel.querySelector(':scope > .panel-title-row');
+    const panelStyle = getComputedStyle(panel);
+    const chrome = parseFloat(panelStyle.paddingTop) + parseFloat(panelStyle.paddingBottom) +
+      parseFloat(panelStyle.borderTopWidth) + parseFloat(panelStyle.borderBottomWidth) +
+      (titleRow ? titleRow.offsetHeight + parseFloat(getComputedStyle(titleRow).marginBottom) : 0);
+    return { panel, grid, columnCount, gap, rowCount, chrome };
+  }
+  // Kleinste Fensterhöhe, bei der beide Perfusoren noch vollständig sichtbar sind.
+  function pumpsMinHeight() {
+    const layout = pumpLayout();
+    if (!layout) return 70;
+    return Math.ceil(layout.chrome + layout.rowCount * PUMP_BASE_HEIGHT * PUMP_MIN_SCALE + layout.gap * (layout.rowCount - 1));
+  }
+  function updatePumpScale() {
+    if (isMinimized('pumps')) return;
+    const layout = pumpLayout();
+    if (!layout) return;
+    const { panel, grid, columnCount, gap, rowCount, chrome } = layout;
+    const fixedHeight = desktopQuery.matches && (isMinimized('chat') || Boolean(state.pumpsH));
+    // Gezogene Höhe nie unter den Bedarf fallen lassen (z. B. wenn die Perfusoren
+    // durch eine schmalere Spalte untereinander rutschen).
+    if (desktopQuery.matches && state.pumpsH && !isMinimized('chat')) {
+      const needed = pumpsMinHeight();
+      if (panel.offsetHeight + 1 < needed) workspace.style.setProperty('--pumps-h', `${Math.max(needed, Math.round(state.pumpsH))}px`);
+    }
+    const stripWidth = (grid.clientWidth - gap * (columnCount - 1)) / columnCount;
+    let scale = stripWidth / PUMP_BASE_WIDTH;
+    if (fixedHeight) {
+      const available = panel.offsetHeight - chrome;
+      scale = Math.min(scale, (available - gap * (rowCount - 1)) / rowCount / PUMP_BASE_HEIGHT);
+    }
+    scale = clamp(scale, PUMP_MIN_SCALE, fixedHeight ? 2 : 1.3);
+    const current = Number(panel.style.getPropertyValue('--pump-scale')) || 1;
+    if (Math.abs(current - scale) > 0.02) panel.style.setProperty('--pump-scale', scale.toFixed(3));
   }
 
   function toggleWindow(key) {
@@ -209,7 +262,7 @@
       const chat = rect(panels.chat);
       definitions.push({
         id: 'chat-pumps', label: 'Höhe von Chat und Perfusoren', ...horizontalAt(chat.bottom, chat.left, chat.width),
-        drag: (s, dx, dy) => { state.pumpsH = clamp(s.pumpsH - dy, 70, s.pumpsH + s.chatH - 120); }
+        drag: (s, dx, dy) => { state.pumpsH = clamp(s.pumpsH - dy, pumpsMinHeight(), s.pumpsH + s.chatH - 120); }
       });
     }
     ['left', 'right'].forEach(name => {
@@ -322,7 +375,7 @@
   desktopQuery.addEventListener('change', () => { applyLayout(); measureStackWeights(); });
   window.addEventListener('resize', positionSplitters);
   if ('ResizeObserver' in window) {
-    const observer = new ResizeObserver(() => positionSplitters());
+    const observer = new ResizeObserver(() => { positionSplitters(); updatePumpScale(); });
     observer.observe(layout);
     Object.values(panels).forEach(panel => observer.observe(panel));
   }
