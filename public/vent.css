@@ -242,7 +242,7 @@ button:disabled { opacity: .42; cursor: not-allowed; }
 .monitor-vital.co2 { color: var(--yellow); }
 .monitor-vital.temp { color: #fff; }
 .monitor-vital.nibp {
-  grid-template-columns: minmax(96px, .8fr) minmax(145px, 1.2fr);
+  grid-template-columns: minmax(96px, 80fr) minmax(145px, 120fr);
   grid-template-rows: auto auto auto;
   grid-template-areas: "label controls" "value controls" "meta controls";
   column-gap: 12px;
@@ -307,7 +307,7 @@ button:disabled { opacity: .42; cursor: not-allowed; }
   min-height: 0;
   flex: 1;
   grid-template-areas: "chat vent" "pumps vent";
-  grid-template-columns: var(--chat-w, minmax(340px, .85fr)) var(--vent-w, minmax(520px, 1.15fr));
+  grid-template-columns: var(--chat-w, minmax(340px, 85fr)) var(--vent-w, minmax(520px, 115fr));
   grid-template-rows: var(--chat-h, minmax(0, 1fr)) var(--pumps-h, auto);
   gap: 8px;
 }
@@ -635,14 +635,18 @@ button:disabled { opacity: .42; cursor: not-allowed; }
 .setting-calculated strong { margin-left: 2px; color: var(--text); font: 850 11px var(--mono); }
 
 .pump-rack {
+  --s: var(--pump-scale, 1);
   grid-area: pumps;
+  display: flex;
   min-width: 0;
+  flex-direction: column;
   container-type: inline-size;
 }
 .pump-rack .panel-title-row {
   gap: 8px;
 }
-.pump-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+/* Die Perfusoren füllen das Fenster; Größen skalieren mit --pump-scale (vent-layout.js). */
+.pump-grid { display: grid; min-height: 0; flex: 1 1 auto; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(min-content, 1fr); gap: 7px; }
 @container (max-width: 380px) {
   .pump-grid { grid-template-columns: 1fr; }
 }
@@ -652,8 +656,8 @@ button:disabled { opacity: .42; cursor: not-allowed; }
   align-content: center;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px;
+  gap: calc(6px * var(--s));
+  padding: calc(10px * var(--s));
   border: 1px solid #765514;
   border-radius: 3px;
   background: #271e0d;
@@ -669,15 +673,15 @@ button:disabled { opacity: .42; cursor: not-allowed; }
 .strip-perfusor > span {
   width: 100%;
   color: #101820;
-  font-size: 11px;
+  font-size: calc(11px * var(--s));
   font-weight: 800;
   text-align: center;
 }
 .pump-dose {
   display: grid;
-  min-width: 132px;
-  min-height: 40px;
-  padding: 6px 10px;
+  min-width: calc(132px * var(--s));
+  min-height: calc(40px * var(--s));
+  padding: calc(6px * var(--s)) calc(10px * var(--s));
   place-items: center;
   border: 2px solid rgba(16, 24, 32, .42);
   color: #101820;
@@ -687,7 +691,7 @@ button:disabled { opacity: .42; cursor: not-allowed; }
 }
 .pump-dose output {
   color: #101820;
-  font: 800 13px var(--mono);
+  font: 800 calc(13px * var(--s)) var(--mono);
   pointer-events: none;
 }
 .pump-dose.active {
@@ -697,12 +701,12 @@ button:disabled { opacity: .42; cursor: not-allowed; }
   box-shadow: 0 0 0 2px rgba(244, 251, 255, .28), 0 0 14px rgba(18, 59, 85, .42);
 }
 .pump-dose.active output { color: inherit; }
-.strip-perfusor > button:not(.pump-dose) { min-width: 34px; border-color: rgba(10, 23, 31, .52); border-radius: 3px; color: #eefbff; background: rgba(7, 18, 25, .82); box-shadow: none; }
+.strip-perfusor > button:not(.pump-dose) { min-width: calc(34px * var(--s)); padding: calc(9px * var(--s)) calc(12px * var(--s)); border-color: rgba(10, 23, 31, .52); border-radius: 3px; color: #eefbff; background: rgba(7, 18, 25, .82); box-shadow: none; font-size: calc(16px * var(--s)); }
 .strip-perfusor > button:not(.pump-dose):not(:disabled):hover { border-color: #07141d; color: #fff; background: #102d3c; box-shadow: 0 5px 14px rgba(0, 0, 0, .22); }
 .strip-perfusor > small {
   width: 100%;
   color: rgba(16, 24, 32, .72);
-  font-size: 8px;
+  font-size: calc(8px * max(1, var(--s)));
   text-align: center;
 }
 .strip-perfusor.stopped {
@@ -865,7 +869,7 @@ body.window-resizing-horizontal, body.window-resizing-horizontal * { cursor: row
   .main-layout { grid-template-columns: var(--left-w, 235px) var(--center-w, minmax(650px, 1fr)) var(--right-w, 275px); }
   .center-workspace {
     grid-template-areas: "chat vent" "pumps vent";
-    grid-template-columns: var(--chat-w, minmax(230px, .7fr)) var(--vent-w, minmax(420px, 1.3fr));
+    grid-template-columns: var(--chat-w, minmax(230px, 70fr)) var(--vent-w, minmax(420px, 130fr));
     grid-template-rows: var(--chat-h, minmax(0, 1fr)) var(--pumps-h, auto);
   }
   .pump-grid { grid-template-columns: 1fr; }

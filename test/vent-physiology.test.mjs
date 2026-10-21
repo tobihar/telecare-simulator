@@ -368,7 +368,8 @@ test('Fenster im Anästhesie-Simulator sind skalier- und minimierbar verdrahtet'
   assert.match(page, /id="resetLayoutBtn"/);
   assert.match(layout, /localStorage/);
   assert.match(styles, /var\(--left-w, 250px\)/);
-  assert.match(styles, /var\(--chat-w, minmax\(340px, \.85fr\)\) var\(--vent-w, minmax\(520px, 1\.15fr\)\)/);
+  assert.match(styles, /var\(--chat-w, minmax\(340px, 85fr\)\) var\(--vent-w, minmax\(520px, 115fr\)\)/);
+  assert.doesNotMatch(styles, /minmax\(\d+px, \.\d+fr\)/, 'fr-Faktoren unter 1 lassen Platz frei');
   assert.match(styles, /\.panel\.window-minimized > :not\(\.panel-title-row\) \{ display: none !important; \}/);
 });
 
@@ -446,4 +447,16 @@ test('Kurvenskala wechselt erst nach anhaltend anderem Wert', () => {
 test('SpO₂ wird im Beatmungsmonitor ohne Nachkommastellen angezeigt', async () => {
   const app = await readFile(new URL('../public/vent.js', import.meta.url), 'utf8');
   assert.match(app, /\$\('monitorSpo2'\)\.textContent = String\(Math\.round\(state\.spo2\)\)/);
+});
+
+test('Perfusoren skalieren mit ihrem Fenster', async () => {
+  const [styles, layout] = await Promise.all([
+    readFile(new URL('../public/vent.css', import.meta.url), 'utf8'),
+    readFile(new URL('../public/vent-layout.js', import.meta.url), 'utf8')
+  ]);
+  assert.match(styles, /\.pump-rack \{[^}]*--s: var\(--pump-scale, 1\)/s);
+  assert.match(styles, /\.pump-dose output \{[^}]*calc\(13px \* var\(--s\)\)/s);
+  assert.match(styles, /\.pump-grid \{[^}]*flex: 1 1 auto[^}]*grid-auto-rows: minmax\(min-content, 1fr\)/s);
+  assert.match(layout, /function updatePumpScale\(\)/);
+  assert.match(layout, /function pumpsMinHeight\(\)/);
 });
