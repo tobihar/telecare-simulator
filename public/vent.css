@@ -284,8 +284,9 @@ button:disabled { opacity: .42; cursor: not-allowed; }
 }
 
 .main-layout {
+  position: relative;
   display: grid;
-  grid-template-columns: 250px minmax(700px, 1fr) 292px;
+  grid-template-columns: var(--left-w, 250px) var(--center-w, minmax(700px, 1fr)) var(--right-w, 292px);
   gap: 8px;
   margin-top: 8px;
 }
@@ -306,8 +307,8 @@ button:disabled { opacity: .42; cursor: not-allowed; }
   min-height: 0;
   flex: 1;
   grid-template-areas: "chat vent" "pumps vent";
-  grid-template-columns: minmax(440px, .85fr) minmax(600px, 1.15fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-columns: var(--chat-w, minmax(340px, .85fr)) var(--vent-w, minmax(520px, 1.15fr));
+  grid-template-rows: var(--chat-h, minmax(0, 1fr)) var(--pumps-h, auto);
   gap: 8px;
 }
 
@@ -636,11 +637,15 @@ button:disabled { opacity: .42; cursor: not-allowed; }
 .pump-rack {
   grid-area: pumps;
   min-width: 0;
+  container-type: inline-size;
 }
 .pump-rack .panel-title-row {
   gap: 8px;
 }
 .pump-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+@container (max-width: 380px) {
+  .pump-grid { grid-template-columns: 1fr; }
+}
 .strip-perfusor {
   display: flex;
   flex-wrap: wrap;
@@ -760,6 +765,73 @@ dialog::backdrop { background: rgba(0, 0, 0, .78); backdrop-filter: blur(5px); }
 .trend-missing { color: var(--muted); }
 #simpleResultsContent { color: #d8e5ef; line-height: 1.55; }
 
+/* Kurvenmonitor für Vitalparameter (vent-vitals.js) */
+.vitals-monitor { display: flex; min-height: 0; flex: 0 0 var(--vitals-h, 250px); flex-direction: column; border-color: #26516a; }
+.vitals-monitor.window-minimized { flex: 0 0 auto; }
+.vitals-waves { position: relative; min-height: 0; flex: 1; overflow: hidden; border: 1px solid #173244; border-radius: 3px; background: #010608; }
+.vitals-waves canvas { display: block; width: 100%; height: 100%; }
+.monitor-vital.has-wave-preview { cursor: crosshair; }
+.vital-preview {
+  position: fixed;
+  z-index: 80;
+  height: 112px;
+  padding: 4px;
+  border: 1px solid var(--line-bright);
+  border-radius: 4px;
+  background: #050b11;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .55);
+  pointer-events: none;
+}
+.vital-preview[hidden] { display: none; }
+.vital-preview canvas { display: block; width: 100%; height: 100%; }
+
+/* Fenster minimieren und skalieren (vent-layout.js) */
+.window-toggle {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 22px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--muted);
+  background: #07111a;
+  font: 800 14px/1 var(--mono);
+  cursor: pointer;
+}
+.window-toggle:hover, .window-toggle:focus-visible { border-color: var(--line-bright); color: var(--text); outline: none; }
+.panel.window-minimized { height: auto; min-height: 0; padding: 6px 10px; overflow: hidden; cursor: pointer; }
+.panel.window-minimized > :not(.panel-title-row) { display: none !important; }
+.panel.window-minimized > .panel-title-row { align-items: center; margin-bottom: 0; }
+.panel.window-minimized .kicker { display: none; }
+.panel.window-minimized h2 { margin: 0; font-size: 12px; }
+.panel.window-vertical { padding: 8px 4px; }
+.panel.window-vertical > .panel-title-row { flex-direction: column; align-items: center; gap: 10px; }
+.panel.window-vertical > .panel-title-row > div:first-child { writing-mode: vertical-rl; white-space: nowrap; }
+.panel.window-vertical > .panel-title-row > :not(div):not(.window-toggle) { display: none; }
+.panel.window-vertical .window-toggle { order: -1; margin-left: 0; }
+
+.window-splitters { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+.window-splitter { position: absolute; pointer-events: auto; touch-action: none; outline: none; }
+.window-splitter.vertical { cursor: col-resize; }
+.window-splitter.horizontal { cursor: row-resize; }
+.window-splitter::after {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 2px;
+  background: var(--cyan);
+  opacity: 0;
+  content: "";
+  transition: opacity .15s ease;
+}
+.window-splitter.vertical::after { width: 2px; }
+.window-splitter.horizontal::after { height: 2px; }
+.window-splitter:hover::after, .window-splitter:focus-visible::after, .window-splitter.dragging::after { opacity: .75; }
+body.window-resizing { user-select: none; }
+body.window-resizing-vertical, body.window-resizing-vertical * { cursor: col-resize !important; }
+body.window-resizing-horizontal, body.window-resizing-horizontal * { cursor: row-resize !important; }
+
 @media (min-width: 1201px) {
   html, body { height: 100%; overflow: hidden; }
   .vent-app { display: flex; height: 100vh; min-height: 0; flex-direction: column; }
@@ -769,10 +841,18 @@ dialog::backdrop { background: rgba(0, 0, 0, .78); backdrop-filter: blur(5px); }
   .left-column, .center-column, .right-column { min-height: 0; overflow: hidden; }
   .left-column, .right-column { overflow-y: auto; }
   .center-workspace, .main-chat, .ventilator { min-height: 0; }
+  .stack-weighted > .panel[data-window] { flex: var(--w, 1) 1 0px; min-height: 0; overflow: auto; }
+  .stack-weighted > .panel.window-minimized { flex: 0 0 auto; }
+  .left-column.stack-collapsed, .right-column.stack-collapsed { overflow: hidden; }
+  .pump-rack { min-height: 0; overflow: auto; }
+  .chat-log { min-height: 60px; }
+}
+@media (max-width: 1200px) {
+  .window-splitters { display: none; }
 }
 
 @media (min-width: 1201px) and (max-height: 820px) {
-  .main-layout { grid-template-columns: 235px minmax(680px, 1fr) 275px; }
+  .main-layout { grid-template-columns: var(--left-w, 235px) var(--center-w, minmax(680px, 1fr)) var(--right-w, 275px); }
   .device-display, .waveforms { min-height: 205px; }
   .pump-rack { padding: 7px; }
   .pump-grid { gap: 5px; }
@@ -782,11 +862,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .78); backdrop-filter: blur(5px); }
 }
 
 @media (max-width: 1450px) {
-  .main-layout { grid-template-columns: 235px minmax(650px, 1fr) 275px; }
+  .main-layout { grid-template-columns: var(--left-w, 235px) var(--center-w, minmax(650px, 1fr)) var(--right-w, 275px); }
   .center-workspace {
     grid-template-areas: "chat vent" "pumps vent";
-    grid-template-columns: minmax(250px, .7fr) minmax(470px, 1.3fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-columns: var(--chat-w, minmax(230px, .7fr)) var(--vent-w, minmax(420px, 1.3fr));
+    grid-template-rows: var(--chat-h, minmax(0, 1fr)) var(--pumps-h, auto);
   }
   .pump-grid { grid-template-columns: 1fr; }
   .device-display { grid-template-columns: minmax(0, 1fr) 136px; }

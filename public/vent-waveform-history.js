@@ -20,7 +20,8 @@
       time,
       pressure: wave.pressure,
       flow: wave.flow,
-      volume: wave.volume
+      volume: wave.volume,
+      co2: wave.co2
     });
   }
 
@@ -32,6 +33,8 @@
       const toNextBreath = Math.max(EPSILON, cycleSeconds - recorder.phaseSeconds);
       if (remaining + EPSILON >= toNextBreath) {
         remaining = Math.max(0, remaining - toNextBreath);
+        // CO₂ am Ende der Exspiration = gemessenes etCO₂ dieses Atemzugs.
+        recorder.lastEndTidalCO2 = recorder.engine.waveformAtPhase(cycleSeconds - EPSILON * 10, recorder.activeSettings, state).co2;
         recorder.phaseSeconds = 0;
         recorder.completedBreaths += 1;
         recorder.activeSettings = normalizedSettings(recorder.engine, desiredSettings);
@@ -76,6 +79,7 @@
       sampleInterval,
       samples: [],
       completedBreaths: 0,
+      lastEndTidalCO2: null,
       activeSettings,
       phaseSeconds: ((startTime % cycleSeconds) + cycleSeconds) % cycleSeconds,
       lastSampleAt: startTime,
