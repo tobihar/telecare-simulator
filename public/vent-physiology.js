@@ -469,8 +469,23 @@
       pressure: clamp(pressure, 0, 70),
       flow: clamp(flowLMin, -160, 160),
       volume: clamp(volumeMl, 0, 1800),
+      co2: capnography(phase, d, state.etCO2),
       inspiration
     };
+  }
+
+  // Kapnogramm: in der Inspiration fällt CO₂ rasch auf null; in der Exspiration
+  // folgt nach dem Totraum (Phase I) ein steiler Anstieg (Phase II) und ein leicht
+  // ansteigendes Plateau (Phase III). Der Wert am Ende der Exspiration ist das etCO₂.
+  function capnography(phase, d, etCO2) {
+    const target = clamp(Number(etCO2) || 0, 0, 150);
+    if (phase < d.ti) return clamp(target * Math.exp(-phase / 0.06), 0, 150);
+    const t = phase - d.ti;
+    const deadSpaceDelay = clamp(d.tau * 0.25, 0.05, 0.25);
+    if (t < deadSpaceDelay) return 0;
+    const riseTau = clamp(d.tau * 0.35, 0.05, 0.3);
+    const plateau = 0.94 + 0.06 * Math.min(1, t / Math.max(0.05, d.te));
+    return clamp(target * (1 - Math.exp(-(t - deadSpaceDelay) / riseTau)) * plateau, 0, 150);
   }
 
   function waveformAt(timeSeconds, rawSettings, state) {

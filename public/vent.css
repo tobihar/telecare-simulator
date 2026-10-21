@@ -643,7 +643,7 @@ button:disabled { opacity: .42; cursor: not-allowed; }
   gap: 8px;
 }
 .pump-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-@container (max-width: 480px) {
+@container (max-width: 380px) {
   .pump-grid { grid-template-columns: 1fr; }
 }
 .strip-perfusor {
@@ -764,6 +764,26 @@ dialog::backdrop { background: rgba(0, 0, 0, .78); backdrop-filter: blur(5px); }
 .trend-table td { text-align: center; white-space: nowrap; }
 .trend-missing { color: var(--muted); }
 #simpleResultsContent { color: #d8e5ef; line-height: 1.55; }
+
+/* Kurvenmonitor für Vitalparameter (vent-vitals.js) */
+.vitals-monitor { display: flex; min-height: 0; flex: 0 0 var(--vitals-h, 250px); flex-direction: column; border-color: #26516a; }
+.vitals-monitor.window-minimized { flex: 0 0 auto; }
+.vitals-waves { position: relative; min-height: 0; flex: 1; overflow: hidden; border: 1px solid #173244; border-radius: 3px; background: #010608; }
+.vitals-waves canvas { display: block; width: 100%; height: 100%; }
+.monitor-vital.has-wave-preview { cursor: crosshair; }
+.vital-preview {
+  position: fixed;
+  z-index: 80;
+  height: 112px;
+  padding: 4px;
+  border: 1px solid var(--line-bright);
+  border-radius: 4px;
+  background: #050b11;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .55);
+  pointer-events: none;
+}
+.vital-preview[hidden] { display: none; }
+.vital-preview canvas { display: block; width: 100%; height: 100%; }
 
 /* Fenster minimieren und skalieren (vent-layout.js) */
 .window-toggle {

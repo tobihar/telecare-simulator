@@ -102,6 +102,22 @@
   let measuredEtco2;
   let measuredBreathCount;
 
+  // Nur lesender Zugriff auf den Live-Zustand für den Kurvenmonitor (vent-vitals.js).
+  window.GalenVentLive = Object.freeze({
+    snapshot: () => state && waveformRecorder ? ({
+      elapsed: state.elapsed,
+      hr: state.hr,
+      sys: state.sys,
+      dia: state.dia,
+      map: state.map,
+      spo2: state.spo2,
+      etco2: measuredEtco2,
+      cardiacArrest: state.cardiacArrest,
+      arterialConnected: hasAccess('artery'),
+      ventRecorder: waveformRecorder
+    }) : null
+  });
+
   function freshSession() {
     stopVentilatorSound();
     settings = { ...E.DEFAULT_SETTINGS };
@@ -1368,7 +1384,7 @@
     W.advance(waveformRecorder, state.elapsed, settings, state);
     if (waveformRecorder.completedBreaths !== measuredBreathCount) {
       measuredBreathCount = waveformRecorder.completedBreaths;
-      measuredEtco2 = state.etCO2;
+      measuredEtco2 = Number.isFinite(waveformRecorder.lastEndTidalCO2) ? waveformRecorder.lastEndTidalCO2 : state.etCO2;
     }
     updateTasks();
     if (state.cardiacArrest && !priorCardiacArrest) {

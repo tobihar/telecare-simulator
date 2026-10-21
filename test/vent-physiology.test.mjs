@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 await import('../public/vent-physiology.js');
 await import('../public/vent-waveform-history.js');
+await import('../public/vent-vitals-waves.js');
 const E = globalThis.GALEN_VENT_ENGINE;
 const W = globalThis.GALEN_VENT_WAVEFORMS;
 
@@ -359,13 +360,54 @@ test('Fenster im Anästhesie-Simulator sind skalier- und minimierbar verdrahtet'
     readFile(new URL('../public/vent-layout.js', import.meta.url), 'utf8'),
     readFile(new URL('../public/vent.css', import.meta.url), 'utf8')
   ]);
-  for (const key of ['staff', 'patient', 'inventory', 'chat', 'ventilator', 'pumps', 'actions', 'orders']) {
+  for (const key of ['vitals', 'staff', 'patient', 'inventory', 'chat', 'ventilator', 'pumps', 'actions', 'orders']) {
     assert.match(page, new RegExp(`data-window="${key}"`), `Fenster ${key} fehlt`);
   }
-  assert.match(page, /src="vent\.js"><\/script>\s*<script src="vent-layout\.js">/);
+  assert.match(page, /src="vent-waveform-history\.js"><\/script>\s*<script src="vent-vitals-waves\.js">/);
+  assert.match(page, /src="vent\.js"><\/script>\s*<script src="vent-vitals\.js"><\/script>\s*<script src="vent-layout\.js">/);
   assert.match(page, /id="resetLayoutBtn"/);
   assert.match(layout, /localStorage/);
   assert.match(styles, /var\(--left-w, 250px\)/);
   assert.match(styles, /var\(--chat-w, minmax\(340px, \.85fr\)\) var\(--vent-w, minmax\(520px, 1\.15fr\)\)/);
   assert.match(styles, /\.panel\.window-minimized > :not\(\.panel-title-row\) \{ display: none !important; \}/);
+});
+
+test('Kapnogramm: null in der Inspiration, Plateau am Ende der Exspiration', () => {
+  const E = globalThis.GALEN_VENT_ENGINE;
+  const settings = { ...E.DEFAULT_SETTINGS, rr: 12 };
+  const state = { ...E.step(E.createInitial(), settings, E.DEFAULT_PUMPS, 0.01), etCO2: 40 };
+  const d = E.lungMechanics(state, settings);
+  assert.ok(E.waveformAtPhase(d.ti * 0.8, settings, state).co2 < 1, 'Inspiration ohne CO₂');
+  assert.ok(E.waveformAtPhase(d.ti + 0.02, settings, state).co2 < 1, 'Totraum zu Beginn der Exspiration');
+  const end = E.waveformAtPhase(d.cycleSeconds - 0.001, settings, state).co2;
+  assert.ok(Math.abs(end - 40) < 0.5, `Endtidal ${end} statt 40`);
+  const midPlateau = E.waveformAtPhase(d.ti + d.te * 0.6, settings, state).co2;
+  assert.ok(midPlateau > 36 && midPlateau < end, 'Plateau steigt leicht an');
+});
+
+test('Gemessenes etCO₂ entspricht dem Kurvenende des letzten Atemzugs', () => {
+  const E = globalThis.GALEN_VENT_ENGINE;
+  const W = globalThis.GALEN_VENT_WAVEFORMS;
+  const settings = { ...E.DEFAULT_SETTINGS, rr: 12 };
+  const state = { ...E.step(E.createInitial(), settings, E.DEFAULT_PUMPS, 0.01), etCO2: 42 };
+  const recorder = W.create(E, settings, state);
+  W.advance(recorder, state.elapsed + 10, settings, state);
+  assert.ok(Math.abs(recorder.lastEndTidalCO2 - 42) < 0.5);
+  assert.ok(recorder.samples.every(sample => Number.isFinite(sample.co2)));
+});
+
+test('Vitalkurven folgen Herzfrequenz und Blutdruck', () => {
+  const V = globalThis.GALEN_VITAL_WAVES;
+  const vitals = { elapsed: 0, hr: 60, sys: 120, dia: 60, map: 80, spo2: 98 };
+  const recorder = V.create(vitals);
+  V.advance(recorder, 6, { ...vitals, elapsed: 6 });
+  const lastSeconds = recorder.samples.filter(s => s.time > 1);
+  const art = lastSeconds.map(s => s.art);
+  assert.ok(Math.max(...art) > 117 && Math.max(...art) <= 120.5, 'Systole erreicht');
+  assert.ok(Math.min(...art) >= 59.5 && Math.min(...art) < 63, 'Diastole erreicht');
+  const rPeaks = lastSeconds.filter((s, i, all) => s.ecg > 0.8 && (i === 0 || all[i - 1].ecg <= 0.8)).length;
+  assert.ok(rPeaks >= 4 && rPeaks <= 6, `${rPeaks} R-Zacken in 5 s bei HF 60`);
+
+  const arrest = V.create({ ...vitals, hr: 0, cardiacArrest: true, map: 5, sys: 6, dia: 4 });
+  assert.ok(arrest.samples.every(s => s.ecg === 0), 'Asystolie ohne Ausschläge');
 });

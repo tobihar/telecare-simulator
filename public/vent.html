@@ -112,6 +112,10 @@
       </aside>
 
       <section class="center-column">
+        <section class="vitals-monitor panel" data-window="vitals">
+          <div class="panel-title-row"><div><span class="kicker">Patientenmonitor</span><h2>Vitalkurven</h2></div></div>
+          <div class="vitals-waves"><canvas id="vitalsCanvas" aria-label="Kurven für EKG, arteriellen Druck, Pleth und Kapnografie"></canvas></div>
+        </section>
         <div class="center-workspace">
           <section class="chat panel main-chat" data-window="chat">
             <div class="panel-title-row">
@@ -305,8 +309,10 @@
   <script src="interventions.js"></script>
   <script src="vent-physiology.js"></script>
   <script src="vent-waveform-history.js"></script>
+  <script src="vent-vitals-waves.js"></script>
   <script src="ui-sound.js"></script>
   <script src="vent.js"></script>
+  <script src="vent-vitals.js"></script>
   <script src="vent-layout.js"></script>
 </body>
 </html>

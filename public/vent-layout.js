@@ -12,6 +12,8 @@
     right: ['actions', 'orders'],
     center: ['chat', 'pumps']
   };
+  // Fenster, die beim ersten Besuch minimiert sind.
+  const DEFAULT_MINIMIZED = new Set(['vitals']);
   const COLLAPSED_WIDTH = 40;
   const MIN_CENTER = 600;
   const MIN_CHAT = 280;
@@ -28,7 +30,7 @@
   const desktopQuery = window.matchMedia('(min-width: 1201px)');
   const clamp = (value, min, max) => Math.max(min, Math.min(Math.max(min, max), value));
 
-  const defaultState = () => ({ version: 1, minimized: {}, leftW: null, rightW: null, chatFrac: null, pumpsH: null, weights: {} });
+  const defaultState = () => ({ version: 1, minimized: {}, leftW: null, rightW: null, chatFrac: null, pumpsH: null, vitalsH: null, weights: {} });
   let state = loadState();
   let splitters = [];
 
@@ -43,7 +45,7 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
   }
 
-  const isMinimized = key => Boolean(state.minimized[key]);
+  const isMinimized = key => key in state.minimized ? Boolean(state.minimized[key]) : DEFAULT_MINIMIZED.has(key);
   const stackCollapsed = name => STACKS[name].every(isMinimized);
   const rect = element => element.getBoundingClientRect();
 
@@ -75,7 +77,7 @@
     const desktop = desktopQuery.matches;
     const collapsed = { left: stackCollapsed('left'), right: stackCollapsed('right'), center: stackCollapsed('center') };
     const ventMinimized = isMinimized('ventilator');
-    const centerCollapsed = collapsed.center && ventMinimized;
+    const centerCollapsed = collapsed.center && ventMinimized && isMinimized('vitals');
 
     Object.entries(panels).forEach(([key, panel]) => {
       const minimized = isMinimized(key);
@@ -109,6 +111,7 @@
     else if (ventMinimized) { chatW = 'minmax(0, 1fr)'; ventW = `${COLLAPSED_WIDTH}px`; }
     else if (state.chatFrac) { chatW = `minmax(${MIN_CHAT}px, ${state.chatFrac.toFixed(4)}fr)`; ventW = `minmax(${MIN_VENT}px, ${(1 - state.chatFrac).toFixed(4)}fr)`; }
     if (centerCollapsed) { chatW = `${COLLAPSED_WIDTH}px`; ventW = `${COLLAPSED_WIDTH}px`; }
+    setVar(columns.center, '--vitals-h', state.vitalsH ? `${Math.round(state.vitalsH)}px` : null);
     setVar(workspace, '--chat-w', chatW);
     setVar(workspace, '--vent-w', ventW);
     setVar(workspace, '--chat-h', isMinimized('chat') ? 'auto' : null);
@@ -154,6 +157,8 @@
       ventPx: rect(panels.ventilator).width,
       chatH: rect(panels.chat).height,
       pumpsH: rect(panels.pumps).height,
+      vitalsH: panels.vitals ? rect(panels.vitals).height : 0,
+      workspaceH: rect(workspace).height,
       stackHeights,
       weights: { ...state.weights }
     };
@@ -167,7 +172,7 @@
   function splitterDefinitions() {
     const box = rect(layout);
     const definitions = [];
-    const centerCollapsed = stackCollapsed('center') && isMinimized('ventilator');
+    const centerCollapsed = stackCollapsed('center') && isMinimized('ventilator') && isMinimized('vitals');
     const verticalAt = (x, top, height) => ({ orientation: 'vertical', x: x - box.left, y: top - box.top, w: 8, h: height });
     const horizontalAt = (y, left, width) => ({ orientation: 'horizontal', x: left - box.left, y: y - box.top, w: width, h: 8 });
 
@@ -191,6 +196,13 @@
           const total = s.chatPx + s.ventPx;
           state.chatFrac = clamp(s.chatPx + dx, MIN_CHAT, total - MIN_VENT) / total;
         }
+      });
+    }
+    if (panels.vitals && !isMinimized('vitals')) {
+      const monitor = rect(panels.vitals);
+      definitions.push({
+        id: 'vitals-workspace', label: 'Höhe der Vitalkurven', ...horizontalAt(monitor.bottom, monitor.left, monitor.width),
+        drag: (s, dx, dy) => { state.vitalsH = clamp(s.vitalsH + dy, 120, s.vitalsH + s.workspaceH - 320); }
       });
     }
     if (!isMinimized('chat') && !isMinimized('pumps')) {
