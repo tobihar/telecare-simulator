@@ -411,3 +411,39 @@ test('Vitalkurven folgen Herzfrequenz und Blutdruck', () => {
   const arrest = V.create({ ...vitals, hr: 0, cardiacArrest: true, map: 5, sys: 6, dia: 4 });
   assert.ok(arrest.samples.every(s => s.ecg === 0), 'Asystolie ohne Ausschläge');
 });
+
+test('Arterie und Pleth folgen der R-Zacke mit Pulswellenlaufzeit', () => {
+  const V = globalThis.GALEN_VITAL_WAVES;
+  const vitals = { elapsed: 0, hr: 60, sys: 120, dia: 60, map: 80, spo2: 98 };
+  const recorder = V.create(vitals);
+  V.advance(recorder, 8, { ...vitals, elapsed: 8 });
+  const beat = recorder.samples.filter(s => s.time > 4 && s.time <= 5);
+  const rTime = beat.reduce((best, s) => (s.ecg > best.ecg ? s : best)).time;
+  const after = key => {
+    const next = recorder.samples.filter(s => s.time > rTime && s.time < rTime + 0.9);
+    return next.reduce((best, s) => (s[key] > best[key] ? s : best)).time - rTime;
+  };
+  const artDelay = after('art');
+  const plethDelay = after('pleth');
+  assert.ok(artDelay > 0.15 && artDelay < 0.45, `Arterienspitze ${artDelay.toFixed(2)} s nach R`);
+  assert.ok(plethDelay > artDelay + 0.05 && plethDelay < 0.75, `Pleth-Spitze ${plethDelay.toFixed(2)} s nach R`);
+});
+
+test('Kurvenskala wechselt erst nach anhaltend anderem Wert', () => {
+  const V = globalThis.GALEN_VITAL_WAVES;
+  const co2 = V.createScale([50, 75, 100, 150], 20);
+  assert.equal(V.updateScale(co2, 38, 0), 50);
+  assert.equal(V.updateScale(co2, 58, 10), 50, 'kurzer Anstieg ändert die Skala nicht');
+  assert.equal(V.updateScale(co2, 40, 15), 50);
+  assert.equal(V.updateScale(co2, 58, 20), 50);
+  assert.equal(V.updateScale(co2, 60, 39), 50, 'noch keine 20 s');
+  assert.equal(V.updateScale(co2, 61, 41), 75, 'nach 20 s über 50 auf 0–75');
+  assert.equal(V.updateScale(co2, 45, 50), 75, 'knapp unter 50 bleibt die größere Skala');
+  assert.equal(V.updateScale(co2, 35, 60), 75);
+  assert.equal(V.updateScale(co2, 35, 81), 50, 'nach 20 s deutlich darunter zurück auf 0–50');
+});
+
+test('SpO₂ wird im Beatmungsmonitor ohne Nachkommastellen angezeigt', async () => {
+  const app = await readFile(new URL('../public/vent.js', import.meta.url), 'utf8');
+  assert.match(app, /\$\('monitorSpo2'\)\.textContent = String\(Math\.round\(state\.spo2\)\)/);
+});

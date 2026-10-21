@@ -774,7 +774,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .78); backdrop-filter: blur(5px); }
 .vital-preview {
   position: fixed;
   z-index: 80;
-  height: 112px;
+  height: 58px;
   padding: 4px;
   border: 1px solid var(--line-bright);
   border-radius: 4px;
